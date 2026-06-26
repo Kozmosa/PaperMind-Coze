@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PaperMind - App 预览</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #1a1a2e;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    .phone-frame {
+      width: 390px;
+      height: 844px;
+      border-radius: 40px;
+      overflow: hidden;
+      box-shadow: 0 0 0 8px #1a1a1a, 0 0 0 10px #333, 0 20px 60px rgba(0,0,0,0.5);
+      position: relative;
+      background: #fff;
+    }
+    .phone-notch {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 150px;
+      height: 30px;
+      background: #1a1a1a;
+      border-radius: 0 0 20px 20px;
+      z-index: 10;
+    }
+    .phone-statusbar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 44px;
+      background: #F0F0F3;
+      z-index: 9;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 24px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #2D3436;
+    }
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      padding-top: 44px;
+      padding-bottom: 34px;
+    }
+    .home-indicator {
+      position: absolute;
+      bottom: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 134px;
+      height: 5px;
+      background: #1a1a1a;
+      border-radius: 100px;
+      z-index: 10;
+    }
+    .info {
+      color: #888;
+      text-align: center;
+      margin-top: 24px;
+      font-size: 13px;
+    }
+    .info span {
+      color: #6C63FF;
+      font-weight: 600;
+    }
+    .refresh-btn {
+      display: inline-block;
+      margin-top: 12px;
+      padding: 8px 28px;
+      background: #6C63FF;
+      color: #fff;
+      border: none;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .refresh-btn:hover {
+      background: #5A52D5;
+    }
+    .refresh-btn:active {
+      background: #4840B5;
+      transform: scale(0.97);
+    }
+  </style>
+</head>
+<body>
+  <div style="text-align: center;">
+    <div class="phone-frame">
+      <div class="phone-notch"></div>
+      <div class="phone-statusbar">
+        <span>9:41</span>
+        <span>📶 🔋</span>
+      </div>
+      <div class="home-indicator"></div>
+      <iframe id="app-frame" src="http://localhost:8081" allow="camera; microphone; geolocation"></iframe>
+    </div>
+    <div class="info">
+      PaperMind MVP1 · <span>390×844</span> iPhone 14 比例
+      <br/>
+      <button class="refresh-btn" onclick="document.getElementById('app-frame').src = document.getElementById('app-frame').src">🔄 刷新页面</button>
+    </div>
+  </div>
+</body>
+</html>
