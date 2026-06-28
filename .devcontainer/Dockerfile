@@ -25,8 +25,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # ------------------------------------------------------------------
 # pnpm (version 9, as specified in package.json)
+# npm install --global avoids corepack's interactive confirmation prompt
 # ------------------------------------------------------------------
-RUN corepack enable && corepack prepare pnpm@9 --activate
+RUN npm install --global pnpm@9
 
 # ------------------------------------------------------------------
 # Environment variables for Expo + Node
