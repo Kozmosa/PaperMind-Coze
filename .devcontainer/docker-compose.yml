@@ -1,0 +1,70 @@
+version: "3.9"
+
+services:
+  # -------------------------------------------------------------------
+  # Main dev container — Node.js app + VS Code / Codespaces
+  # -------------------------------------------------------------------
+  app:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+
+    volumes:
+      # Mount the repo into /workspace so changes persist and are visible
+      - ..:/workspace:cached
+      # Named volume for node_modules (fast, avoids OS mismatch with host)
+      - pnpm-store:/pnpm/store
+      - node_modules:/workspace/node_modules
+      - client_modules:/workspace/client/node_modules
+      - server_modules:/workspace/server/node_modules
+
+    environment:
+      # Server
+      - PORT=9091
+      - NODE_ENV=development
+      # PostgreSQL (docker-compose service)
+      - DATABASE_URL=postgresql://papermind:papermind@postgres:5432/papermind
+      # Supabase — fill via .env or Codespaces secrets
+      - COZE_SUPABASE_URL=${COZE_SUPABASE_URL:-}
+      - COZE_SUPABASE_ANON_KEY=${COZE_SUPABASE_ANON_KEY:-}
+      - COZE_SUPABASE_SERVICE_ROLE_KEY=${COZE_SUPABASE_SERVICE_ROLE_KEY:-}
+      # Expo client
+      - EXPO_PUBLIC_SUPABASE_URL=${EXPO_PUBLIC_SUPABASE_URL:-http://localhost:54321}
+      - EXPO_PUBLIC_SUPABASE_ANON_KEY=${EXPO_PUBLIC_SUPABASE_ANON_KEY:-}
+      - EXPO_PUBLIC_BACKEND_BASE_URL=${EXPO_PUBLIC_BACKEND_BASE_URL:-http://localhost:9091}
+      - EXPO_PUBLIC_API_BASE=${EXPO_PUBLIC_API_BASE:-http://localhost:9091}
+      # AI providers (optional)
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+
+    command: sleep infinity
+    network_mode: service:postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # -------------------------------------------------------------------
+  # PostgreSQL 16 — local dev database (matches drizzle-orm pg driver)
+  # -------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: papermind
+      POSTGRES_PASSWORD: papermind
+      POSTGRES_DB: papermind
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U papermind -d papermind"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    expose:
+      - "5432"
+
+volumes:
+  pnpm-store:
+  node_modules:
+  client_modules:
+  server_modules:
+  postgres-data:

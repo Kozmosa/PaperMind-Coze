@@ -1,0 +1,85 @@
+{
+  "name": "PaperMind — Expo + Express + PostgreSQL",
+
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspace",
+
+  // ------------------------------------------------------------------
+  // Post-create: install deps, set up .env, print instructions
+  // ------------------------------------------------------------------
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+
+  // ------------------------------------------------------------------
+  // Port forwarding (visible in Codespaces / local VS Code)
+  // ------------------------------------------------------------------
+  "forwardPorts": [
+    5000,   // Expo Web
+    9091,   // Express API server
+    5432    // PostgreSQL (internal — label only)
+  ],
+  "portsAttributes": {
+    "5000":  { "label": "Expo Web",  "onAutoForward": "notify" },
+    "9091":  { "label": "API Server", "onAutoForward": "notify" },
+    "5432":  { "label": "PostgreSQL", "onAutoForward": "silent" }
+  },
+
+  // ------------------------------------------------------------------
+  // VS Code extensions — TypeScript, Expo, Tailwind, DB tools
+  // ------------------------------------------------------------------
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "ms-vscode.vscode-typescript-next",
+        "expo.vscode-expo-tools",
+        "bradlc.vscode-tailwindcss",
+        "stivo.tailwind-fold",
+        "cschlosser.doxdocgen",
+        "github.vscode-github-actions",
+        "bierner.markdown-mermaid",
+        "ms-azuretools.vscode-docker",
+        "ckolkman.vscode-postgres",
+        "yoavbls.pretty-ts-errors",
+        "usernamehw.errorlens"
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+          "source.fixAll.eslint": "explicit"
+        },
+        "typescript.tsdk": "node_modules/typescript/lib",
+        "typescript.enablePromptUseWorkspaceTsdk": true,
+        "tailwindCSS.experimental.configFile": "client/global.css",
+        "files.exclude": {
+          "**/.git": true,
+          "**/.DS_Store": true,
+          "**/node_modules": false
+        },
+        "search.exclude": {
+          "**/node_modules": true,
+          "**/dist": true,
+          "**/.expo": true,
+          "**/pnpm-lock.yaml": true
+        },
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  },
+
+  // ------------------------------------------------------------------
+  // Container user (match Codespaces default)
+  // ------------------------------------------------------------------
+  "remoteUser": "node",
+
+  // ------------------------------------------------------------------
+  // Additional features (Codespaces pre-built layers)
+  // ------------------------------------------------------------------
+  "features": {
+    "ghcr.io/devcontainers/features/git:1": {},
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "configureZshAsDefaultShell": false
+    }
+  }
+}
