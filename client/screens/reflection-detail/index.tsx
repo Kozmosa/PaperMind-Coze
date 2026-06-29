@@ -2,7 +2,7 @@ import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { useCallback, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import { Screen } from '@/components/Screen';
+import { Screen } from '@/components/layout/Screen';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
 import { api } from '@/utils/api';
 

@@ -182,8 +182,7 @@ router.post('/knowledge-builder', async (req: Request, res: Response) => {
 
 请根据用户输入的原始内容，输出：
 PAPERCORE: [简洁的知识核概]
-TAGS: [标签1], [标签2]
-RELATIONS: 分析该节点在图谱中的关系位置`;
+TAGS: [标签1], [标签2]`;
 
     const stream = anthropic.messages.stream({
       model: DEFAULT_MODEL,
@@ -210,7 +209,7 @@ RELATIONS: 分析该节点在图谱中的关系位置`;
 /**
  * POST /api/v1/ai/suggest
  * AI 自动填写字段（Papercore/Tags/Relations/ShortName）
- * Body: { draft_ids?: number[], field: 'papercore'|'tags'|'relations'|'short_name', current_content?: string }
+ * Body: { draft_ids?: number[], field: 'papercore'|'tags'|'short_name', current_content?: string }
  */
 router.post('/suggest', async (req: Request, res: Response) => {
   try {
@@ -269,21 +268,6 @@ router.post('/suggest', async (req: Request, res: Response) => {
 文件内容：${fileText || current_content || '(无文件内容)'}
 直接输出标签列表，不要解释，不要JSON格式。`;
         break;
-      case 'relations':
-        systemPrompt = `你是知识图谱分析助手，根据文件内容和现有知识图谱，推荐该节点的关系。
-现有知识图谱节点：
-${nodesList}
-
-文件内容：${fileText || current_content || '(无文件内容)'}
-
-请分析并输出JSON格式：
-{
-  "prerequisite": [相关节点ID数组，前置知识],
-  "subsequent": [相关节点ID数组，后置知识],
-  "related": [相关节点ID数组]
-}
-只输出JSON，不要解释，不要markdown格式。`;
-        break;
       default:
         systemPrompt = '请根据内容给出建议。';
     }
@@ -326,12 +310,11 @@ async function buildKnowledgeBuilderPrompt(context?: any): Promise<string> {
 核心职责：
 1. 辅助撰写高质量的知识节点梗概（Papercore）
 2. 提取和优化标签
-3. 分析知识点之间的关联关系
 
 现有知识图谱：${JSON.stringify(nodes || [])}
 
 回答格式：
-每个回答包含建议的 Papercore、TAGS 和关系分析。回答专业清晰。`;
+每个回答包含建议的 Papercore 和 TAGS。回答专业清晰。`;
 }
 
 async function buildNoteHelperPrompt(context?: any): Promise<string> {
@@ -580,6 +563,333 @@ router.post('/note-helper', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('NoteHelper Error:', error);
     res.status(500).json({ error: '生成笔记失败' });
+  }
+});
+
+/**
+ * POST /api/v1/ai/generate-note
+ * 根据多份源文件（学习纪要+资料）生成结构化笔记（SSE 流式）
+ * Body: { sourceIds: Array<{id: string, type: 'study_note' | 'material'}>, userId?: string }
+ */
+router.post('/generate-note', async (req: Request, res: Response) => {
+  try {
+    const { sourceIds, userId } = req.body;
+    if (!sourceIds || !Array.isArray(sourceIds) || sourceIds.length === 0) {
+      return res.status(400).json({ error: '请选择至少一份源文件' });
+    }
+
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-store, no-transform, must-revalidate');
+    res.setHeader('Connection', 'keep-alive');
+
+    const uid = userId || (req as any).userId || 'guest';
+
+    // 1. 获取用户笔记偏好
+    let stylePreference = '';
+    const { data: styles } = await client
+      .from('papernote_style')
+      .select('*')
+      .eq('user_id', uid)
+      .limit(1);
+
+    if (styles && styles.length > 0) {
+      const st = styles[0];
+      stylePreference = `用户笔记偏好：
+- 总偏好：${st.general_preference || '无'}
+- 学科偏好：${JSON.stringify(st.subject_preferences || {})}`;
+    }
+
+    // 2. 获取所有源文件内容
+    const sources: { id: string; type: string; title: string; content: string; }[] = [];
+    const citations: { index: number; sourceId: string; sourceType: string; fileName: string; }[] = [];
+    let citationIndex = 0;
+
+    for (const src of sourceIds) {
+      if (src.type === 'study_note') {
+        const { data: note } = await client
+          .from('study_notes')
+          .select('*')
+          .eq('id', src.id)
+          .single();
+
+        if (note) {
+          let content = note.content || '';
+          if (note.blocks && Array.isArray(note.blocks)) {
+            content = note.blocks
+              .filter((b: any) => b.type === 'text')
+              .map((b: any) => b.content || '')
+              .join('\n\n');
+          }
+          sources.push({
+            id: src.id,
+            type: 'study_note',
+            title: note.title || '学习纪要',
+            content: content.substring(0, 3000),
+          });
+          citationIndex++;
+          citations.push({
+            index: citationIndex,
+            sourceId: src.id,
+            sourceType: 'study_note',
+            fileName: note.title || '学习纪要',
+          });
+        }
+      } else if (src.type === 'material') {
+        const { data: mat } = await client
+          .from('materials')
+          .select('*')
+          .eq('id', src.id)
+          .single();
+
+        if (mat) {
+          let fileText = '';
+          try {
+            const { data: fileContents } = await client
+              .from('file_contents')
+              .select('extracted_text')
+              .eq('draft_id', src.id)
+              .limit(1);
+            if (fileContents && fileContents.length > 0) {
+              fileText = (fileContents[0] as any).extracted_text || '';
+            }
+          } catch {}
+
+          sources.push({
+            id: src.id,
+            type: 'material',
+            title: mat.name || mat.title || '资料',
+            content: (mat.papercore || '') + '\n' + fileText.substring(0, 3000),
+          });
+          citationIndex++;
+          citations.push({
+            index: citationIndex,
+            sourceId: src.id,
+            sourceType: 'material',
+            fileName: mat.name || '资料',
+          });
+        }
+      }
+    }
+
+    if (sources.length === 0) {
+      res.write(`data: ${JSON.stringify({ error: '未找到有效的源文件内容' })}\n\n`);
+      res.write('data: [DONE]\n\n');
+      res.end();
+      return;
+    }
+
+    // 3. 构建 prompt
+    const sourcesText = sources.map((s, i) =>
+      `【来源${i + 1}】${s.title}（${s.type === 'study_note' ? '学习纪要' : '资料'}）\n${s.content}`
+    ).join('\n\n---\n\n');
+
+    const systemPrompt = `你是笔记助手 note_helper。根据用户提供的多份学习资料生成一份结构化的综合笔记。
+
+${stylePreference || '尚无明确的笔记偏好记录，请用通用高质量笔记格式。'}
+
+笔记要求：
+- 使用标题层级组织（# ## ###）
+- 重点用**加粗**标记
+- 适当使用列表和表格
+- 包含关键概念、原理、示例
+- 结尾有简短总结
+- 在引用某份源文件内容时，在段落末尾标注引用标记，格式为 [来源:N]（N为来源编号）
+- 引用编号必须对应下方的来源编号
+
+${sourcesText}
+
+请直接生成笔记内容。`;
+
+    const stream = anthropic.messages.stream({
+      model: DEFAULT_MODEL,
+      max_tokens: 8192,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: '请根据以上所有来源资料，生成一份综合学习笔记。' }],
+    });
+
+    let fullContent = '';
+    for await (const event of stream) {
+      if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+        fullContent += event.delta.text;
+        res.write(`data: ${JSON.stringify({ content: event.delta.text })}\n\n`);
+      }
+    }
+
+    // Post-process: extract context snippets around each [来源:N] marker
+    const citationsWithContext = citations.map(cit => {
+      const markerPattern = new RegExp(`\\[来源:${cit.index}\\]([^\\[]*)`, 'g');
+      let snippet = '';
+      // Find text around citation marker — extract surrounding sentence/paragraph
+      const idx = fullContent.indexOf(`[来源:${cit.index}]`);
+      if (idx >= 0) {
+        // Get preceding and following text (up to 80 chars each side)
+        const start = Math.max(0, idx - 80);
+        const end = Math.min(fullContent.length, idx + `[来源:${cit.index}]`.length + 80);
+        snippet = fullContent.slice(start, end).replace(/\n+/g, ' ').trim();
+      }
+      return { ...cit, highlightText: snippet };
+    });
+
+    res.write(`data: ${JSON.stringify({ citations: citationsWithContext, done: true })}\n\n`);
+    res.write('data: [DONE]\n\n');
+    res.end();
+
+  } catch (error: any) {
+    console.error('GenerateNote Error:', error);
+    if (!res.headersSent) {
+      return res.status(500).json({ error: error.message || '生成笔记失败' });
+    }
+    res.write('data: [DONE]\n\n');
+    res.end();
+  }
+});
+
+/**
+ * POST /api/v1/ai/refine-note
+ * 根据用户修正指令优化笔记（SSE 流式，含偏好提取）
+ * Body: { currentNote: string, refinementPrompt: string, sourceIds?: Array<...>, userId?: string }
+ */
+router.post('/refine-note', async (req: Request, res: Response) => {
+  try {
+    const { currentNote, refinementPrompt, sourceIds, userId } = req.body;
+    if (!currentNote || !refinementPrompt) {
+      return res.status(400).json({ error: '缺少笔记内容或修正指令' });
+    }
+
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-store, no-transform, must-revalidate');
+    res.setHeader('Connection', 'keep-alive');
+
+    const uid = userId || (req as any).userId || 'guest';
+
+    // 1. 获取用户偏好
+    const { data: styles } = await client
+      .from('papernote_style')
+      .select('*')
+      .eq('user_id', uid)
+      .limit(1);
+
+    const existingPrefs = (styles && styles.length > 0)
+      ? (styles[0].subject_preferences || {})
+      : {};
+
+    // 2. 从修正指令中提取偏好关键词
+    const extractedPrefs: Record<string, any> = {};
+    const prompt = refinementPrompt.toLowerCase();
+    if (prompt.includes('详细') || prompt.includes('展开') || prompt.includes('更多')) extractedPrefs.detail_level = 'high';
+    if (prompt.includes('简洁') || prompt.includes('简短') || prompt.includes('概括')) extractedPrefs.detail_level = 'concise';
+    if (prompt.includes('表格') || prompt.includes('对比')) extractedPrefs.prefer_tables = true;
+    if (prompt.includes('例子') || prompt.includes('示例') || prompt.includes('举例')) extractedPrefs.prefer_examples = true;
+    if (prompt.includes('重点') || prompt.includes('突出') || prompt.includes('强调')) extractedPrefs.emphasize_keypoints = true;
+    if (prompt.includes('通俗') || prompt.includes('简单') || prompt.includes('易懂')) extractedPrefs.language_style = 'plain';
+
+    // 3. 保存提取的偏好
+    if (Object.keys(extractedPrefs).length > 0) {
+      const mergedPrefs = { ...existingPrefs, ...extractedPrefs };
+      try {
+        const { data: existingRecord } = await client
+          .from('papernote_style')
+          .select('id')
+          .eq('user_id', uid)
+          .limit(1);
+
+        if (existingRecord && existingRecord.length > 0) {
+          await client
+            .from('papernote_style')
+            .update({
+              subject_preferences: mergedPrefs,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', existingRecord[0].id);
+        } else {
+          await client
+            .from('papernote_style')
+            .insert({
+              user_id: uid,
+              subject_preferences: mergedPrefs,
+            });
+        }
+        res.write(`data: ${JSON.stringify({ preferences_extracted: extractedPrefs })}\n\n`);
+      } catch (e) {
+        console.error('Failed to save preferences:', e);
+      }
+    }
+
+    // 4. 构建修正 prompt
+    let sourcesContext = '';
+    if (sourceIds && Array.isArray(sourceIds) && sourceIds.length > 0) {
+      const sourcesTexts: string[] = [];
+      for (const src of sourceIds) {
+        if (src.type === 'study_note') {
+          const { data: note } = await client
+            .from('study_notes')
+            .select('title, content, blocks')
+            .eq('id', src.id)
+            .single();
+          if (note) {
+            let content = note.content || '';
+            if (note.blocks && Array.isArray(note.blocks)) {
+              content = note.blocks.filter((b: any) => b.type === 'text').map((b: any) => b.content || '').join('\n');
+            }
+            sourcesTexts.push(`【${note.title || '纪要'}】${content.substring(0, 2000)}`);
+          }
+        } else if (src.type === 'material') {
+          const { data: mat } = await client
+            .from('materials')
+            .select('name, papercore')
+            .eq('id', src.id)
+            .single();
+          if (mat) {
+            sourcesTexts.push(`【${mat.name || '资料'}】${mat.papercore || ''}`);
+          }
+        }
+      }
+      if (sourcesTexts.length > 0) {
+        sourcesContext = '\n\n原始参考资料：\n' + sourcesTexts.join('\n---\n');
+      }
+    }
+
+    const systemPrompt = `你是笔记助手 note_helper。用户正在优化一份学习笔记，请根据修正指令对笔记进行修改。
+
+修正指令：${refinementPrompt}
+
+要求：
+- 保持笔记的整体结构
+- 仅修改需要调整的部分
+- 保留原有的引用标记 [来源:N]
+- 如果修正指令涉及格式（如表格、列表），按指令调整
+- 如果修正指令要求更详细/更简洁，相应地展开或压缩内容
+
+${sourcesContext}
+
+请直接输出修正后的完整笔记，包含所有标题、内容和引用标记。`;
+
+    const stream = anthropic.messages.stream({
+      model: DEFAULT_MODEL,
+      max_tokens: 8192,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: `当前笔记：\n\n${currentNote}\n\n请按修正指令修改。` }],
+    });
+
+    let fullContent = '';
+    for await (const event of stream) {
+      if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+        fullContent += event.delta.text;
+        res.write(`data: ${JSON.stringify({ content: event.delta.text })}\n\n`);
+      }
+    }
+
+    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+    res.write('data: [DONE]\n\n');
+    res.end();
+
+  } catch (error: any) {
+    console.error('RefineNote Error:', error);
+    if (!res.headersSent) {
+      return res.status(500).json({ error: error.message || '修正笔记失败' });
+    }
+    res.write('data: [DONE]\n\n');
+    res.end();
   }
 });
 

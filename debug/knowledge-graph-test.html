@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>PaperMind · 知识库</title>
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #1a1a2e;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Phone frame */
+  .phone {
+    width: 390px; height: 844px;
+    border-radius: 40px;
+    overflow: hidden;
+    box-shadow: 0 0 0 8px #1a1a1a, 0 0 0 10px #333, 0 20px 60px rgba(0,0,0,0.5);
+    background: #EEF0F5;
+    display: flex; flex-direction: column;
+    position: relative;
+  }
+
+  /* Neumorphic color palette — exact match with app */
+  :root {
+    --bg:       #EEF0F5;
+    --surface:  #F7F8FC;
+    --card:     #FFFFFF;
+    --primary:  #5B5FEF;
+    --priLight: #8B8FF5;
+    --accent:   #FF6B6B;
+    --text:     #1E1E2E;
+    --text2:    #6B7280;
+    --text3:    #A0A5B5;
+    --border:   #E8EAF0;
+    --shadow:   #C8CCD8;
+    --shadowDk: #A0A5B5;
+  }
+
+  /* === HEADER === */
+  .header {
+    padding: 52px 20px 8px;
+    flex-shrink: 0;
+    background: var(--bg);
+  }
+  .header h1 { font-size: 30px; font-weight: 800; color: var(--text); letter-spacing: -0.5px; }
+  .header .sub { font-size: 13px; color: var(--text3); margin-top: 2px; }
+
+  /* === TOGGLE === */
+  .toggle-bar {
+    display: flex; margin: 0 16px 4px;
+    background: var(--bg); border-radius: 14px; padding: 4px;
+    flex-shrink: 0;
+  }
+  .toggle-btn {
+    flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 10px; border-radius: 12px; border: none;
+    font-size: 14px; font-weight: 700; cursor: pointer;
+    background: transparent; color: var(--text3);
+    transition: all 0.15s;
+    font-family: inherit;
+  }
+  .toggle-btn.active {
+    background: var(--card); color: var(--primary);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  }
+  .toggle-btn .icon { font-size: 16px; }
+
+  /* === GRAPH AREA === */
+  .graph-wrap {
+    flex: 1; margin: 0 12px 8px;
+    background: var(--card); border-radius: 24px;
+    overflow: hidden; position: relative;
+    box-shadow: 0 2px 12px rgba(160,165,181,0.25);
+  }
+  .graph-wrap svg {
+    width: 100%; height: 100%; display: block;
+    user-select: none; -webkit-user-select: none;
+    cursor: grab;
+  }
+  .graph-wrap svg:active { cursor: grabbing; }
+  .graph-wrap text { user-select: none; -webkit-user-select: none; pointer-events: none; }
+
+  /* Zoom buttons — floating top-right */
+  .zoom-btns {
+    position: absolute; top: 12px; right: 12px;
+    display: flex; flex-direction: column; gap: 6px; z-index: 10;
+  }
+  .zoom-btn {
+    width: 36px; height: 36px; border-radius: 18px;
+    border: 1px solid var(--border);
+    background: var(--card); color: var(--text);
+    font-size: 20px; line-height: 1; cursor: pointer;
+    box-shadow: 0 2px 6px rgba(160,165,181,0.3);
+    display: flex; align-items: center; justify-content: center;
+    font-family: inherit;
+  }
+  .zoom-btn:active { background: #F0F0F5; transform: scale(0.95); }
+
+  /* === BOTTOM BAR === */
+  .bottom-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 4px 16px 8px; flex-shrink: 0;
+  }
+  .legend-tgl {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--surface); padding: 6px 12px; border-radius: 16px;
+    border: none; cursor: pointer;
+    font-size: 12px; color: var(--text3); font-weight: 600;
+    font-family: inherit;
+  }
+  .stats-row { display: flex; gap: 12px; align-items: center; }
+  .stat-dot { width: 10px; height: 10px; border-radius: 5px; display: inline-block; }
+  .stat-dot.sm { width: 8px; height: 8px; border-radius: 4px; }
+  .stat-dot.xs { width: 6px; height: 6px; border-radius: 3px; border: 1px solid #C4C8D8; }
+  .stat-label { font-size: 10px; color: var(--text3); }
+
+  /* === LEGEND === */
+  .legend-panel {
+    display: none; flex-wrap: wrap; gap: 8px;
+    margin: 0 16px 8px; padding: 12px;
+    background: var(--surface); border-radius: 14px;
+    flex-shrink: 0; align-items: center;
+    font-size: 11px; color: var(--text2);
+  }
+  .legend-panel.show { display: flex; }
+  .legend-chip { display: flex; align-items: center; gap: 4px; }
+
+  /* === TAG POPUP === */
+  .tag-popup-mask {
+    position: absolute; inset: 0; z-index: 20;
+    background: rgba(0,0,0,0.35);
+    display: none; flex-direction: column; justify-content: flex-end;
+  }
+  .tag-popup-mask.show { display: flex; }
+  .tag-popup {
+    background: var(--surface); border-radius: 28px 28px 0 0;
+    max-height: 70%; display: flex; flex-direction: column;
+  }
+  .tag-popup-handle {
+    width: 40px; height: 4px; border-radius: 2px;
+    background: var(--shadowDk); margin: 12px auto 8px;
+  }
+  .tag-popup-head {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0 20px 12px; border-bottom: 1px solid var(--border);
+  }
+  .tag-popup-body { padding: 12px 20px; overflow-y: auto; flex: 1; }
+  .tag-doc {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 4px; border-bottom: 1px solid var(--border);
+    cursor: pointer;
+  }
+  .tag-doc:last-child { border-bottom: none; }
+
+  /* === FOLDER VIEW === */
+  .folder-scroll { flex: 1; overflow-y: auto; padding: 0 16px 100px; }
+  .folder-card {
+    background: var(--card); border-radius: 20px; overflow: hidden;
+    box-shadow: 0 2px 8px rgba(160,165,181,0.2);
+  }
+  .folder-row { display: flex; align-items: center; padding: 13px 16px; border-bottom: 1px solid var(--border); cursor: pointer; gap: 10px; }
+  .folder-row .chevron { color: var(--text3); flex-shrink: 0; }
+  .folder-row .name { flex: 1; font-size: 15px; color: var(--text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .folder-row .count { font-size: 12px; color: var(--text3); font-weight: 500; }
+  .doc-row { display: flex; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--border); cursor: pointer; gap: 10px; }
+  .doc-row .title { flex: 1; font-size: 13px; color: var(--text); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* === LOADING / ERROR / EMPTY === */
+  .center-msg { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--text3); gap: 12px; }
+  .center-msg .icon { font-size: 48px; opacity: 0.6; }
+  .retry-btn {
+    margin-top: 8px; padding: 10px 24px;
+    background: var(--primary); color: #FFF; border: none;
+    border-radius: 14px; font-weight: 600; cursor: pointer; font-size: 14px;
+    font-family: inherit;
+  }
+
+  /* === SPINNER === */
+  .spinner {
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 3px solid var(--border); border-top-color: var(--primary);
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Footer */
+  .page-footer {
+    text-align: center; color: #888; font-size: 13px; margin-top: 16px;
+  }
+  .page-footer span { color: #6C63FF; font-weight: 600; }
+</style>
+</head>
+<body>
+<div style="text-align:center;">
+<div class="phone" id="app">
+  <!-- Header -->
+  <div class="header">
+    <h1>知识库</h1>
+    <div class="sub" id="header-sub">加载中...</div>
+  </div>
+
+  <!-- Toggle -->
+  <div class="toggle-bar">
+    <button class="toggle-btn active" id="btn-graph" onclick="switchMode('graph')">
+      <span class="icon">📊</span> 图谱
+    </button>
+    <button class="toggle-btn" id="btn-folder" onclick="switchMode('folder')">
+      <span class="icon">📁</span> 文件夹
+    </button>
+  </div>
+
+  <!-- Content area -->
+  <div class="graph-wrap" id="content-area">
+    <div class="center-msg"><div class="spinner"></div><div>加载知识图谱...</div></div>
+    <div class="zoom-btns" id="zoom-btns" style="display:none;">
+      <button class="zoom-btn" onclick="event.stopPropagation(); zoomIn()" title="放大">+</button>
+      <button class="zoom-btn" onclick="event.stopPropagation(); zoomOut()" title="缩小">−</button>
+    </div>
+    <div class="tag-popup-mask" id="tag-mask" onclick="closePopup()">
+      <div class="tag-popup" id="tag-popup" onclick="event.stopPropagation()"></div>
+    </div>
+  </div>
+
+  <!-- Legend -->
+  <div class="legend-panel" id="legend">
+    <div class="legend-chip">
+      <span class="stat-dot" style="background:var(--primary);"></span> L1 学科领域
+    </div>
+    <div class="legend-chip">
+      <span style="display:inline-block;width:10px;height:10px;border-radius:5px;border:2px solid var(--priLight);"></span> L2 课程模块
+    </div>
+    <div class="legend-chip">
+      <span class="stat-dot xs"></span> L3 知识点
+    </div>
+    <div class="legend-chip" style="gap:2px;">
+      <span style="display:inline-block;width:18px;height:1.5px;background:var(--priLight);border-radius:1px;"></span> 层级
+    </div>
+    <div class="legend-chip" style="gap:2px;">
+      <span style="display:inline-block;width:18px;height:0.5px;border:0.5px dashed #74B9FF;"></span> 共现
+    </div>
+  </div>
+
+  <!-- Bottom bar -->
+  <div class="bottom-bar">
+    <button class="legend-tgl" onclick="toggleLegend()">ℹ️ 图例</button>
+    <div class="stats-row" id="stats"></div>
+  </div>
+</div>
+
+<div class="page-footer">
+  PaperMind · <span>390×844</span> · 知识图谱独立测试
+  <br><small style="color:#A0A5B5;">拖拽平移 · 滚轮缩放 · 点击节点查看详情</small>
+</div>
+</div>
+
+<script>
+// ===== CONFIG =====
+const API = 'http://localhost:9091/api/v1/knowledge-builder';
+const CANVAS_W = 1200, CANVAS_H = 900;
+
+// ===== STATE =====
+let graphData = null;
+let legendVisible = false;
+let currentMode = 'graph';
+
+// ViewBox state
+let vx = 400, vy = 200, vw = 500, vh = 650;
+
+// Drag state
+let dragging = false, dragSX = 0, dragSY = 0, dragVX = 0, dragVY = 0;
+
+// ===== LEGEND =====
+function toggleLegend() {
+  legendVisible = !legendVisible;
+  document.getElementById('legend').classList.toggle('show', legendVisible);
+}
+
+// ===== ZOOM =====
+function zoomIn() {
+  const cx = vx + vw / 2, cy = vy + vh / 2;
+  vw *= 0.75; vh *= 0.75;
+  vx = cx - vw / 2; vy = cy - vh / 2;
+  renderGraph();
+}
+function zoomOut() {
+  const cx = vx + vw / 2, cy = vy + vh / 2;
+  vw *= 1.35; vh *= 1.35;
+  vx = cx - vw / 2; vy = cy - vh / 2;
+  renderGraph();
+}
+
+// ===== MODE SWITCH =====
+function switchMode(mode) {
+  currentMode = mode;
+  document.getElementById('btn-graph').classList.toggle('active', mode === 'graph');
+  document.getElementById('btn-folder').classList.toggle('active', mode === 'folder');
+  document.getElementById('zoom-btns').style.display = mode === 'graph' ? 'flex' : 'none';
+  document.getElementById('legend').classList.toggle('show', mode === 'graph' && legendVisible);
+  if (mode === 'graph') loadGraphData();
+  else loadFolderView();
+}
+
+// ===== API: LOAD GRAPH =====
+async function loadGraphData() {
+  const area = document.getElementById('content-area');
+  // preserve zoom-btns and tag-mask
+  area.innerHTML = '<div class="center-msg"><div class="spinner"></div><div>加载知识图谱...</div></div>' +
+    document.getElementById('zoom-btns').outerHTML +
+    document.getElementById('tag-mask').outerHTML;
+  document.getElementById('zoom-btns').style.display = 'flex';
+
+  try {
+    const res = await fetch(API + '/graph-data');
+    const json = await res.json();
+    graphData = json.data;
+
+    // Center on first L1 node
+    const l1 = graphData.nodes.find(n => n.level === 'L1');
+    if (l1) { vx = l1.x - vw / 2; vy = l1.y - vh / 2; }
+    else { vx = (CANVAS_W - vw) / 2; vy = (CANVAS_H - vh) / 2; }
+
+    renderGraph();
+    updateStats();
+    document.getElementById('header-sub').textContent =
+      `${graphData.nodes.length} 个标签 · ${graphData.totalRecords} 条记录`;
+  } catch (e) {
+    area.innerHTML = `<div class="center-msg">
+      <div class="icon">⚠️</div>
+      <div style="font-size:16px;color:#E17055;font-weight:600;">图谱加载失败</div>
+      <div style="font-size:13px;">${e.message}</div>
+      <button class="retry-btn" onclick="loadGraphData()">重试</button>
+    </div>` + document.getElementById('zoom-btns').outerHTML + document.getElementById('tag-mask').outerHTML;
+  }
+}
+
+function updateStats() {
+  if (!graphData) return;
+  const l1 = graphData.nodes.filter(n => n.level === 'L1').length;
+  const l2 = graphData.nodes.filter(n => n.level === 'L2').length;
+  const l3 = graphData.nodes.filter(n => n.level === 'L3').length;
+  document.getElementById('stats').innerHTML =
+    `<span><span class="stat-dot" style="background:var(--primary);"></span> <span class="stat-label">${l1}领域</span></span>` +
+    `<span><span class="stat-dot sm" style="background:var(--priLight);"></span> <span class="stat-label">${l2}模块</span></span>` +
+    `<span><span class="stat-dot xs"></span> <span class="stat-label">${l3}知识</span></span>` +
+    `<span class="stat-label" style="font-weight:600;">${graphData.totalRecords}条记录</span>`;
+}
+
+// ===== RENDER GRAPH =====
+const L2_COLORS = ['#EEF2FF','#FEF3C7','#ECFDF5','#FCE7F3','#E0F2FE','#F3E8FF','#FFF1F2','#F0FDF4','#FEF9C3','#FCE7F3'];
+
+function renderGraph() {
+  if (!graphData) return;
+  const { nodes, edges, domains } = graphData;
+  const tagMap = new Map(nodes.map(n => [n.id, n]));
+  const l1s = nodes.filter(n => n.level === 'L1');
+  const l2s = nodes.filter(n => n.level === 'L2');
+  const l3s = nodes.filter(n => n.level === 'L3');
+
+  let parts = [];
+
+  // L2 cluster zones
+  l2s.forEach((l2, i) => {
+    const children = l3s.filter(n => n.parentId === l2.id);
+    if (children.length === 0) return;
+    const xs = children.map(c => c.x).concat(l2.x);
+    const ys = children.map(c => c.y).concat(l2.y);
+    const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
+    const cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+    const rx = (Math.max(...xs) - Math.min(...xs)) / 2 + 55;
+    const ry = (Math.max(...ys) - Math.min(...ys)) / 2 + 45;
+    const r = Math.max(90, rx, ry);
+    parts.push(`<ellipse cx="${cx}" cy="${cy}" rx="${r}" ry="${r}" fill="${L2_COLORS[i % L2_COLORS.length]}" opacity="0.6"/>`);
+    parts.push(`<text x="${cx}" y="${cy - r + 14}" text-anchor="middle" font-size="12" fill="#6B7280" font-weight="600" opacity="0.7">${escXml(l2.name)}</text>`);
+  });
+
+  // Domain circles
+  (domains || []).forEach(d => {
+    if (d.cx == null || d.cy == null || d.r == null) return;
+    parts.push(`<circle cx="${d.cx}" cy="${d.cy}" r="${d.r}" fill="none" stroke="#5B5FEF" stroke-width="1" stroke-dasharray="8,6" opacity="0.2"/>`);
+  });
+
+  // Hierarchy edges
+  edges.filter(e => e.type === 'hierarchy').forEach(e => {
+    const f = tagMap.get(e.from), t = tagMap.get(e.to);
+    if (!f || !t || f.level === 'L1') return;
+    parts.push(`<line x1="${f.x}" y1="${f.y}" x2="${t.x}" y2="${t.y}" stroke="#8B8FF5" stroke-width="1.2" opacity="0.4"/>`);
+  });
+
+  // Cooccurrence edges (top 20)
+  edges.filter(e => e.type === 'cooccurrence').slice(0, 20).forEach(e => {
+    const f = tagMap.get(e.from), t = tagMap.get(e.to);
+    if (!f || !t) return;
+    const sw = Math.min((e.weight || 1) * 0.5 + 0.5, 2);
+    parts.push(`<line x1="${f.x}" y1="${f.y}" x2="${t.x}" y2="${t.y}" stroke="#74B9FF" stroke-width="${sw}" stroke-dasharray="3,4" opacity="0.3"/>`);
+  });
+
+  // L2 nodes
+  l2s.forEach(n => {
+    parts.push(`<g onclick="selectTag('${n.id}')" style="cursor:pointer;">`);
+    parts.push(`<circle cx="${n.x}" cy="${n.y}" r="20" fill="#FFFFFF" stroke="#8B8FF5" stroke-width="2.5"/>`);
+    parts.push(`<text x="${n.x}" y="${n.y + 4}" text-anchor="middle" font-size="11" fill="#1E1E2E" font-weight="700">${escXml(n.name.length > 4 ? n.name.slice(0, 4) : n.name)}</text>`);
+    parts.push(`<text x="${n.x}" y="${n.y + 36}" text-anchor="middle" font-size="10" fill="#A0A5B5" font-weight="600">${n.count}项</text>`);
+    parts.push(`</g>`);
+  });
+
+  // L1 nodes
+  l1s.forEach(n => {
+    parts.push(`<g onclick="selectTag('${n.id}')" style="cursor:pointer;">`);
+    parts.push(`<circle cx="${n.x}" cy="${n.y}" r="28" fill="#5B5FEF" stroke="#8B8FF5" stroke-width="3"/>`);
+    parts.push(`<text x="${n.x}" y="${n.y + 5}" text-anchor="middle" font-size="14" fill="#FFFFFF" font-weight="800">${escXml(n.name)}</text>`);
+    parts.push(`</g>`);
+  });
+
+  // L3 nodes
+  l3s.forEach(n => {
+    parts.push(`<g onclick="selectTag('${n.id}')" style="cursor:pointer;">`);
+    parts.push(`<circle cx="${n.x}" cy="${n.y}" r="13" fill="#FFFFFF" stroke="#C4C8D8" stroke-width="1.5"/>`);
+    parts.push(`<text x="${n.x}" y="${n.y + 26}" text-anchor="middle" font-size="9" fill="#6B7280" font-weight="500">${escXml(n.name.length > 5 ? n.name.slice(0, 5) : n.name)}</text>`);
+    parts.push(`</g>`);
+  });
+
+  const svgHTML = `<svg viewBox="${vx} ${vy} ${vw} ${vh}" style="width:100%;height:100%;">${parts.join('')}</svg>`;
+
+  const area = document.getElementById('content-area');
+  // Preserve zoom buttons and tag mask
+  area.innerHTML = svgHTML +
+    document.getElementById('zoom-btns').outerHTML +
+    document.getElementById('tag-mask').outerHTML;
+  document.getElementById('zoom-btns').style.display = 'flex';
+  // Re-bind tag mask close
+  document.getElementById('tag-mask').addEventListener('click', closePopup);
+}
+
+// ===== TAG POPUP =====
+async function selectTag(id) {
+  const node = graphData.nodes.find(n => n.id === id);
+  if (!node) return;
+  const lvlColors = { L1: '#5B5FEF', L2: '#8B8FF5', L3: '#C4C8D8' };
+  const popup = document.getElementById('tag-popup');
+  popup.innerHTML = `<div class="center-msg" style="padding:32px;"><div class="spinner"></div></div>`;
+  document.getElementById('tag-mask').classList.add('show');
+
+  try {
+    const res = await fetch(API + '/tag-documents?tag=' + encodeURIComponent(node.name));
+    const json = await res.json();
+    const docs = json.data || [];
+    let docsHTML = docs.length === 0
+      ? '<div style="text-align:center;color:var(--text3);padding:20px;">暂无关联文档</div>'
+      : docs.map(d => `
+        <div class="tag-doc">
+          <span style="font-size:18px;">${d.type === 'study_note' ? '📝' : '📄'}</span>
+          <div style="flex:1;">
+            <div style="font-size:14px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escXml(d.title || '未命名')}</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escXml(d.logical_path || '')}</div>
+          </div>
+        </div>
+      `).join('');
+
+    popup.innerHTML = `
+      <div class="tag-popup-handle"></div>
+      <div class="tag-popup-head">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="display:inline-block;width:14px;height:14px;border-radius:7px;background:${lvlColors[node.level]};"></span>
+          <span style="font-size:18px;font-weight:700;color:var(--text);">${escXml(node.name)}</span>
+          <span style="background:rgba(91,95,239,0.1);padding:3px 8px;border-radius:8px;font-size:11px;color:var(--primary);font-weight:700;">${node.level}</span>
+        </div>
+        <button onclick="closePopup()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text2);">✕</button>
+      </div>
+      <div style="padding:8px 20px 4px;font-size:13px;color:var(--text2);">共 ${node.count} 条关联记录</div>
+      <div class="tag-popup-body">${docsHTML}</div>
+    `;
+  } catch (e) {
+    popup.innerHTML = `
+      <div class="tag-popup-handle"></div>
+      <div style="padding:24px;text-align:center;color:#E17055;">加载失败: ${e.message}</div>
+    `;
+  }
+}
+
+function closePopup() {
+  document.getElementById('tag-mask').classList.remove('show');
+}
+
+// ===== FOLDER VIEW =====
+async function loadFolderView() {
+  const area = document.getElementById('content-area');
+  area.innerHTML = '<div class="center-msg"><div class="spinner"></div><div>加载文件夹...</div></div>';
+  document.getElementById('zoom-btns').style.display = 'none';
+  document.getElementById('legend').classList.remove('show');
+  document.getElementById('stats').innerHTML = '';
+
+  try {
+    const res = await fetch('http://localhost:9091/api/v1/control-center/recent-records?limit=200');
+    const json = await res.json();
+    const records = json.data || [];
+    document.getElementById('header-sub').textContent = `${records.length} 条记录`;
+
+    const tree = buildTree(records);
+    let html = renderTree(tree);
+    if (html === '') html = '<div class="center-msg"><div class="icon">📁</div><div style="font-size:17px;font-weight:600;">暂无知识记录</div><div style="font-size:13px;">创建学习纪要或上传资料即可自动构建知识图谱</div></div>';
+
+    area.innerHTML = `<div class="folder-scroll"><div class="folder-card">${html}</div></div>`;
+  } catch (e) {
+    area.innerHTML = `<div class="center-msg">
+      <div class="icon">⚠️</div>
+      <div style="font-size:16px;color:#E17055;font-weight:600;">加载失败</div>
+      <div style="font-size:13px;">${e.message}</div>
+      <button class="retry-btn" onclick="loadFolderView()">重试</button>
+    </div>`;
+  }
+}
+
+function buildTree(records) {
+  const root = new Map();
+  records.forEach(rec => {
+    let path = rec.logical_path || '';
+    try { const p = JSON.parse(path); if (Array.isArray(p) && p.length > 0) path = p[0]; } catch {}
+    path = path.replace(/^\[?"?\/?/, '/').replace(/\/?"?\]?$/, '/');
+    const parts = path.split('/').filter(Boolean);
+    if (parts.length === 0) return;
+    let cur = root;
+    let full = '';
+    parts.forEach((part, i) => {
+      full += '/' + part;
+      if (!cur.has(part)) cur.set(part, { name: part, fullPath: full + '/', subs: new Map(), docs: [] });
+      const node = cur.get(part);
+      if (i === parts.length - 1) {
+        node.docs.push({ title: rec.title || rec.name || '', type: rec.record_type || 'study_note' });
+      }
+      cur = node.subs;
+    });
+  });
+  return root;
+}
+
+function renderTree(folders, depth = 0) {
+  const sorted = [...folders.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  let html = '';
+  sorted.forEach(([key, node]) => {
+    const count = countDocs(node);
+    const uid = 'f_' + depth + '_' + key.replace(/[^a-zA-Z0-9\u4e00-\u9fff]/g, '');
+    html += `<div class="folder-row" style="padding-left:${16 + depth * 24}px;" onclick="
+      const nxt = this.nextElementSibling;
+      if (nxt) nxt.style.display = nxt.style.display === 'none' ? 'block' : 'none';
+      const chev = this.querySelector('.chevron');
+      if (chev) chev.textContent = nxt && nxt.style.display !== 'none' ? '▼' : '▶';
+    ">
+      <span class="chevron" style="font-size:12px;">▶</span>
+      <span style="font-size:16px;">📁</span>
+      <span class="name">${escXml(node.name)}</span>
+      <span class="count">${count}</span>
+    </div>`;
+    html += `<div style="display:none;">`;
+    if (node.subs.size > 0) html += renderTree(node.subs, depth + 1);
+    node.docs.forEach(doc => {
+      html += `<div class="doc-row" style="padding-left:${64 + depth * 24}px;">
+        <span style="font-size:14px;">${doc.type === 'study_note' ? '📝' : '📄'}</span>
+        <span class="title">${escXml(doc.title)}</span>
+      </div>`;
+    });
+    html += `</div>`;
+  });
+  return html;
+}
+
+function countDocs(node) {
+  let c = node.docs.length;
+  node.subs.forEach(s => c += countDocs(s));
+  return c;
+}
+
+// ===== UTILITY =====
+function escXml(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ===== PAN + ZOOM INTERACTIONS =====
+function setupInteractions() {
+  const area = document.getElementById('content-area');
+
+  // Mouse pan
+  area.addEventListener('mousedown', e => {
+    if (currentMode !== 'graph') return;
+    if (e.target.closest('.zoom-btn') || e.target.closest('#tag-mask') || e.target.closest('#tag-popup')) return;
+    dragging = true;
+    dragSX = e.clientX; dragSY = e.clientY;
+    dragVX = vx; dragVY = vy;
+  });
+
+  window.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const rect = area.getBoundingClientRect();
+    vx = dragVX - (e.clientX - dragSX) / rect.width * vw;
+    vy = dragVY - (e.clientY - dragSY) / rect.height * vh;
+    renderGraph();
+  });
+
+  window.addEventListener('mouseup', () => { dragging = false; });
+
+  // Touch pan
+  area.addEventListener('touchstart', e => {
+    if (currentMode !== 'graph') return;
+    if (e.target.closest('.zoom-btn') || e.target.closest('#tag-mask') || e.target.closest('#tag-popup')) return;
+    if (e.touches.length === 1) {
+      dragging = true;
+      dragSX = e.touches[0].clientX; dragSY = e.touches[0].clientY;
+      dragVX = vx; dragVY = vy;
+    }
+  }, { passive: false });
+
+  area.addEventListener('touchmove', e => {
+    if (!dragging || e.touches.length !== 1) return;
+    e.preventDefault();
+    const rect = area.getBoundingClientRect();
+    vx = dragVX - (e.touches[0].clientX - dragSX) / rect.width * vw;
+    vy = dragVY - (e.touches[0].clientY - dragSY) / rect.height * vh;
+    renderGraph();
+  }, { passive: false });
+
+  area.addEventListener('touchend', () => { dragging = false; });
+
+  // Wheel zoom
+  area.addEventListener('wheel', e => {
+    if (currentMode !== 'graph') return;
+    e.preventDefault();
+    const rect = area.getBoundingClientRect();
+    const mx = vx + (e.clientX - rect.left) / rect.width * vw;
+    const my = vy + (e.clientY - rect.top) / rect.height * vh;
+    const factor = e.deltaY > 0 ? 1.15 : 0.85;
+    vw *= factor; vh *= factor;
+    vx = mx - (mx - vx) * factor;
+    vy = my - (my - vy) * factor;
+    renderGraph();
+  }, { passive: false });
+
+  // Close popup on Esc
+  window.addEventListener('keydown', e => { if (e.key === 'Escape') closePopup(); });
+}
+
+// ===== INIT =====
+setupInteractions();
+loadGraphData();
+</script>
+</body>
+</html>

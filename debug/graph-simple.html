@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>知识图谱</title>
+<style>
+  body { margin: 0; padding: 16px; font-family: -apple-system, sans-serif; background: #EEF0F5; }
+  .header { margin-bottom: 12px; }
+  .header h1 { font-size: 28px; font-weight: 800; color: #1E1E2E; margin: 0; }
+  .header p { font-size: 12px; color: #A0A5B5; margin: 4px 0 0; }
+  .toolbar { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; }
+  .toolbar button {
+    padding: 8px 16px; border: none; border-radius: 12px;
+    font-size: 13px; font-weight: 700; cursor: pointer;
+  }
+  .toolbar button.active { background: #5B5FEF; color: #fff; }
+  .toolbar button:not(.active) { background: #E8EAF0; color: #A0A5B5; }
+  #graph-svg {
+    width: 100%; height: calc(100vh - 160px);
+    background: #fff; border-radius: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    cursor: grab; user-select: none;
+  }
+  #graph-svg:active { cursor: grabbing; }
+  .info { font-size: 11px; color: #A0A5B5; margin-top: 8px; text-align: center; }
+  .error { color: #E17055; padding: 40px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>知识库图谱</h1>
+  <p id="stats"></p>
+</div>
+<div class="toolbar">
+  <button class="active" onclick="zoomIn()">🔍 放大</button>
+  <button onclick="zoomOut()">🔍 缩小</button>
+  <button onclick="resetView()">🔄 重置</button>
+  <span style="font-size:11px;color:#A0A5B5;margin-left:auto;" id="zoom-level"></span>
+</div>
+<svg id="graph-svg" viewBox="0 0 1200 900"></svg>
+<div class="info">拖拽平移 · 滚轮缩放 · 点击节点查看详情</div>
+
+<script>
+const API = 'http://localhost:9091/api/v1/knowledge-builder';
+const SVG = document.getElementById('graph-svg');
+const STATS = document.getElementById('stats');
+const ZOOM_LABEL = document.getElementById('zoom-level');
+
+let graphData = null;
+let viewX = 0, viewY = 0, viewW = 600, viewH = 500;
+let dragging = false, dsx = 0, dsy = 0, dvx = 0, dvy = 0;
+
+async function load() {
+  try {
+    const r = await fetch(API + '/graph-data');
+    const j = await r.json();
+    graphData = j.data;
+    // Center on L1 node
+    const l1 = graphData.nodes.find(n => n.level === 'L1');
+    if (l1) { viewX = l1.x - viewW/2; viewY = l1.y - viewH/2; }
+    render();
+    const n = graphData.nodes;
+    STATS.textContent = `${n.length} tags · ${graphData.totalRecords} records · L1:${n.filter(x=>x.level==='L1').length} L2:${n.filter(x=>x.level==='L2').length} L3:${n.filter(x=>x.level==='L3').length}`;
+  } catch(e) {
+    document.body.innerHTML = `<div class="error"><h2>Error</h2><p>${e.message}</p><p>Please ensure the API server is running on port 9091</p></div>`;
+  }
+}
+
+function render() {
+  if (!graphData) return;
+  const { nodes, edges, domains } = graphData;
+  const tagMap = new Map(nodes.map(n => [n.id, n]));
+  const l2s = nodes.filter(n => n.level === 'L2');
+  const l3s = nodes.filter(n => n.level === 'L3');
+  const colors = ['#EEF2FF','#FEF3C7','#ECFDF5','#FCE7F3','#E0F2FE','#F3E8FF','#FFF1F2','#F0FDF4'];
+
+  let html = '';
+  // Cluster zones
+  l2s.forEach((l2, i) => {
+    const kids = l3s.filter(n => n.parentId === l2.id);
+    if (!kids.length) return;
+    const xs = kids.map(c=>c.x); const ys = kids.map(c=>c.y);
+    xs.push(l2.x); ys.push(l2.y);
+    const cx = (Math.min(...xs)+Math.max(...xs))/2;
+    const cy = (Math.min(...ys)+Math.max(...ys))/2;
+    const r = Math.max(90, (Math.max(...xs)-Math.min(...xs))/2+60, (Math.max(...ys)-Math.min(...ys))/2+50);
+    html += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${colors[i%colors.length]}" opacity="0.7"/>`;
+    html += `<text x="${cx}" y="${cy-r+16}" text-anchor="middle" font-size="11" fill="#6B7280" font-weight="600">${l2.name}</text>`;
+  });
+  // Domain
+  domains.forEach(d => {
+    if (d.cx==null) return;
+    html += `<circle cx="${d.cx}" cy="${d.cy}" r="${d.r}" fill="none" stroke="#5B5FEF" stroke-width="1" stroke-dasharray="8,6" opacity="0.25"/>`;
+  });
+  // Edges
+  edges.filter(e=>e.type==='hierarchy').forEach(e => {
+    const f=tagMap.get(e.from), t=tagMap.get(e.to);
+    if (!f||!t||f.level==='L1') return;
+    html += `<line x1="${f.x}" y1="${f.y}" x2="${t.x}" y2="${t.y}" stroke="#8B8FF5" stroke-width="1.2" opacity="0.4"/>`;
+  });
+  edges.filter(e=>e.type==='cooccurrence').slice(0,20).forEach(e => {
+    const f=tagMap.get(e.from), t=tagMap.get(e.to);
+    if (!f||!t) return;
+    const sw = Math.min((e.weight||1)*0.5+0.5, 2);
+    html += `<line x1="${f.x}" y1="${f.y}" x2="${t.x}" y2="${t.y}" stroke="#74B9FF" stroke-width="${sw}" stroke-dasharray="3,4" opacity="0.3"/>`;
+  });
+  // L2
+  l2s.forEach(n => {
+    html += `<g onclick="clickTag('${n.id}')" style="cursor:pointer">`;
+    html += `<circle cx="${n.x}" cy="${n.y}" r="20" fill="#FFFFFF" stroke="#8B8FF5" stroke-width="2.5"/>`;
+    html += `<text x="${n.x}" y="${n.y+4}" text-anchor="middle" font-size="11" fill="#1E1E2E" font-weight="700">${n.name.length>4?n.name.slice(0,4):n.name}</text>`;
+    html += `<text x="${n.x}" y="${n.y+36}" text-anchor="middle" font-size="10" fill="#A0A5B5" font-weight="600">${n.count}项</text>`;
+    html += `</g>`;
+  });
+  // L1
+  nodes.filter(n=>n.level==='L1').forEach(n => {
+    html += `<circle cx="${n.x}" cy="${n.y}" r="28" fill="#5B5FEF" stroke="#8B8FF5" stroke-width="3"/>`;
+    html += `<text x="${n.x}" y="${n.y+5}" text-anchor="middle" font-size="14" fill="#FFFFFF" font-weight="800">${n.name}</text>`;
+  });
+  // L3
+  l3s.forEach(n => {
+    html += `<g onclick="clickTag('${n.id}')" style="cursor:pointer">`;
+    html += `<circle cx="${n.x}" cy="${n.y}" r="13" fill="#FFFFFF" stroke="#C4C8D8" stroke-width="1.5"/>`;
+    html += `<text x="${n.x}" y="${n.y+26}" text-anchor="middle" font-size="9" fill="#6B7280" font-weight="500">${n.name.length>5?n.name.slice(0,5):n.name}</text>`;
+    html += `</g>`;
+  });
+
+  SVG.innerHTML = html;
+  SVG.setAttribute('viewBox', `${viewX} ${viewY} ${viewW} ${viewH}`);
+  ZOOM_LABEL.textContent = `zoom: ${(1200/viewW).toFixed(1)}x`;
+}
+
+function zoomIn() { const cx=viewX+viewW/2,cy=viewY+viewH/2; viewW*=0.75; viewH*=0.75; viewX=cx-viewW/2; viewY=cy-viewH/2; render(); }
+function zoomOut() { const cx=viewX+viewW/2,cy=viewY+viewH/2; viewW*=1.35; viewH*=1.35; viewX=cx-viewW/2; viewY=cy-viewH/2; render(); }
+function resetView() { load(); }
+
+// Pan
+SVG.addEventListener('mousedown', e => { dragging=true; dsx=e.clientX; dsy=e.clientY; dvx=viewX; dvy=viewY; });
+window.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  const r = SVG.getBoundingClientRect();
+  viewX = dvx - (e.clientX-dsx)/r.width*viewW;
+  viewY = dvy - (e.clientY-dsy)/r.height*viewH;
+  render();
+});
+window.addEventListener('mouseup', () => { dragging=false; });
+SVG.addEventListener('wheel', e => {
+  e.preventDefault();
+  const r = SVG.getBoundingClientRect();
+  const mx = viewX + (e.clientX-r.left)/r.width*viewW;
+  const my = viewY + (e.clientY-r.top)/r.height*viewH;
+  const f = e.deltaY>0 ? 1.15 : 0.85;
+  viewW*=f; viewH*=f;
+  viewX = mx-(mx-viewX)*f;
+  viewY = my-(my-viewY)*f;
+  render();
+}, {passive:false});
+
+// Touch
+SVG.addEventListener('touchstart', e => {
+  if (e.touches.length===1) { dragging=true; dsx=e.touches[0].clientX; dsy=e.touches[0].clientY; dvx=viewX; dvy=viewY; }
+}, {passive:false});
+SVG.addEventListener('touchmove', e => {
+  if (!dragging||e.touches.length!==1) return;
+  e.preventDefault();
+  const r = SVG.getBoundingClientRect();
+  viewX = dvx - (e.touches[0].clientX-dsx)/r.width*viewW;
+  viewY = dvy - (e.touches[0].clientY-dsy)/r.height*viewH;
+  render();
+}, {passive:false});
+SVG.addEventListener('touchend', () => { dragging=false; });
+
+async function clickTag(id) {
+  const node = graphData.nodes.find(n=>n.id===id);
+  if (!node) return;
+  try {
+    const r = await fetch(API+'/tag-documents?tag='+encodeURIComponent(node.name));
+    const j = await r.json();
+    const docs = j.data||[];
+    alert(`${node.name} (${node.level}, ${node.count}条)\n\n${docs.map(d=>'• '+d.title).join('\n') || 'No documents'}`);
+  } catch(e) { alert('Error: '+e.message); }
+}
+
+load();
+</script>
+</body>
+</html>
