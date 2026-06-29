@@ -182,6 +182,7 @@ export default function ChatScreen() {
             };
             context.imageBase64 = base64;
             context.mediaType = mimeMap[ext] || 'image/jpeg';
+            context.imageFileName = uploadFile.name;
           } catch (e) {
             console.warn('Failed to encode image as base64:', e);
           }
@@ -332,22 +333,59 @@ export default function ChatScreen() {
     }
   };
 
-  const renderCitation = (citation: Citation, idx: number) => (
-    <View key={idx} style={{ backgroundColor: '#F0F0F3', borderRadius: 12, padding: 12, marginTop: 8 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-        <Feather name="file-text" size={14} color="#6C63FF" />
-        <Text style={{ marginLeft: 6, color: '#2D3436', fontWeight: '600', fontSize: 13, flex: 1 }} numberOfLines={1}>
-          {citation.file_name}
+  const renderCitation = (citation: any, idx: number) => {
+    // Image citation
+    if (citation.type === 'image') {
+      return (
+        <View key={idx} style={{ backgroundColor: '#FFF8E6', borderRadius: 12, padding: 12, marginTop: 8, borderWidth: 1, borderColor: '#F5D88A' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+            <Feather name="image" size={14} color="#D97706" />
+            <Text style={{ marginLeft: 6, color: '#2D3436', fontWeight: '600', fontSize: 13, flex: 1 }} numberOfLines={1}>
+              {citation.label || citation.fileName || '用户上传的图片'}
+            </Text>
+          </View>
+          <Text style={{ color: '#636E72', fontSize: 13, lineHeight: 20 }}>
+            {citation.snippet || 'AI 已分析图片内容'}
+          </Text>
+        </View>
+      );
+    }
+
+    // Node citation
+    if (citation.type === 'node') {
+      return (
+        <View key={idx} style={{ backgroundColor: '#EEF0FF', borderRadius: 12, padding: 12, marginTop: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+            <Feather name="book-open" size={14} color="#6C63FF" />
+            <Text style={{ marginLeft: 6, color: '#2D3436', fontWeight: '600', fontSize: 13, flex: 1 }} numberOfLines={1}>
+              {citation.label || `知识节点 ${citation.nodeId}`}
+            </Text>
+          </View>
+          <Text style={{ color: '#636E72', fontSize: 13, lineHeight: 20 }}>
+            关联的知识库节点
+          </Text>
+        </View>
+      );
+    }
+
+    // Default file citation
+    return (
+      <View key={idx} style={{ backgroundColor: '#F0F0F3', borderRadius: 12, padding: 12, marginTop: 8 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+          <Feather name="file-text" size={14} color="#6C63FF" />
+          <Text style={{ marginLeft: 6, color: '#2D3436', fontWeight: '600', fontSize: 13, flex: 1 }} numberOfLines={1}>
+            {citation.fileName || citation.file_name || '未知文件'}
+          </Text>
+          {citation.page && (
+            <Text style={{ color: '#6C63FF', fontSize: 12 }}>P{citation.page}</Text>
+          )}
+        </View>
+        <Text style={{ color: '#636E72', fontSize: 13, lineHeight: 20 }}>
+          {citation.snippet || ''}
         </Text>
-        {citation.page && (
-          <Text style={{ color: '#6C63FF', fontSize: 12 }}>P{citation.page}</Text>
-        )}
       </View>
-      <Text style={{ color: '#636E72', fontSize: 13, lineHeight: 20 }}>
-        {citation.snippet}
-      </Text>
-    </View>
-  );
+    );
+  };
 
   return (
     <Screen statusBarStyle="dark" safeAreaEdges={['left', 'right', 'top']}>
@@ -580,26 +618,49 @@ export default function ChatScreen() {
         >
           <View style={{ backgroundColor: '#FFF', borderRadius: 20, padding: 24, width: 300 }}>
             <Text style={{ fontSize: 18, fontWeight: '700', color: '#2D3436', marginBottom: 16 }}>上传文件</Text>
+
+            {/* 从相册选择图片 */}
             <TouchableOpacity
               style={{ backgroundColor: '#F0F0F3', borderRadius: 12, padding: 16, alignItems: 'center', marginBottom: 12 }}
               onPress={() => {
                 setShowUploadModal(false);
+                handleSelectFile();
+              }}
+            >
+              <Feather name="image" size={32} color="#6C63FF" />
+              <Text style={{ marginTop: 8, color: '#6C63FF', fontWeight: '600' }}>从相册选择图片</Text>
+              <Text style={{ marginTop: 4, color: '#B2BEC3', fontSize: 12 }}>手写笔记、公式推导、教材截图</Text>
+            </TouchableOpacity>
+
+            {/* 关联知识节点（可选） */}
+            <TouchableOpacity
+              style={{ backgroundColor: '#F5F3FF', borderRadius: 12, padding: 14, alignItems: 'center', marginBottom: 12 }}
+              onPress={() => {
+                setShowUploadModal(false);
+                if (knowledgeNodes.length === 0) {
+                  Alert.alert('提示', '暂无知识节点，请先在知识库中创建节点');
+                  return;
+                }
                 Alert.alert(
-                  '选择知识节点',
-                  '为上传的文件关联知识节点（可选）',
+                  '关联知识节点',
+                  `选择要关联的知识节点（当前选中: ${selectedNodeId ? knowledgeNodes.find(n => n.id === selectedNodeId)?.short_name || `节点${selectedNodeId}` : '无'}）`,
                   [
-                    { text: '不关联', onPress: () => setUploadFile(null) },
-                    ...knowledgeNodes.map((n) => ({
-                      text: n.short_name || `节点${n.id}`,
+                    { text: '取消关联', onPress: () => setSelectedNodeId(null) },
+                    ...knowledgeNodes.slice(0, 20).map((n) => ({
+                      text: `${n.short_name || `节点${n.id}`} ${selectedNodeId === n.id ? '✓' : ''}`,
                       onPress: () => setSelectedNodeId(n.id),
                     })),
                   ]
                 );
               }}
             >
-              <Feather name="upload" size={32} color="#6C63FF" />
-              <Text style={{ marginTop: 8, color: '#6C63FF', fontWeight: '600' }}>选择文件</Text>
+              <Feather name="book-open" size={28} color="#7C6FF7" />
+              <Text style={{ marginTop: 6, color: '#7C6FF7', fontWeight: '600' }}>关联知识节点</Text>
+              <Text style={{ marginTop: 2, color: '#B2BEC3', fontSize: 12 }}>
+                {selectedNodeId ? `已选: ${knowledgeNodes.find(n => n.id === selectedNodeId)?.short_name || `节点${selectedNodeId}`}` : '可选，提高回答准确性'}
+              </Text>
             </TouchableOpacity>
+
             <TouchableOpacity onPress={() => setShowUploadModal(false)}>
               <Text style={{ textAlign: 'center', color: '#636E72', fontSize: 14 }}>取消</Text>
             </TouchableOpacity>

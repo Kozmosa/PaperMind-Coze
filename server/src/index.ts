@@ -29,6 +29,7 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 app.use('/test-data', express.static(path.join(process.cwd(), '..', 'test_data', '学习资料')));
+app.use('/debug', express.static(path.join(process.cwd(), '..', 'debug')));
 app.use('/projects', express.static(path.join(process.cwd(), '..')));
 
 // Apply auth middleware to all API routes

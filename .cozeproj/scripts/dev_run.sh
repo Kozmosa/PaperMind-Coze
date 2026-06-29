@@ -12,7 +12,9 @@ SERVER_PORT="9091"
 EXPO_HOST="0.0.0.0"
 EXPO_DIR="expo"
 EXPO_PORT="5000"
-WEB_URL="${COZE_PROJECT_DOMAIN_DEFAULT:-http://127.0.0.1:${SERVER_PORT}}"
+# 健康检查用 localhost（0.0.0.0 只能绑定不能连接）
+CHECK_HOST="localhost"
+WEB_URL="${COZE_PROJECT_DOMAIN_DEFAULT:-http://localhost:${SERVER_PORT}}"
 ASSUME_YES="1"
 EXPO_PUBLIC_BACKEND_BASE_URL="${EXPO_PUBLIC_BACKEND_BASE_URL:-$WEB_URL}"
 EXPO_PUBLIC_COZE_PROJECT_ID="${COZE_PROJECT_ID:-}"
@@ -119,10 +121,10 @@ start_expo() {
 
   if [ "$offline" = "1" ]; then
     ( EXPO_OFFLINE=1 EXPO_NO_DEPENDENCY_VALIDATION=1 EXPO_PUBLIC_BACKEND_BASE_URL="$EXPO_PUBLIC_BACKEND_BASE_URL" EXPO_PACKAGER_PROXY_URL="$EXPO_PACKAGER_PROXY_URL" EXPO_PUBLIC_COZE_PROJECT_ID="$EXPO_PUBLIC_COZE_PROJECT_ID" \
-      nohup npx expo start --clear --port "$EXPO_PORT" 2>&1 | pipe_to_log "CLIENT" "$LOG_CLIENT_FILE" ) &
+      nohup npx expo start --port "$EXPO_PORT" 2>&1 | pipe_to_log "CLIENT" "$LOG_CLIENT_FILE" ) &
   else
     ( EXPO_NO_DEPENDENCY_VALIDATION=1 EXPO_PUBLIC_BACKEND_BASE_URL="$EXPO_PUBLIC_BACKEND_BASE_URL" EXPO_PACKAGER_PROXY_URL="$EXPO_PACKAGER_PROXY_URL" EXPO_PUBLIC_COZE_PROJECT_ID="$EXPO_PUBLIC_COZE_PROJECT_ID" \
-      nohup npx expo start --clear --port "$EXPO_PORT" 2>&1 | pipe_to_log "CLIENT" "$LOG_CLIENT_FILE" ) &
+      nohup npx expo start --port "$EXPO_PORT" 2>&1 | pipe_to_log "CLIENT" "$LOG_CLIENT_FILE" ) &
   fi
   EXPO_PID=$!
   disown $EXPO_PID 2>/dev/null || true
@@ -203,18 +205,18 @@ fi
 
 echo "所有服务已启动。Server PID: ${SERVER_PID}, Expo PID: ${EXPO_PID}"
 
-echo "检查 Server 服务端口：$SERVER_HOST:$SERVER_PORT"
-if wait_port_connectable "$SERVER_HOST" "$SERVER_PORT" 10 2; then
-  echo "端口可连接：$SERVER_HOST:$SERVER_PORT"
+echo "检查 Server 服务端口：$CHECK_HOST:$SERVER_PORT"
+if wait_port_connectable "$CHECK_HOST" "$SERVER_PORT" 30 2; then
+  echo "端口可连接：$CHECK_HOST:$SERVER_PORT"
 else
-  echo "端口不可连接：$SERVER_HOST:$SERVER_PORT 10 次）"
+  echo "端口不可连接：$CHECK_HOST:$SERVER_PORT（已尝试 30 次）"
 fi
 
-echo "检查 Expo 服务端口：$EXPO_HOST:$EXPO_PORT"
-if wait_port_connectable "$EXPO_HOST" "$EXPO_PORT" 10 2; then
-  echo "端口可连接：$EXPO_HOST:$EXPO_PORT"
+echo "检查 Expo 服务端口：$CHECK_HOST:$EXPO_PORT"
+if wait_port_connectable "$CHECK_HOST" "$EXPO_PORT" 60 2; then
+  echo "端口可连接：$CHECK_HOST:$EXPO_PORT"
 else
-  echo "端口不可连接：$EXPO_HOST:$EXPO_PORT（已尝试 10 次）"
+  echo "端口不可连接：$CHECK_HOST:$EXPO_PORT（已尝试 60 次）"
 fi
 
 echo "服务端口检查完成"

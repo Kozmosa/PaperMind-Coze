@@ -124,7 +124,7 @@ router.post('/tutor', async (req: Request, res: Response) => {
     }
 
     // 流结束后，提取 citations 并发送元数据
-    const citations = extractCitations(fullContent, context);
+    const citations = await extractCitations(fullContent, context);
 
     res.write(`data: ${JSON.stringify({
       content: '',
@@ -144,8 +144,18 @@ router.post('/tutor', async (req: Request, res: Response) => {
 });
 
 // 提取 citations 的辅助函数
-function extractCitations(answer: string, context?: any): any[] {
+async function extractCitations(answer: string, context?: any): Promise<any[]> {
   const citations: any[] = [];
+
+  // 用户上传的图片引用
+  if (context?.imageBase64) {
+    citations.push({
+      type: 'image',
+      fileName: context.imageFileName || '上传的图片',
+      label: '用户上传的图片',
+      snippet: '图片已由 AI 视觉分析处理',
+    });
+  }
 
   if (context?.nodeIds?.length && context?.nodeIds.length > 0) {
     for (const nodeId of context.nodeIds) {
@@ -166,6 +176,29 @@ function extractCitations(answer: string, context?: any): any[] {
         snippet: fc.extracted_text?.substring(0, 100) + '...',
         page: fc.page_number
       });
+    }
+  }
+
+  // 如果上传了文件到服务端，从 draft_pool 获取文件信息
+  if (context?.draftId) {
+    try {
+      const { data: draft } = await client
+        .from('draft_pool')
+        .select('id, file_name, file_url')
+        .eq('id', context.draftId)
+        .single();
+
+      if (draft) {
+        citations.push({
+          type: 'file',
+          draftId: draft.id,
+          fileName: draft.file_name || '上传文件',
+          snippet: '用户当前上传的参考文件',
+          page: null,
+        });
+      }
+    } catch {
+      // 非关键，静默忽略
     }
   }
 
@@ -687,53 +720,203 @@ ${knowledgeContext}${fileContentsContext}
 8. 回答完后，在消息末尾添加一行引用来源，格式：「引用来源：节点名称1、节点名称2」`;
 }
 
-async function buildReflectionPrompt(context?: any): Promise<string> {
+async function buildReflectionPrompt(context?: any, period?: string): Promise<string> {
   let logsContext = '';
   let pastReflections = '';
   let nodeActivity = '';
 
+  // 计算时间范围
+  let sinceDate: string | null = null;
+  if (period) {
+    const days = parseInt(period.replace(/[^0-9]/g, '')) || 7;
+    sinceDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+  }
+
   if (context?.userId) {
-    const { data: logs } = await client
+    // 问题解决记录（按时间过滤）
+    let logsQuery = client
       .from('paper_problem_logs')
       .select('*')
       .eq('user_id', context.userId)
       .order('created_at', { ascending: false })
       .limit(20);
-    if (logs && logs.length > 0) logsContext = `问题解决记录：${JSON.stringify(logs)}`;
+    if (sinceDate) logsQuery = logsQuery.gte('created_at', sinceDate);
+    const { data: logs } = await logsQuery;
+    if (logs && logs.length > 0) logsContext = `问题解决记录（${logs.length}条）：${JSON.stringify(logs)}`;
 
+    // 往期反思
     const { data: refs } = await client
       .from('reflections')
       .select('*')
       .eq('user_id', context.userId)
       .order('created_at', { ascending: false })
       .limit(5);
-    if (refs && refs.length > 0) pastReflections = `往期反思：${JSON.stringify(refs)}`;
+    if (refs && refs.length > 0) pastReflections = `往期反思（${refs.length}条）：${JSON.stringify(refs)}`;
 
-    const { data: nodes } = await client
+    // 知识节点活动（按时间过滤）
+    let nodesQuery = client
       .from('knowledge_nodes')
-      .select('id, papercore, created_at')
+      .select('id, papercore, short_name, tags, created_at')
       .eq('user_id', context.userId)
       .order('created_at', { ascending: false })
       .limit(50);
-    if (nodes && nodes.length > 0) nodeActivity = `知识节点活动：${JSON.stringify(nodes)}`;
+    if (sinceDate) nodesQuery = nodesQuery.gte('created_at', sinceDate);
+    const { data: nodes } = await nodesQuery;
+    if (nodes && nodes.length > 0) nodeActivity = `知识节点活动（${nodes.length}个）：${JSON.stringify(nodes)}`;
   }
+
+  const periodLabel = period
+    ? (period.includes('3') ? '近三天' : period.includes('30') ? '近一个月' : '近一周')
+    : '近期';
 
   return `你是学习反思助手 Reflection_mind。
 
-分析用户近期学习行为，生成包含以下4个维度的反思报告：
+分析用户${periodLabel}的学习行为，生成包含以下4个维度的反思报告：
 
 ${logsContext || '暂无问题记录。'}
 ${pastReflections || '暂无往期反思。'}
 ${nodeActivity || '暂无知识节点活动。'}
 
-请生成：
-1. 📋 **近日学习行为** - 学习内容与节奏
-2. 🏆 **攻克问题报告** - 成功解决问题
-3. 🧠 **思维模式总结** - 优势与改进点
-4. 💡 **学习建议** - 具体可操作建议
+请生成以下4个部分，严格按格式输出，每个部分以 "## 标题" 开头（两个 # 号加一个空格加标题），各部分之间空一行：
 
-风格：鼓励、建设性、有洞察力。`;
+## 学习行为
+<分析用户${periodLabel}的学习内容与节奏，200-400字>
+
+## 攻克问题
+<总结用户${periodLabel}成功解决的问题，200-400字>
+
+## 思维模式
+<分析用户的思维优势与改进点，200-400字>
+
+## 学习建议
+<给出具体可操作的学习建议，200-400字>
+
+风格：鼓励、建设性、有洞察力。不要输出任何其他内容（如前言、结语、署名等），直接从 "## 学习行为" 开始输出。`;
 }
+
+/**
+ * 解析反思报告中的4个 section
+ * 期望格式：
+ *   ## 学习行为\n<content>\n\n## 攻克问题\n<content>\n\n## 思维模式\n<content>\n\n## 学习建议\n<content>
+ */
+function parseReflectionSections(text: string): {
+  learning_behavior: string;
+  challenge_report: string;
+  thinking_pattern: string;
+  suggestion: string;
+} {
+  const result = {
+    learning_behavior: '',
+    challenge_report: '',
+    thinking_pattern: '',
+    suggestion: '',
+  };
+
+  const sectionMap: Record<string, keyof typeof result> = {
+    '学习行为': 'learning_behavior',
+    '攻克问题': 'challenge_report',
+    '思维模式': 'thinking_pattern',
+    '学习建议': 'suggestion',
+  };
+
+  // 用正则匹配 "## 标题\n内容" 直到下一个 "## " 或文本结束
+  const regex = /##\s+(学习行为|攻克问题|思维模式|学习建议)\s*\n([\s\S]*?)(?=\n##\s|\n*$)/g;
+  let match;
+  while ((match = regex.exec(text)) !== null) {
+    const title = match[1];
+    const content = match[2].trim();
+    const key = sectionMap[title];
+    if (key && content) {
+      result[key] = content;
+    }
+  }
+
+  return result;
+}
+
+/**
+ * POST /api/v1/ai/generate-reflection
+ * 生成学习反思报告并保存到数据库
+ * Body: { period: string }  例如 "3days", "7days", "30days"
+ * 返回 SSE 流：{ content: "..." }  ... { done: true, reflection: { id, ... } }  [DONE]
+ */
+router.post('/generate-reflection', async (req: Request, res: Response) => {
+  try {
+    const { period } = req.body;
+    if (!period) {
+      return res.status(400).json({ error: '缺少 period 参数' });
+    }
+
+    const userId = (req as any).userId || 'guest';
+
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-store, no-transform, must-revalidate');
+    res.setHeader('Connection', 'keep-alive');
+
+    const systemPrompt = await buildReflectionPrompt({ userId }, period);
+
+    const stream = anthropic.messages.stream({
+      model: DEFAULT_MODEL,
+      max_tokens: 4096,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: `请根据我的${period.includes('3') ? '近三天' : period.includes('30') ? '近一个月' : '近一周'}的学习数据，生成学习反思报告。` }],
+    });
+
+    let fullContent = '';
+
+    for await (const event of stream) {
+      if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+        fullContent += event.delta.text;
+        res.write(`data: ${JSON.stringify({ content: event.delta.text })}\n\n`);
+      }
+    }
+
+    // 解析4个section
+    const sections = parseReflectionSections(fullContent);
+
+    // 保存到数据库
+    const { data: saved, error: saveError } = await client
+      .from('reflections')
+      .insert({
+        learning_behavior: sections.learning_behavior || null,
+        challenge_report: sections.challenge_report || null,
+        thinking_pattern: sections.thinking_pattern || null,
+        suggestion: sections.suggestion || null,
+        period,
+        user_id: userId,
+      })
+      .select()
+      .single();
+
+    if (saveError) {
+      console.error('Failed to save reflection:', saveError);
+      res.write(`data: ${JSON.stringify({ error: '保存反思报告失败' })}\n\n`);
+    } else if (saved) {
+      res.write(`data: ${JSON.stringify({
+        done: true,
+        reflection: {
+          id: saved.id,
+          period: saved.period,
+          learning_behavior: saved.learning_behavior,
+          challenge_report: saved.challenge_report,
+          thinking_pattern: saved.thinking_pattern,
+          suggestion: saved.suggestion,
+          created_at: saved.created_at,
+        }
+      })}\n\n`);
+    }
+
+    res.write('data: [DONE]\n\n');
+    res.end();
+  } catch (error: any) {
+    console.error('GenerateReflection Error:', error);
+    if (!res.headersSent) {
+      return res.status(500).json({ error: error.message || '反思生成失败' });
+    }
+    res.write('data: [DONE]\n\n');
+    res.end();
+  }
+});
 
 /**
  * POST /api/v1/ai/note-helper

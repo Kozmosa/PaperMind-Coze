@@ -1,5 +1,5 @@
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useRef } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { Feather, AntDesign } from '@expo/vector-icons';
 import { Screen } from '@/components/layout/Screen';
@@ -27,7 +27,9 @@ export default function ReflectionIndexScreen() {
   const [reflections, setReflections] = useState<Reflection[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [generatingText, setGeneratingText] = useState('');
   const [selectedPeriod, setSelectedPeriod] = useState('7days');
+  const generatingScrollRef = useRef<ScrollView>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -48,13 +50,40 @@ export default function ReflectionIndexScreen() {
   };
 
   const handleGenerateReport = async () => {
+    if (generating) return;
     setGenerating(true);
+    setGeneratingText('');
+
     try {
-      await api.createReflection({ period: selectedPeriod });
-      await loadReflections();
+      await api.generateReflection(
+        selectedPeriod,
+        // onChunk
+        (text) => {
+          setGeneratingText((prev) => {
+            const next = prev + text;
+            // Auto-scroll to bottom
+            setTimeout(() => generatingScrollRef.current?.scrollToEnd({ animated: false }), 50);
+            return next;
+          });
+        },
+        // onDone
+        (reflection) => {
+          setGenerating(false);
+          setGeneratingText('');
+          // Refresh list then navigate to detail
+          loadReflections();
+          setTimeout(() => {
+            router.push('/reflection-detail', { id: reflection.id });
+          }, 300);
+        },
+        // onError
+        (error) => {
+          setGenerating(false);
+          console.error('Generate reflection error:', error);
+        }
+      );
     } catch (e) {
       console.error('Failed to generate report', e);
-    } finally {
       setGenerating(false);
     }
   };
@@ -90,30 +119,79 @@ export default function ReflectionIndexScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: 18, fontWeight: '700', color: '#2D3436' }}>生成学习报告</Text>
-                <Text style={{ fontSize: 13, color: '#636E72', marginTop: 2 }}>小助手正在撰写学习报告请稍后</Text>
+                <Text style={{ fontSize: 13, color: '#636E72', marginTop: 2 }}>
+                  {generating ? 'AI 正在分析你的学习数据并生成反思报告...' : '小助手正在撰写学习报告请稍后'}
+                </Text>
               </View>
             </View>
 
-            <Text style={{ fontSize: 14, fontWeight: '600', color: '#2D3436', marginBottom: 12 }}>选择时间段</Text>
-            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
-              {TIME_OPTIONS.map((opt) => (
-                <TouchableOpacity
-                  key={opt.value}
-                  style={{
-                    flex: 1,
-                    paddingVertical: 10,
-                    borderRadius: 12,
-                    backgroundColor: selectedPeriod === opt.value ? '#6C63FF' : '#F0F0F3',
-                    alignItems: 'center',
-                  }}
-                  onPress={() => setSelectedPeriod(opt.value)}
-                >
-                  <Text style={{ color: selectedPeriod === opt.value ? '#FFF' : '#636E72', fontWeight: '600', fontSize: 14 }}>
-                    {opt.label}
+            {!generating && (
+              <>
+                <Text style={{ fontSize: 14, fontWeight: '600', color: '#2D3436', marginBottom: 12 }}>选择时间段</Text>
+                <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+                  {TIME_OPTIONS.map((opt) => (
+                    <TouchableOpacity
+                      key={opt.value}
+                      style={{
+                        flex: 1,
+                        paddingVertical: 10,
+                        borderRadius: 12,
+                        backgroundColor: selectedPeriod === opt.value ? '#6C63FF' : '#F0F0F3',
+                        alignItems: 'center',
+                      }}
+                      onPress={() => setSelectedPeriod(opt.value)}
+                    >
+                      <Text style={{ color: selectedPeriod === opt.value ? '#FFF' : '#636E72', fontWeight: '600', fontSize: 14 }}>
+                        {opt.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            )}
+
+            {/* Streaming output during generation */}
+            {generating && (
+              <View style={{
+                backgroundColor: '#F7F8FC',
+                borderRadius: 14,
+                borderWidth: 1,
+                borderColor: '#E8EAF0',
+                marginBottom: 16,
+                maxHeight: 400,
+                overflow: 'hidden',
+              }}>
+                <View style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingHorizontal: 14,
+                  paddingVertical: 10,
+                  borderBottomWidth: 1,
+                  borderBottomColor: '#E8EAF0',
+                  backgroundColor: '#EEF0FF',
+                }}>
+                  <ActivityIndicator size="small" color="#6C63FF" />
+                  <Text style={{ marginLeft: 8, fontSize: 13, fontWeight: '600', color: '#6C63FF' }}>
+                    AI 正在生成反思报告...
                   </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+                </View>
+                <ScrollView
+                  ref={generatingScrollRef}
+                  style={{ padding: 14 }}
+                  showsVerticalScrollIndicator={true}
+                >
+                  {generatingText ? (
+                    <Text style={{ fontSize: 14, color: '#2D3436', lineHeight: 22 }}>
+                      {generatingText}
+                    </Text>
+                  ) : (
+                    <Text style={{ fontSize: 14, color: '#B2BEC3', fontStyle: 'italic' }}>
+                      正在连接 AI 服务...
+                    </Text>
+                  )}
+                </ScrollView>
+              </View>
+            )}
 
             <TouchableOpacity
               style={{
@@ -128,7 +206,7 @@ export default function ReflectionIndexScreen() {
               {generating ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <ActivityIndicator size="small" color="#FFF" />
-                  <Text style={{ color: '#FFF', fontWeight: '700', marginLeft: 8 }}>生成中，请稍后...</Text>
+                  <Text style={{ color: '#FFF', fontWeight: '700', marginLeft: 8 }}>AI 正在撰写报告...</Text>
                 </View>
               ) : (
                 <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 15 }}>开始生成报告</Text>

@@ -491,4 +491,66 @@ export const api = {
       '/ai/suggest-relations',
       { method: 'POST', body: JSON.stringify({ papercore, tags, topK }) }
     ),
+
+  // Generate reflection report (SSE streaming)
+  generateReflection: (
+    period: string,
+    onChunk: (text: string) => void,
+    onDone: (reflection: { id: number; period: string; learning_behavior: string; challenge_report: string; thinking_pattern: string; suggestion: string; created_at: string }) => void,
+    onError?: (error: string) => void,
+  ): Promise<void> => {
+    return new Promise(async (resolve, reject) => {
+      try {
+        const url = `${BASE_URL}/api/v1/ai/generate-reflection`;
+        const token = await getSessionToken();
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', url);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        if (token) xhr.setRequestHeader('x-session', token);
+
+        let lastIndex = 0;
+        xhr.onprogress = () => {
+          const newText = xhr.responseText.substring(lastIndex);
+          lastIndex = xhr.responseText.length;
+          const lines = newText.split('\n');
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6);
+              if (data === '[DONE]') return;
+              try {
+                const parsed = JSON.parse(data);
+                if (parsed.content) {
+                  onChunk(parsed.content);
+                }
+                if (parsed.done && parsed.reflection) {
+                  onDone(parsed.reflection);
+                }
+                if (parsed.error) {
+                  onError?.(parsed.error);
+                  reject(new Error(parsed.error));
+                }
+              } catch {}
+            }
+          }
+        };
+        xhr.onload = () => {
+          if (xhr.status === 200) {
+            resolve();
+          } else {
+            const err = `Generate reflection failed: ${xhr.status}`;
+            onError?.(err);
+            reject(new Error(err));
+          }
+        };
+        xhr.onerror = () => {
+          const err = 'Network error';
+          onError?.(err);
+          reject(new Error(err));
+        };
+        xhr.send(JSON.stringify({ period }));
+      } catch (e) {
+        reject(e);
+      }
+    });
+  },
 };
