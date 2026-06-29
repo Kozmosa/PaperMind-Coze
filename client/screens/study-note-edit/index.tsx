@@ -15,14 +15,17 @@ import { useFocusEffect } from 'expo-router';
 import { useSafeSearchParams } from '@/hooks/useSafeRouter';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import { Screen } from '@/components/Screen';
+import { Screen } from '@/components/layout/Screen';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { api } from '@/utils/api';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import DraggableFlatList, { RenderItemParams } from 'react-native-draggable-flatlist';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import MarkdownRenderer from '@/components/MarkdownRenderer';
+import MarkdownRenderer from '@/components/markdown/MarkdownRenderer';
+import NoteHelperFab from '@/components/note-helper/NoteHelperFab';
+import NoteHelperPanel from '@/components/note-helper/NoteHelperPanel';
+import type { Citation } from '@/components/note-helper/NoteHelperPanel';
 
 // ========== 类型 ==========
 interface TextBlock {
@@ -78,6 +81,11 @@ export default function StudyNoteEditScreen() {
   const [loading, setLoading] = useState(true);
   const [focusedBlockId, setFocusedBlockId] = useState<string | null>(null);
   const [blockHeights, setBlockHeights] = useState<Record<string, number>>({});
+
+  // Note Helper state
+  const [noteHelperVisible, setNoteHelperVisible] = useState(false);
+  const [noteHelperContent, setNoteHelperContent] = useState('');
+  const [noteHelperCitations, setNoteHelperCitations] = useState<Citation[]>([]);
 
   const isNew = !id;
 
@@ -271,6 +279,24 @@ export default function StudyNoteEditScreen() {
   };
 
   // ========== 格式化工具栏 ==========
+  // Note Helper generate handler
+  const handleNoteHelperGenerate = async (signal: { aborted: boolean }) => {
+    const sourceFiles = id ? [{ id, type: 'study_note' as const, title: title || '学习纪要', logicalPath }] : [];
+    let fullContent = '';
+    let extractedCitations: Citation[] = [];
+
+    await api.generateNoteStream(
+      sourceFiles,
+      (chunk) => { fullContent += chunk; setNoteHelperContent(fullContent); },
+      (citations) => { extractedCitations = citations; setNoteHelperCitations(citations); },
+      undefined,
+      signal,
+    );
+
+    if (signal.aborted) return null;
+    return { content: fullContent, citations: extractedCitations };
+  };
+
   const formatButtons: { label: string; mark: string; multiline?: boolean }[] = [
     { label: 'H1', mark: '# ' },
     { label: 'H2', mark: '## ' },
@@ -807,6 +833,26 @@ export default function StudyNoteEditScreen() {
           )}
         </View>
       </Screen>
+
+      {/* Note Helper FAB - outside Screen for true floating */}
+      {mode === 'read' && (
+        <NoteHelperFab
+          onPress={() => {
+            setNoteHelperContent('');
+            setNoteHelperCitations([]);
+            setNoteHelperVisible(true);
+          }}
+          selected={!!id}
+        />
+      )}
+
+      {/* Note Helper Panel */}
+      <NoteHelperPanel
+        visible={noteHelperVisible}
+        onClose={() => setNoteHelperVisible(false)}
+        sourceFiles={id ? [{ id, type: 'study_note', title: title || '学习纪要', logicalPath }] : []}
+        onGenerate={handleNoteHelperGenerate}
+      />
     </GestureHandlerRootView>
   );
 }

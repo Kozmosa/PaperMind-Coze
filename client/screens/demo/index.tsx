@@ -1,7 +1,7 @@
 import { View, Text } from 'react-native';
 import { Image } from 'expo-image';
 
-import { Screen } from '@/components/Screen';
+import { Screen } from '@/components/layout/Screen';
 
 export default function DemoPage() {
   return (

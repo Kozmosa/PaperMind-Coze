@@ -2,7 +2,7 @@ import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'rea
 import { useCallback, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { Feather, AntDesign } from '@expo/vector-icons';
-import { Screen } from '@/components/Screen';
+import { Screen } from '@/components/layout/Screen';
 import { api } from '@/utils/api';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 

@@ -5,10 +5,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
-import { Screen } from '@/components/Screen';
+import { Screen } from '@/components/layout/Screen';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { api } from '@/utils/api';
 import { useAuth } from '@/contexts/AuthContext';
+import NoteHelperPanel from '@/components/note-helper/NoteHelperPanel';
+import type { Citation } from '@/components/note-helper/NoteHelperPanel';
 
 const COLORS = {
   bg: '#F0F0F3',
@@ -71,6 +73,60 @@ export default function ControlCenterScreen() {
   // Detail modal (quick view)
   const [detailRecord, setDetailRecord] = useState<RecentRecord | null>(null);
 
+  // Multi-select mode
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Note Helper state
+  const [noteHelperVisible, setNoteHelperVisible] = useState(false);
+  const [noteHelperSourceFiles, setNoteHelperSourceFiles] = useState<Array<{ id: string; type: 'study_note' | 'material'; title: string; logicalPath?: string }>>([]);
+
+  const enterSelectMode = (record: RecentRecord) => {
+    setSelectMode(true);
+    setSelectedIds(new Set([`${record.record_type}_${record.id}`]));
+  };
+
+  const toggleSelect = (record: RecentRecord) => {
+    const key = `${record.record_type}_${record.id}`;
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+        if (next.size === 0) setSelectMode(false);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+
+  const handleGenerateNote = () => {
+    const sourceFiles = allRecords
+      .filter(r => selectedIds.has(`${r.record_type}_${r.id}`))
+      .map(r => ({
+        id: r.id,
+        type: r.record_type,
+        title: r.title || (r as any).name || r.file_name || (r.record_type === 'study_note' ? '学习纪要' : '资料'),
+        logicalPath: r.logical_path,
+      }));
+    setNoteHelperSourceFiles(sourceFiles);
+    setNoteHelperVisible(true);
+  };
+
+  const handleNoteHelperGenerate = async (signal: { aborted: boolean }) => {
+    let fullContent = '';
+    let extractedCitations: Citation[] = [];
+    await api.generateNoteStream(
+      noteHelperSourceFiles,
+      (chunk) => { fullContent += chunk; },
+      (cits) => { extractedCitations = cits; },
+      undefined,
+      signal,
+    );
+    if (signal.aborted) return null;
+    return { content: fullContent, citations: extractedCitations };
+  };
+
   const loadData = async () => {
     try {
       setLoading(true);
@@ -124,6 +180,11 @@ export default function ControlCenterScreen() {
   );
 
   const handleRecordPress = async (record: RecentRecord) => {
+    if (selectMode) {
+      toggleSelect(record);
+      return;
+    }
+
     // Mark as viewed if needed
     if (record.ai_processed && !record.viewed_after_process) {
       try {
@@ -272,6 +333,7 @@ export default function ControlCenterScreen() {
   };
 
   return (
+    <>
     <Screen statusBarStyle="dark" safeAreaEdges={['left', 'right', 'bottom']}>
       <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
         {/* Header */}
@@ -410,6 +472,7 @@ export default function ControlCenterScreen() {
                 const isNote = record.record_type === 'study_note';
                 const hasRedDot = record.ai_processed && !record.viewed_after_process;
                 const displayTitle = record.title || (record as any).name || record.file_name || (isNote ? '学习纪要' : '上传资料');
+                const selected = selectedIds.has(`${record.record_type}_${record.id}`);
 
                 return (
                   <TouchableOpacity
@@ -422,7 +485,18 @@ export default function ControlCenterScreen() {
                       borderBottomColor: 'rgba(0,0,0,0.04)',
                     }}
                     onPress={() => handleRecordPress(record)}
+                    onLongPress={() => enterSelectMode(record)}
                   >
+                    {/* Checkbox in select mode */}
+                    {selectMode && (
+                      <View style={{ marginRight: 10 }}>
+                        <Feather
+                          name={selected ? 'check-square' : 'square'}
+                          size={22}
+                          color={selected ? COLORS.primary : COLORS.textMuted}
+                        />
+                      </View>
+                    )}
                     <View style={{
                       width: 40, height: 40, borderRadius: 20,
                       backgroundColor: isNote ? 'rgba(0,184,148,0.12)' : 'rgba(255,159,67,0.12)',
@@ -439,7 +513,6 @@ export default function ControlCenterScreen() {
                         <Text style={{ fontSize: 14, fontWeight: '600', color: COLORS.text, flex: 1 }} numberOfLines={1}>
                           {displayTitle}
                         </Text>
-                        {/* Red dot for unviewed AI-processed records */}
                         {hasRedDot && (
                           <View style={{
                             width: 10,
@@ -603,6 +676,7 @@ export default function ControlCenterScreen() {
                 const isNote = record.record_type === 'study_note';
                 const hasRedDot = record.ai_processed && !record.viewed_after_process;
                 const displayTitle = record.title || (record as any).name || record.file_name || (isNote ? '学习纪要' : '上传资料');
+                const selected = selectedIds.has(`${record.record_type}_${record.id}`);
 
                 return (
                   <TouchableOpacity
@@ -615,10 +689,26 @@ export default function ControlCenterScreen() {
                       borderBottomColor: COLORS.bg,
                     }}
                     onPress={() => {
-                      setAllRecordsModal(false);
-                      handleRecordPress(record);
+                      if (selectMode) {
+                        toggleSelect(record);
+                      } else {
+                        setAllRecordsModal(false);
+                        handleRecordPress(record);
+                      }
+                    }}
+                    onLongPress={() => {
+                      if (!selectMode) enterSelectMode(record);
                     }}
                   >
+                    {selectMode && (
+                      <View style={{ marginRight: 10 }}>
+                        <Feather
+                          name={selected ? 'check-square' : 'square'}
+                          size={22}
+                          color={selected ? COLORS.primary : COLORS.textMuted}
+                        />
+                      </View>
+                    )}
                     <View style={{
                       width: 40, height: 40, borderRadius: 20,
                       backgroundColor: isNote ? 'rgba(0,184,148,0.12)' : 'rgba(255,159,67,0.12)',
@@ -665,7 +755,96 @@ export default function ControlCenterScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Multi-select bottom bar */}
+      {selectMode && (
+        <View style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          backgroundColor: '#FFFFFF',
+          borderTopWidth: 1,
+          borderTopColor: '#F0F0F3',
+          paddingBottom: insets.bottom + 8,
+          paddingHorizontal: 20,
+          paddingTop: 12,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 8,
+          elevation: 10,
+        }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <TouchableOpacity
+              onPress={() => { setSelectMode(false); setSelectedIds(new Set()); }}
+            >
+              <Feather name="x" size={22} color={COLORS.textSecondary} />
+            </TouchableOpacity>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: COLORS.text }}>
+              已选 {selectedIds.size} 个
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              backgroundColor: selectedIds.size > 0 ? COLORS.primary : '#D1D5DB',
+              paddingHorizontal: 20,
+              paddingVertical: 10,
+              borderRadius: 20,
+            }}
+            onPress={handleGenerateNote}
+            disabled={selectedIds.size === 0}
+          >
+            <Feather name="edit-3" size={16} color="#FFF" />
+            <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 14 }}>生成笔记</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Select mode header hint */}
+      {selectMode && (
+        <View style={{
+          position: 'absolute',
+          top: insets.top + 16,
+          left: 0,
+          right: 0,
+          alignItems: 'center',
+          zIndex: 10,
+          pointerEvents: 'none',
+        }}>
+          <View style={{
+            backgroundColor: COLORS.primary,
+            paddingHorizontal: 16,
+            paddingVertical: 6,
+            borderRadius: 20,
+            opacity: 0.9,
+          }}>
+            <Text style={{ color: '#FFF', fontSize: 13, fontWeight: '600' }}>
+              长按进入多选 · 已选 {selectedIds.size} 项
+            </Text>
+          </View>
+        </View>
+      )}
     </Screen>
+
+    {/* Note Helper Panel */}
+    <NoteHelperPanel
+      visible={noteHelperVisible}
+      onClose={() => {
+        setNoteHelperVisible(false);
+        setSelectMode(false);
+        setSelectedIds(new Set());
+      }}
+      sourceFiles={noteHelperSourceFiles}
+      onGenerate={handleNoteHelperGenerate}
+    />
+    </>
   );
 }
 

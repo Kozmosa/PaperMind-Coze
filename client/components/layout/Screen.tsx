@@ -210,8 +210,10 @@ const RawScreen = ({
       : 0,
   };
 
-  // 若子树不可滚动，则外层使用 KeyboardAwareScrollView 提供“全局页面滑动”能力
-  const useScrollContainer = !childIsNativeScrollable;
+  // 若子树不可滚动，则外层使用 KeyboardAwareScrollView 提供”全局页面滑动”能力
+  // Web 平台不使用 KeyboardAwareScrollView：浏览器原生处理键盘避让，
+  // 且 KeyboardAwareScrollView 在 web 上会导致 flex:1 子元素高度塌陷为 0
+  const useScrollContainer = !childIsNativeScrollable && Platform.OS !== 'web';
 
   // 2. 滚动容器配置
   // 如果使用滚动容器，则使用 KeyboardAwareScrollView 替代原有的 ScrollView

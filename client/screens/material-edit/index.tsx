@@ -10,9 +10,12 @@ import { useCallback, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import { Screen } from '@/components/Screen';
+import { Screen } from '@/components/layout/Screen';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
 import { api } from '@/utils/api';
+import NoteHelperFab from '@/components/note-helper/NoteHelperFab';
+import NoteHelperPanel from '@/components/note-helper/NoteHelperPanel';
+import type { Citation } from '@/components/note-helper/NoteHelperPanel';
 
 const C = {
   bg: '#FFFFFF',
@@ -41,6 +44,24 @@ export default function MaterialViewScreen() {
   const [reprocessing, setReprocessing] = useState(false);
   const [showPapercore, setShowPapercore] = useState(true);
   const [loadError, setLoadError] = useState('');
+
+  // Note Helper state
+  const [noteHelperVisible, setNoteHelperVisible] = useState(false);
+
+  const handleNoteHelperGenerate = async (signal: { aborted: boolean }) => {
+    const sourceFiles = id ? [{ id, type: 'material' as const, title: fileName || '资料', logicalPath }] : [];
+    let fullContent = '';
+    let extractedCitations: Citation[] = [];
+    await api.generateNoteStream(
+      sourceFiles,
+      (chunk) => { fullContent += chunk; },
+      (cits) => { extractedCitations = cits; },
+      undefined,
+      signal,
+    );
+    if (signal.aborted) return null;
+    return { content: fullContent, citations: extractedCitations };
+  };
 
   const isPDF = fileType === 'PDF';
 
@@ -138,6 +159,7 @@ export default function MaterialViewScreen() {
   }
 
   return (
+    <>
     <Screen backgroundColor={C.bg} safeAreaEdges={['left', 'right', 'bottom']}>
       <View style={{ flex: 1, backgroundColor: C.bg }}>
         {/* ======== Header ======== */}
@@ -330,7 +352,22 @@ export default function MaterialViewScreen() {
           ) : null}
         </View>
       </View>
-    </Screen>
+
+      </Screen>
+
+      {/* Note Helper FAB - outside Screen for true floating */}
+      <NoteHelperFab
+        onPress={() => setNoteHelperVisible(true)}
+        selected={!!id}
+      />
+
+      <NoteHelperPanel
+        visible={noteHelperVisible}
+        onClose={() => setNoteHelperVisible(false)}
+        sourceFiles={id ? [{ id, type: 'material', title: fileName || '资料', logicalPath }] : []}
+        onGenerate={handleNoteHelperGenerate}
+      />
+    </>
   );
 }
 

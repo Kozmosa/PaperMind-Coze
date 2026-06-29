@@ -5,6 +5,23 @@ import { getSupabaseClient } from '../storage/database/supabase-client.js';
 const router = Router();
 const client = getSupabaseClient();
 
+// 获取单个学习纪要
+router.get('/:id', async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).userId;
+    let query = client.from('study_notes').select('*').eq('id', req.params.id);
+    if (userId && userId !== 'guest') {
+      query = query.eq('user_id', userId);
+    }
+    const { data, error } = await query.single();
+    if (error) throw new Error(error.message);
+    if (!data) return res.status(404).json({ error: 'Study note not found' });
+    res.json({ data });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 获取所有学习纪要
 router.get('/', async (req: Request, res: Response) => {
   try {

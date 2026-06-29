@@ -2,7 +2,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { LogBox } from 'react-native';
 import Toast from 'react-native-toast-message';
-import { Provider } from '@/components/Provider';
+import { Provider } from '@/components/layout/Provider';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { useSegments, useRootNavigationState } from 'expo-router';
@@ -54,6 +54,7 @@ export default function RootLayout() {
           <Stack.Screen name="ai-chat" options={{ headerShown: false }} />
           <Stack.Screen name="study-note-edit" options={{ headerShown: false }} />
           <Stack.Screen name="material-edit" options={{ headerShown: false }} />
+          <Stack.Screen name="note-helper-fullscreen" options={{ headerShown: false }} />
           <Stack.Screen name="problem-solving-logs" options={{ headerShown: false }} />
           <Stack.Screen name="reflection" options={{ headerShown: false }} />
         </Stack>

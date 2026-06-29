@@ -1,6 +1,6 @@
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
 import { useState } from 'react';
-import { Screen } from '@/components/Screen';
+import { Screen } from '@/components/layout/Screen';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { Feather } from '@expo/vector-icons';

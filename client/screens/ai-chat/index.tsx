@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, FlatList, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
-import { Screen } from '@/components/Screen';
+import { Screen } from '@/components/layout/Screen';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
 import RNSSE from 'react-native-sse';
 import { Ionicons } from '@expo/vector-icons';

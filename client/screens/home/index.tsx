@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Screen } from '@/components/Screen';
+import { Screen } from '@/components/layout/Screen';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { api } from '@/utils/api';
 

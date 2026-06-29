@@ -13,8 +13,8 @@ import {
 import { useCallback, useState, useRef, useEffect } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import { Screen } from '@/components/Screen';
-import MarkdownRenderer from '@/components/MarkdownRenderer';
+import { Screen } from '@/components/layout/Screen';
+import MarkdownRenderer from '@/components/markdown/MarkdownRenderer';
 import { api } from '@/utils/api';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import * as ImagePicker from 'expo-image-picker';

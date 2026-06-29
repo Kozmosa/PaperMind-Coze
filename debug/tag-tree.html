@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PaperMind 标签分类树</title>
+<style>
+  :root {
+    --l1: #e74c3c;
+    --l2: #2e86c1;
+    --l3: #27ae60;
+    --bg: #f8f9fa;
+    --card: #fff;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: #2c3e50; min-height: 100vh; }
+  .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: #fff; padding: 24px 32px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 12px rgba(0,0,0,.2); }
+  .header h1 { font-size: 22px; font-weight: 600; letter-spacing: .5px; }
+  .header .stats { font-size: 13px; opacity: .75; margin-top: 4px; }
+  .container { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
+  .tree { padding-left: 0; }
+  .l1-root { border-left: 3px solid var(--l1); }
+  .l1-header { display: flex; align-items: center; gap: 10px; padding: 14px 20px; background: #fff; border-radius: 8px; margin: 0 0 20px 0; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.06); transition: box-shadow .2s; }
+  .l1-header:hover { box-shadow: 0 2px 10px rgba(0,0,0,.1); }
+  .l1-name { font-size: 19px; font-weight: 700; color: var(--l1); }
+  .l1-count { background: var(--l1); color: #fff; font-size: 12px; padding: 3px 10px; border-radius: 12px; font-weight: 600; }
+  .l2-list { padding-left: 28px; display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 12px; }
+  .l2-card { background: var(--card); border-radius: 8px; border-left: 3px solid var(--l2); box-shadow: 0 1px 3px rgba(0,0,0,.05); overflow: hidden; transition: box-shadow .2s; }
+  .l2-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.1); }
+  .l2-header { display: flex; align-items: center; gap: 8px; padding: 10px 14px; cursor: pointer; user-select: none; background: #fafbfc; border-bottom: 1px solid #eef2f7; }
+  .l2-toggle { font-size: 10px; color: #7f8c8d; transition: transform .2s; width: 14px; text-align: center; }
+  .l2-toggle.open { transform: rotate(90deg); }
+  .l2-name { font-size: 15px; font-weight: 600; color: var(--l2); flex: 1; }
+  .l2-count { font-size: 11px; color: #7f8c8d; }
+  .l3-list { max-height: 0; overflow: hidden; transition: max-height .35s ease; }
+  .l3-list.open { max-height: 2000px; }
+  .l3-item { display: flex; align-items: center; gap: 6px; padding: 6px 14px 6px 24px; font-size: 13px; color: #555; border-bottom: 1px solid #f5f6f8; }
+  .l3-item:last-child { border-bottom: none; }
+  .l3-bullet { width: 6px; height: 6px; border-radius: 50%; background: var(--l3); flex-shrink: 0; }
+  .l3-name { flex: 1; word-break: break-all; }
+  .legend { display: flex; gap: 16px; padding: 12px 20px; font-size: 12px; color: #888; }
+  .legend span { display: flex; align-items: center; gap: 5px; }
+  .legend .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .loading { text-align: center; padding: 60px; color: #aaa; font-size: 16px; }
+  .empty-l2 { opacity: .5; }
+  .summary-bar { display: flex; gap: 20px; flex-wrap: wrap; padding: 16px 0; border-top: 1px solid #eef2f7; margin-top: 24px; }
+  .summary-item { font-size: 13px; color: #666; }
+  .summary-item b { color: #2c3e50; }
+  @media (max-width: 500px) {
+    .l2-list { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>PaperMind 知识分类树</h1>
+  <div class="stats" id="headerStats">加载中...</div>
+</div>
+<div class="container">
+  <div class="tree" id="tree"><div class="loading">加载中...</div></div>
+  <div class="summary-bar" id="summary"></div>
+  <div class="legend">
+    <span><span class="dot" style="background:var(--l1)"></span> 一级学科 L1</span>
+    <span><span class="dot" style="background:var(--l2)"></span> 二级学科 L2</span>
+    <span><span class="dot" style="background:var(--l3)"></span> 章节标题 L3</span>
+  </div>
+</div>
+<script>
+const API = '/api/v1/knowledge-builder/graph-data';
+
+async function build() {
+  try {
+    const res = await fetch(API, { headers: { 'x-user-id': '11111111-1111-1111-1111-111111111111' } });
+    const json = await res.json();
+    const nodes = json.data.nodes || [];
+
+    // Group nodes
+    const l1nodes = nodes.filter(n => n.level === 'L1');
+    const l2nodes = nodes.filter(n => n.level === 'L2');
+    const l3nodes = nodes.filter(n => n.level === 'L3');
+
+    document.getElementById('headerStats').textContent =
+      `${l1nodes.length} 个一级学科 · ${l2nodes.length} 个二级学科 · ${l3nodes.length} 个章节标题 · 共 ${json.data.totalRecords} 个文档`;
+
+    const l2Map = new Map(); // L1_name -> [L2 nodes]
+    const l3Map = new Map(); // L2_id -> [L3 nodes]
+    l2nodes.forEach(n => {
+      const l1Name = n.parentId?.replace('tag_L1_', '') || '未知';
+      if (!l2Map.has(l1Name)) l2Map.set(l1Name, []);
+      l2Map.get(l1Name).push(n);
+    });
+    l3nodes.forEach(n => {
+      const l2id = n.parentId || '';
+      if (!l3Map.has(l2id)) l3Map.set(l2id, []);
+      l3Map.get(l2id).push(n);
+    });
+
+    // Sort L2 by count desc
+    l2Map.forEach((lst, key) => lst.sort((a, b) => b.count - a.count));
+
+    let html = '';
+    l1nodes.sort((a, b) => b.count - a.count).forEach(l1 => {
+      const l2list = l2Map.get(l1.name) || [];
+      html += `<div class="l1-root">`;
+      html += `<div class="l1-header" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">`;
+      html += `<span class="l1-name">${esc(l1.name)}</span><span class="l1-count">${l1.count} 文档</span>`;
+      html += `</div><div class="l2-list">`;
+
+      l2list.forEach(l2 => {
+        const l3s = l3Map.get(l2.id) || [];
+        const l3sSorted = l3s.sort((a, b) => b.count - a.count);
+        html += `<div class="l2-card">`;
+        html += `<div class="l2-header" onclick="toggleL2(this)">`;
+        html += `<span class="l2-toggle${l3s.length > 0 ? ' open' : ''}">▶</span>`;
+        html += `<span class="l2-name">${esc(l2.name)}</span>`;
+        html += `<span class="l2-count">${l2.count} 文档 · ${l3s.length} 章节</span>`;
+        html += `</div>`;
+        html += `<div class="l3-list${l3s.length > 0 ? ' open' : ''}">`;
+        l3sSorted.forEach(l3 => {
+          html += `<div class="l3-item"><span class="l3-bullet"></span><span class="l3-name">${esc(l3.name)}</span></div>`;
+        });
+        if (l3s.length === 0) html += `<div class="l3-item" style="color:#aaa">&lt;无章节标题&gt;</div>`;
+        html += `</div></div>`;
+      });
+      html += `</div></div>`;
+    });
+    document.getElementById('tree').innerHTML = html;
+
+    // Summary
+    let summary = '';
+    l2Map.forEach((lst, l1) => {
+      lst.forEach(l2 => {
+        const l3s = l3Map.get(l2.id) || [];
+        summary += `<div class="summary-item">/${esc(l1)}/<b>${esc(l2.name)}</b>/ (${l2.count}文档, ${l3s.length}章节)</div>`;
+      });
+    });
+    document.getElementById('summary').innerHTML = summary;
+  } catch (e) {
+    document.getElementById('tree').innerHTML = `<div class="loading" style="color:#e74c3c">加载失败: ${esc(e.message)}<br><small>请确认服务器是否正常运行</small></div>`;
+  }
+}
+
+function toggleL2(header) {
+  const toggle = header.querySelector('.l2-toggle');
+  const list = header.nextElementSibling;
+  toggle.classList.toggle('open');
+  list.classList.toggle('open');
+}
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+build();
+</script>
+</body>
+</html>

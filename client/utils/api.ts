@@ -339,6 +339,7 @@ export const api = {
   getGraphData: () => request<any>('/knowledge-builder/graph-data'),
   getTagDocuments: (tag: string) =>
     request<any[]>(`/knowledge-builder/tag-documents?tag=${encodeURIComponent(tag)}`),
+  rebuildAllTags: () => request<any>('/knowledge-builder/rebuild-all', { method: 'POST' }),
 
   // Control Center
   markViewed: (type: 'study_note' | 'material', id: string) =>
@@ -349,4 +350,138 @@ export const api = {
 
   // Get combined recent records (study_notes + materials)
   getRecentRecords: () => request<any[]>('/control-center/recent-records'),
+
+  // Note Helper — SSE 流式生成笔记
+  generateNoteStream: (
+    sourceIds: Array<{ id: string; type: 'study_note' | 'material' }>,
+    onChunk: (chunk: string) => void,
+    onCitations: (citations: any[]) => void,
+    onPreferencesExtracted?: (prefs: any) => void,
+    signal?: { aborted: boolean },
+  ): Promise<string> => {
+    return new Promise(async (resolve, reject) => {
+      try {
+        const url = `${BASE_URL}/api/v1/ai/generate-note`;
+        const token = await getSessionToken();
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', url);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        if (token) xhr.setRequestHeader('x-session', token);
+
+        let lastIndex = 0;
+        xhr.onprogress = () => {
+          if (signal?.aborted) {
+            xhr.abort();
+            resolve('');
+            return;
+          }
+          const newText = xhr.responseText.substring(lastIndex);
+          lastIndex = xhr.responseText.length;
+          const lines = newText.split('\n');
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6);
+              if (data === '[DONE]') return;
+              try {
+                const parsed = JSON.parse(data);
+                if (parsed.content) {
+                  onChunk(parsed.content);
+                }
+                if (parsed.citations) {
+                  onCitations(parsed.citations);
+                }
+                if (parsed.error) {
+                  reject(new Error(parsed.error));
+                }
+              } catch {}
+            }
+          }
+        };
+        xhr.onload = () => {
+          if (xhr.status === 200) {
+            resolve('');
+          } else {
+            reject(new Error(`Generate failed: ${xhr.status}`));
+          }
+        };
+        xhr.onerror = () => reject(new Error('Network error'));
+        xhr.send(JSON.stringify({ sourceIds }));
+      } catch (e) {
+        reject(e);
+      }
+    });
+  },
+
+  // Note Helper — SSE 流式修正笔记
+  refineNoteStream: (
+    currentNote: string,
+    refinementPrompt: string,
+    sourceIds: Array<{ id: string; type: 'study_note' | 'material' }>,
+    onChunk: (chunk: string) => void,
+    onPreferencesExtracted?: (prefs: any) => void,
+    signal?: { aborted: boolean },
+  ): Promise<string> => {
+    return new Promise(async (resolve, reject) => {
+      try {
+        const url = `${BASE_URL}/api/v1/ai/refine-note`;
+        const token = await getSessionToken();
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', url);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        if (token) xhr.setRequestHeader('x-session', token);
+
+        let lastIndex = 0;
+        xhr.onprogress = () => {
+          if (signal?.aborted) {
+            xhr.abort();
+            resolve('');
+            return;
+          }
+          const newText = xhr.responseText.substring(lastIndex);
+          lastIndex = xhr.responseText.length;
+          const lines = newText.split('\n');
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6);
+              if (data === '[DONE]') return;
+              try {
+                const parsed = JSON.parse(data);
+                if (parsed.content) {
+                  onChunk(parsed.content);
+                }
+                if (parsed.preferences_extracted && onPreferencesExtracted) {
+                  onPreferencesExtracted(parsed.preferences_extracted);
+                }
+                if (parsed.error) {
+                  reject(new Error(parsed.error));
+                }
+              } catch {}
+            }
+          }
+        };
+        xhr.onload = () => {
+          if (xhr.status === 200) {
+            resolve('');
+          } else {
+            reject(new Error(`Refine failed: ${xhr.status}`));
+          }
+        };
+        xhr.onerror = () => reject(new Error('Network error'));
+        xhr.send(JSON.stringify({ currentNote, refinementPrompt, sourceIds }));
+      } catch (e) {
+        reject(e);
+      }
+    });
+  },
+
+  // Get a single study note by ID
+  getStudyNote: (id: string) => request<any>(`/study-notes/${id}`),
+
+  // Get source file content for sidebar preview
+  getSourceFileContent: async (id: string, type: 'study_note' | 'material') => {
+    if (type === 'study_note') {
+      return request<any>(`/study-notes/${id}`);
+    }
+    return request<any>(`/materials/${id}/file-content`);
+  },
 };
