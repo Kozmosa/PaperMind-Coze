@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>PaperMind · 完整APP测试</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
 <style>
   /* ============================================================
      PaperMind — Neumorphic · 暖灰薰衣草 · per DESIGN.md
@@ -483,7 +486,7 @@
 
   /* ── NoteHelper Panel ── */
   .nh-panel-mask {
-    position: absolute; inset: 0; z-index: 95;
+    position: absolute; inset: 0; z-index: 105;
     background: rgba(45,52,54,0.35);
     display: none; flex-direction: column; justify-content: flex-end;
   }
@@ -521,6 +524,155 @@
   .folder-picker-item:active { background: var(--surface); }
   .folder-picker-item.selected { background: var(--pri-pale); color: var(--primary); font-weight: 700; }
 
+
+  /* ── NoteHelper Fullscreen ── */
+  .nh-fullscreen {
+    position: absolute; inset: 0; z-index: 105; background: var(--bg);
+    display: none; flex-direction: column;
+    transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+  }
+  .nh-fullscreen.show { display: flex; transform: translateY(0); }
+  .nh-fs-topbar {
+    display: flex; align-items: center; gap: 10px; padding: 10px 16px;
+    background: var(--bg); border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .nh-fs-content {
+    flex: 1; overflow-y: auto; padding: 18px; -webkit-overflow-scrolling: touch;
+  }
+  .nh-fs-content h1 { font-size: 22px; font-weight: 800; margin: 18px 0 10px; text-align: center; }
+  .nh-fs-content h2,.nh-fs-content h3,.nh-fs-content h4 { text-align: left; }
+  .nh-fs-content h2 { font-size: 18px; font-weight: 800; margin: 14px 0 8px; }
+  .nh-fs-content h3 { font-size: 16px; font-weight: 800; margin: 12px 0 6px; }
+  .nh-fs-content h4 { font-size: 15px; font-weight: 700; margin: 10px 0 6px; }
+  .nh-fs-content p { margin: 8px 0; line-height: 1.85; }
+  .nh-fs-content ul,.nh-fs-content ol { padding-left: 22px; margin: 6px 0; line-height: 1.8; }
+  .nh-fs-content code { background: var(--pri-pale); padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+  .nh-fs-content pre { background: var(--bg); padding: 14px; border-radius: 12px; overflow-x: auto; font-size: 13px; margin: 10px 0; box-shadow: var(--neu-pressed); }
+  .nh-fs-content blockquote { border-left: 3px solid var(--primary); padding-left: 14px; color: var(--text2); margin: 10px 0; }
+  .nh-fs-content table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 13px; }
+  .nh-fs-content th,.nh-fs-content td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; }
+  .nh-fs-content th { background: var(--pri-pale); font-weight: 700; }
+  .nh-fs-content .katex { font-size: 1.1em; }
+  .citation-mark {
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--pri-pale); color: var(--primary); font-weight: 700;
+    font-size: 11px; padding: 1px 6px; border-radius: 8px; cursor: pointer;
+    vertical-align: super; margin: 0 2px; transition: all 0.15s;
+  }
+  .citation-mark:active { background: var(--primary); color: #FFF; }
+  .nh-fs-bottombar {
+    display: flex; gap: 8px; padding: 10px 16px; flex-shrink: 0;
+    border-top: 1px solid var(--border); background: var(--bg);
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+  }
+  .quick-btn {
+    padding: 8px 16px; border-radius: 18px; border: none;
+    background: var(--bg); color: var(--text2); font-size: 13px; font-weight: 600;
+    cursor: pointer; font-family: inherit; white-space: nowrap;
+    box-shadow: var(--neu-raised-sm); transition: all 0.15s;
+  }
+  .quick-btn:active { box-shadow: var(--neu-pressed); background: var(--primary); color: #FFF; }
+
+  /* Source File Sidebar */
+  .nh-sidebar {
+    position: absolute; inset: 0; z-index: 110; display: none;
+    flex-direction: row;
+  }
+  .nh-sidebar.show { display: flex; }
+  .nh-sidebar-backdrop {
+    flex: 1; background: rgba(45,52,54,0.4);
+  }
+  .nh-sidebar-panel {
+    width: 85%; max-width: 330px; background: var(--bg);
+    display: flex; flex-direction: column;
+    box-shadow: -4px 0 16px rgba(0,0,0,0.1);
+  }
+  .nh-sb-header {
+    display: flex; align-items: center; gap: 10px; padding: 12px 16px;
+    border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .nh-sb-body { flex: 1; overflow-y: auto; }
+  .nh-sb-file-item {
+    display: flex; align-items: center; gap: 12px; padding: 14px 16px;
+    cursor: pointer; border-bottom: 1px solid var(--border); transition: background 0.1s;
+  }
+  .nh-sb-file-item:active { background: var(--surface); }
+  .nh-sb-file-icon {
+    width: 38px; height: 38px; border-radius: 12px; display: flex; align-items: center;
+    justify-content: center; font-size: 18px; flex-shrink: 0;
+  }
+  .nh-sb-file-preview { padding: 16px; font-size: 14px; line-height: 1.8; color: var(--text); }
+
+  /* ── Block Editor ── */
+  .be-overlay {
+    position: absolute; inset: 0; z-index: 100; background: var(--bg);
+    display: none; flex-direction: column;
+  }
+  .be-overlay.show { display: flex; }
+  .be-topbar {
+    display: flex; align-items: center; gap: 8px; padding: 8px 16px;
+    border-bottom: 1px solid var(--border); flex-shrink: 0; background: var(--bg);
+  }
+  .be-title-input {
+    width: 100%; padding: 12px 16px; border: none; outline: none; font-size: 20px;
+    font-weight: 800; font-family: inherit; background: transparent; color: var(--text);
+  }
+  .be-title-input::placeholder { color: var(--text3); }
+  .be-block-list { flex: 1; overflow-y: auto; padding: 12px 16px; }
+  .be-text-block {
+    background: var(--card); border-radius: var(--radius-lg); margin-bottom: 10px;
+    box-shadow: var(--neu-raised-sm); position: relative;
+  }
+  .be-text-block.dragging { opacity: 0.5; }
+  .be-textarea {
+    width: 100%; min-height: 90px; padding: 14px 40px 14px 16px; border: none;
+    border-radius: var(--radius-lg); font-size: 15px; font-family: inherit;
+    resize: vertical; outline: none; background: transparent; color: var(--text);
+    line-height: 1.75;
+  }
+  .be-textarea:focus { box-shadow: 0 0 0 2px var(--pri-pale); }
+  .be-block-handle {
+    position: absolute; top: 10px; right: 8px; cursor: grab; color: var(--text4);
+    font-size: 16px; padding: 4px; user-select: none; background: none; border: none;
+  }
+  .be-block-handle:active { cursor: grabbing; }
+  .be-block-delete {
+    position: absolute; bottom: 8px; right: 8px; cursor: pointer; color: var(--accent);
+    font-size: 14px; padding: 2px 6px; background: none; border: none;
+  }
+  .be-img-block,.be-file-block {
+    display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+    background: var(--card); border-radius: var(--radius-lg); margin-bottom: 10px;
+    box-shadow: var(--neu-raised-sm); position: relative;
+  }
+  .be-img-block img { max-width: 100%; max-height: 200px; border-radius: 10px; object-fit: cover; }
+  .be-img-block .be-img-wrap { flex: 1; min-width: 0; }
+  .be-bottom-bar {
+    display: flex; gap: 6px; padding: 8px 16px; border-top: 1px solid var(--border);
+    background: var(--bg); flex-shrink: 0; flex-wrap: wrap; align-items: center;
+  }
+  .fmt-btn {
+    width: 34px; height: 34px; border-radius: 10px; border: none;
+    background: var(--bg); color: var(--text2); font-size: 14px; font-weight: 700;
+    cursor: pointer; font-family: monospace; display: flex; align-items: center;
+    justify-content: center; box-shadow: var(--neu-raised-sm); transition: all 0.1s;
+  }
+  .fmt-btn:active { box-shadow: var(--neu-pressed); background: var(--primary); color: #FFF; }
+
+  /* Block reading mode */
+  .be-read-block {
+    padding: 14px 16px; line-height: 1.85; font-size: 15px; color: var(--text);
+  }
+  .be-read-block h1 { font-size: 22px; font-weight: 800; margin: 16px 0 8px; text-align: center; }
+  .be-read-block h2 { font-size: 18px; font-weight: 800; margin: 12px 0 6px; text-align: left; }
+  .be-read-block h3 { font-size: 16px; font-weight: 800; margin: 10px 0 6px; text-align: left; }
+  .be-read-block p { margin: 6px 0; }
+  .be-read-block ul,.be-read-block ol { padding-left: 22px; margin: 4px 0; }
+  .be-read-block code { background: var(--pri-pale); padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+  .be-read-block pre { background: var(--bg); padding: 12px; border-radius: 10px; overflow-x: auto; font-size: 13px; }
+  .be-read-block blockquote { border-left: 3px solid var(--primary); padding-left: 14px; color: var(--text2); }
+  .be-read-block .katex { font-size: 1.1em; }
+
 </style>
 </head>
 <body>
@@ -543,7 +695,7 @@
       </div>
 
       <div style="display:flex;gap:12px;margin-bottom:22px;">
-        <button class="btn btn-primary" style="flex:1;padding:13px;border-radius:16px;" onclick="switchTab(2)">✏️ 写入学习纪要</button>
+        <button class="btn btn-primary" style="flex:1;padding:13px;border-radius:16px;" onclick="openCreateNote()">✏️ 写入学习纪要</button>
         <button class="btn btn-neu" style="flex:1;padding:13px;border-radius:16px;" onclick="showCreateModal('material')">📤 上传资料</button>
       </div>
 
@@ -716,7 +868,7 @@
   </div>
 
   <!-- ======== NoteHelper FAB ======== -->
-  <button class="nh-fab" id="nh-fab" onclick="openNoteHelperPanel()">⚡</button>
+  <button class="nh-fab" id="nh-fab" onclick="event.stopPropagation();openNoteHelperPanel()">⚡</button>
 
   <!-- ======== NoteHelper Panel ======== -->
   <div class="nh-panel-mask" id="nh-panel-mask" onclick="closeNoteHelperPanel(event)">
@@ -779,6 +931,85 @@
         <button class="btn btn-neu" onclick="closeMoveFile()">取消</button>
         <button class="btn btn-primary" id="move-submit-btn" onclick="submitMoveFile()">移动</button>
       </div>
+    </div>
+  </div>
+
+
+  <!-- ======== NoteHelper Fullscreen ======== -->
+  <div class="nh-fullscreen" id="nh-fullscreen">
+    <div class="nh-fs-topbar">
+      <button class="fs-back" onclick="closeNHFullscreen()">←</button>
+      <button class="btn btn-neu" style="font-size:12px;padding:6px 12px;border-radius:12px;" onclick="toggleNHSidebar()" id="nh-sidebar-btn">📂 源文件</button>
+      <div style="flex:1;font-size:16px;font-weight:800;color:var(--text);text-align:center;">AI 生成笔记</div>
+      <button class="btn btn-primary" style="font-size:12px;padding:6px 16px;border-radius:14px;" onclick="saveNHNote()">💾 保存</button>
+    </div>
+    <div class="nh-fs-content" id="nh-fs-content">
+      <div style="text-align:center;padding:60px 0;color:var(--text3);">内容加载中...</div>
+    </div>
+    <div class="nh-fs-bottombar" id="nh-fs-bottombar">
+      <div style="width:100%;display:flex;gap:6px;align-items:center;margin-bottom:6px;">
+        <input class="input" id="nh-refine-input" placeholder="输入自然语言修改指令，如：用更学术化的语言重写第一段..." style="flex:1;font-size:13px;padding:10px 14px;border-radius:18px;"
+          onkeydown="if(event.key==='Enter'){refineNote(this.value);this.value='';}">
+        <button class="btn btn-primary" style="font-size:12px;padding:8px 16px;border-radius:14px;flex-shrink:0;" onclick="const inp=document.getElementById('nh-refine-input');if(inp.value.trim()){refineNote(inp.value);inp.value='';}">发送</button>
+      </div>
+      <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;width:100%;">
+      <button class="quick-btn" onclick="refineNote('请把内容写得更详细，补充更多解释和背景。')">📝 更详细</button>
+      <button class="quick-btn" onclick="refineNote('请把内容精简，只保留最核心的知识点。')">📋 更简洁</button>
+      <button class="quick-btn" onclick="refineNote('请用表格形式整理关键概念的对比。')">📊 表格对比</button>
+      <button class="quick-btn" onclick="refineNote('请为重要概念添加具体的例子帮助理解。')">💡 举例子</button>
+      <button class="quick-btn" onclick="refineNote('请突出标记重点内容和易错点。')">⭐ 突出重点</button>
+      </div>
+    </div>
+    <!-- Style Preferences -->
+    <div style="padding:8px 16px;border-top:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;gap:6px;" id="nh-style-bar">
+      <button class="btn btn-neu" style="font-size:11px;padding:4px 10px;border-radius:10px;flex-shrink:0;" onclick="toggleNHStylePrefs()" id="nh-style-toggle">🎨 笔记风格</button>
+      <div style="font-size:11px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" id="nh-style-preview">未设置风格偏好</div>
+    </div>
+    <div style="display:none;padding:6px 16px 10px;border-top:1px solid var(--border);flex-shrink:0;" id="nh-style-panel">
+      <textarea class="form-textarea" id="nh-style-input" placeholder="设置笔记风格偏好，AI 将按此风格生成笔记...&#10;&#10;例如：&#10;• 侦探式纠错与溯源，不盲从原文&#10;• 定理使用需条件审查与主动验证&#10;• 按数学逻辑流重组而非页码流&#10;• 强调反例与边界情况警示" style="min-height:80px;font-size:12px;"></textarea>
+      <div style="display:flex;gap:6px;margin-top:6px;justify-content:flex-end;">
+        <button class="btn btn-neu" style="font-size:11px;padding:4px 12px;border-radius:10px;" onclick="clearNHStylePrefs()">清除</button>
+        <button class="btn btn-primary" style="font-size:11px;padding:4px 12px;border-radius:10px;" onclick="saveNHStylePrefs()">保存偏好</button>
+      </div>
+    </div>
+    <!-- Source File Sidebar -->
+    <div class="nh-sidebar" id="nh-sidebar">
+      <div class="nh-sidebar-backdrop" onclick="toggleNHSidebar()"></div>
+      <div class="nh-sidebar-panel">
+        <div class="nh-sb-header">
+          <button class="fs-back" onclick="toggleNHSidebar()">←</button>
+          <div style="font-size:14px;font-weight:800;color:var(--text);">源文件</div>
+        </div>
+        <div class="nh-sb-body" id="nh-sb-body">
+          <div style="text-align:center;padding:40px;color:var(--text3);">暂无源文件</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== Block Editor Overlay ======== -->
+  <div class="be-overlay" id="be-overlay">
+    <div class="be-topbar">
+      <button class="fs-back" onclick="closeBlockEditor()">←</button>
+      <div style="flex:1;"></div>
+      <button class="btn btn-neu" style="font-size:13px;padding:7px 16px;border-radius:14px;" id="be-mode-btn" onclick="toggleBEMode()">📖 阅读</button>
+      <button class="btn btn-primary" style="font-size:13px;padding:7px 18px;border-radius:14px;" onclick="saveBlockEditor()">💾 保存</button>
+    </div>
+    <input class="be-title-input" id="be-title" placeholder="笔记标题...">
+    <div class="be-block-list" id="be-block-list"></div>
+    <div class="be-bottom-bar" id="be-bottom-bar">
+      <button class="fmt-btn" onclick="applyFormat('# ','H1')" title="标题1">H1</button>
+      <button class="fmt-btn" onclick="applyFormat('## ','H2')" title="标题2">H2</button>
+      <button class="fmt-btn" onclick="applyFormat('### ','H3')" title="标题3">H3</button>
+      <button class="fmt-btn" onclick="applyFormat('#### ','H4')" title="标题4">H4</button>
+      <span style="color:var(--text4);margin:0 4px;">|</span>
+      <button class="fmt-btn" onclick="applyFormat('- ','list')" title="无序列表">•</button>
+      <button class="fmt-btn" onclick="applyFormat('> ','quote')" title="引用">❝</button>
+      <button class="fmt-btn" onclick="applyFormat('\n\`\`\`\n\`\`\`\n','code')" title="代码块">&lt;/&gt;</button>
+      <span style="flex:1;"></span>
+      <button class="btn btn-neu" style="font-size:12px;padding:7px 14px;border-radius:14px;" onclick="addImageBlock()">🖼️ 图片</button>
+      <button class="btn btn-neu" style="font-size:12px;padding:7px 14px;border-radius:14px;" onclick="addFileBlock()">📎 文件</button>
+      <button class="btn btn-neu" style="font-size:12px;padding:7px 14px;border-radius:14px;" onclick="addTextBlock()">+ 文本块</button>
     </div>
   </div>
 
@@ -892,10 +1123,9 @@ async function loadControlCenter() {
       const icon=r.record_type==='study_note'?'📝':'📄';
       const unread=r.ai_processed&&!r.viewed_after_process;
       h+=`<div class="list-item" onclick="viewRecord(${i})">
-        <span class="li-left">${icon}</span>
+        <span class="li-left" style="position:relative;">${icon}<span class="li-dot" style="position:absolute;top:-2px;right:-2px;width:8px;height:8px;border-radius:50%;background:var(--primary);visibility:${unread?'visible':'hidden'};"></span></span>
         <div class="li-body"><div class="li-title">${esc(r.title||r.name||'未命名')}</div><div class="li-sub">${esc(fmtPath(r.logical_path))}</div></div>
         <div class="li-meta">
-          <span class="li-dot" style="visibility:${unread?'visible':'hidden'};"></span>
           <span class="li-date">${fmtDate(r.created_at)}</span>
           <button class="btn-icon" style="width:26px;height:26px;font-size:12px;flex-shrink:0;margin-left:6px;box-shadow:none;" onclick="event.stopPropagation();moveFromList(${i})" title="移动到其他文件夹">📁</button>
         </div></div>`;
@@ -910,7 +1140,7 @@ function viewRecord(idx){
   const r=_ctrlRecords[idx];if(!r)return;
   if(r.record_type==='study_note'){viewNoteFullscreen(r.id,r.title||r.name);return;}
   if(r.record_type==='material'){viewMaterialFullscreen(r.id,r.title||r.name||'未命名');return;}
-  showAppModal(`<h3>📄 ${esc(r.title||r.name||'未命名')}</h3><div class="body-text">${esc(r.papercore||'暂无内容')}</div>`);
+  showAppModal(`<h3>📄 ${esc(r.title||r.name||'未命名')}</h3><div class="body-text">${simpleMarkdown(r.papercore||'暂无内容')}</div>`);
 }
 
 // Move file from control center list
@@ -924,7 +1154,7 @@ function viewReflection(idx){
 	const r=_profileReflectionsData[idx];if(!r)return;
 	showAppModal(`<h3>📊 ${esc(r.period_label||'反思报告')}</h3>
 		<div style="margin-bottom:12px;"><span class="tag" style="background:var(--pri-pale);color:var(--primary);">${esc(r.period_type||'weekly')}</span><span class="tag" style="background:var(--pri-pale);color:var(--text2);margin-left:6px;">${fmtDate(r.created_at)}</span></div>
-		<div class="body-text" style="background:var(--surface);border-radius:14px;padding:14px;max-height:320px;overflow-y:auto;line-height:1.8;">${esc(r.content||r.papercore||'暂无内容')}</div>
+		<div class="body-text" style="background:var(--surface);border-radius:14px;padding:14px;max-height:320px;overflow-y:auto;line-height:1.8;">${simpleMarkdown(r.content||r.papercore||'暂无内容')}</div>
 		<div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-neu" onclick="closeAppModal()">关闭</button></div>`);
 }
 
@@ -1188,7 +1418,7 @@ function showReflectionsModal(){
         <div style="font-size:14px;font-weight:700;color:var(--text);">${esc(r.period_label||'反思报告')}</div>
         <span class="tag" style="background:var(--pri-pale);color:var(--primary);">${esc(r.period_type||'weekly')}</span>
       </div>
-      <div style="font-size:13px;color:var(--text2);line-height:1.7;max-height:100px;overflow-y:auto;">${esc(r.content||r.papercore||'').substring(0,300)}</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.7;max-height:100px;overflow-y:auto;">${simpleMarkdown((r.content||r.papercore||'').substring(0,300))}</div>
       <div class="meta-text" style="margin-top:8px;">${fmtDate(r.created_at)}</div>
     </div>`;
   });
@@ -1281,7 +1511,7 @@ async function viewNoteFullscreen(id, title) {
 
     // Papercore summary
     if (papercore) {
-      html += '<div class="card" style="margin-bottom:14px;"><div class="section-title">AI 摘要</div><div class="body-text" style="line-height:1.7;">' + esc(papercore) + '</div></div>';
+      html += '<div class="card" style="margin-bottom:14px;"><div class="section-title">AI 摘要</div><div class="body-text" style="line-height:1.7;">' + simpleMarkdown(papercore) + '</div></div>';
     }
 
     // Tags and path
@@ -1387,7 +1617,7 @@ async function viewMaterialFullscreen(id, title) {
     // Papercore & tags footer
     if (papercore || tags.length > 0) {
       html += '<div style="padding:14px 18px;border-top:1px solid var(--border);flex-shrink:0;max-height:180px;overflow-y:auto;">';
-      if (papercore) html += '<div class="section-title">AI 摘要</div><div class="body-text" style="font-size:13px;line-height:1.7;margin-bottom:8px;">' + esc(papercore) + '</div>';
+      if (papercore) html += '<div class="section-title">AI 摘要</div><div class="body-text" style="font-size:13px;line-height:1.7;margin-bottom:8px;">' + simpleMarkdown(papercore) + '</div>';
       if (tags.length > 0) html += tags.map(t => '<span class="tag" style="background:var(--pri-pale);color:var(--primary);margin-right:4px;">' + esc(t) + '</span>').join('');
       html += '</div>';
     }
@@ -1414,10 +1644,8 @@ function closeFullscreenMaterial() {
 let _nhGenAbort = null;
 
 function triggerNoteHelper() {
-  // Close any current viewer and open NoteHelper panel
-  closeFullscreenNote();
-  closeFullscreenMaterial();
-  setTimeout(() => openNoteHelperPanel(), 350);
+  // NoteHelper panel opens on top (z-index 105 > fs-overlay 100)
+  openNoteHelperPanel();
 }
 
 function openNoteHelperPanel() {
@@ -1456,7 +1684,7 @@ async function generateNoteStream() {
     const res = await fetch(API + '/ai/generate-note', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sourceIds }),
+      body: JSON.stringify({ sourceIds, stylePreferences: _nhStylePrefs || undefined }),
       signal: _nhGenAbort.signal
     });
 
@@ -1817,6 +2045,910 @@ async function submitMoveFile() {
 function closeMoveFile() {
   document.getElementById('move-file-mask').classList.remove('show');
   _moveFileId = null; _moveFileType = null; _moveSelectedPath = null;
+}
+
+
+// ═══════════════════════════════════════════════════
+// ENHANCED MARKDOWN + LATEX RENDERING
+// ═══════════════════════════════════════════════════
+function simpleMarkdown(md) {
+  if (!md) return '';
+  // Escape HTML but NOT backticks or $ (needed for code/LaTeX patterns below)
+  let h = String(md).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  // Headers
+  h = h.replace(/^#### (.+)$/gm, '<h4 style="text-align:left;">$1</h4>');
+  h = h.replace(/^### (.+)$/gm, '<h3 style="text-align:left;">$1</h3>');
+  h = h.replace(/^## (.+)$/gm, '<h2 style="text-align:left;">$1</h2>');
+  h = h.replace(/^# (.+)$/gm, '<h1 style="text-align:center;">$1</h1>');
+  // Bold and italic
+  h = h.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  h = h.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  // Inline code
+  h = h.replace(/`([^`]+)`/g, '<code>$1</code>');
+  // Blockquotes
+  h = h.replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>');
+  // Unordered lists
+  h = h.replace(/^[\-\*] (.+)$/gm, '<li>$1</li>');
+  // Ordered lists
+  h = h.replace(/^\d+\. (.+)$/gm, '<li>$1</li>');
+  // Tables
+  h = h.replace(/^\|(.+)\|$/gm, function(m) {
+    const cells = m.split('|').filter(c => c.trim());
+    if (cells.every(c => /^[-:]+$/.test(c.trim()))) return '';
+    const isHeader = m.includes('---');
+    const tag = isHeader ? '' : 'td';
+    return '<tr>' + cells.map(c => '<' + (tag||'th') + '>' + c.trim() + '</' + (tag||'th') + '>').join('') + '</tr>';
+  });
+  // Horizontal rules
+  h = h.replace(/^[-\*_]{3,}$/gm, '<hr style="border:none;border-top:1px solid var(--border);margin:16px 0;">');
+  // Paragraphs
+  h = '<p>' + h.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br/>') + '</p>';
+
+  // LaTeX: $...$ inline, $$...$$ display
+  h = h.replace(/\$\$(.+?)\$\$/g, function(_, tex) {
+    try { return katex.renderToString(tex, { displayMode: true, throwOnError: false }); }
+    catch(e) { return '<em>[LaTeX error]</em>'; }
+  });
+  h = h.replace(/\$(.+?)\$/g, function(_, tex) {
+    try { return katex.renderToString(tex, { displayMode: false, throwOnError: false }); }
+    catch(e) { return '<em>[LaTeX error]</em>'; }
+  });
+
+  return h;
+}
+
+// ═══════════════════════════════════════════════════
+// NOTEHELPER FULLSCREEN
+// ═══════════════════════════════════════════════════
+let _nhFullContent = '';
+let _nhCitations = [];
+let _nhSourceFiles = [];
+let _nhSidebarVisible = false;
+let _nhStylePrefs = localStorage.getItem('papermind_note_style') || '';
+
+function toggleNHStylePrefs() {
+  const panel = document.getElementById('nh-style-panel');
+  const toggle = document.getElementById('nh-style-toggle');
+  if (panel.style.display === 'none') {
+    panel.style.display = 'block';
+    toggle.textContent = '🎨 收起';
+    document.getElementById('nh-style-input').value = _nhStylePrefs;
+  } else {
+    panel.style.display = 'none';
+    toggle.textContent = '🎨 笔记风格';
+  }
+}
+
+function saveNHStylePrefs() {
+  _nhStylePrefs = document.getElementById('nh-style-input').value.trim();
+  localStorage.setItem('papermind_note_style', _nhStylePrefs);
+  document.getElementById('nh-style-panel').style.display = 'none';
+  document.getElementById('nh-style-toggle').textContent = '🎨 笔记风格';
+  document.getElementById('nh-style-preview').textContent = _nhStylePrefs ? '已设置: ' + _nhStylePrefs.substring(0, 40) + '...' : '未设置风格偏好';
+}
+
+function clearNHStylePrefs() {
+  _nhStylePrefs = '';
+  localStorage.removeItem('papermind_note_style');
+  document.getElementById('nh-style-input').value = '';
+  document.getElementById('nh-style-preview').textContent = '未设置风格偏好';
+}
+
+// Load saved prefs on init
+(function() {
+  const saved = localStorage.getItem('papermind_note_style');
+  if (saved) {
+    _nhStylePrefs = saved;
+    const preview = document.getElementById('nh-style-preview');
+    if (preview) preview.textContent = '已设置: ' + saved.substring(0, 40) + '...';
+  }
+})();
+
+function openNHFullscreen(content, citations, sourceFiles) {
+  _nhFullContent = content || '';
+  _nhCitations = citations || [];
+  _nhSourceFiles = sourceFiles || [];
+  _nhSidebarVisible = false;
+
+  document.getElementById('nh-fullscreen').classList.add('show');
+  document.getElementById('nh-fab').classList.remove('show');
+  document.getElementById('nh-sidebar').classList.remove('show');
+  renderNHContent();
+  renderNHSidebar();
+}
+
+function closeNHFullscreen() {
+  document.getElementById('nh-fullscreen').classList.remove('show');
+  document.getElementById('nh-sidebar').classList.remove('show');
+}
+
+function renderNHContent() {
+  const el = document.getElementById('nh-fs-content');
+  // Split by citation marks and render
+  const parts = _nhFullContent.split(/(\[来源:\d+\])/g);
+  let html = '';
+  parts.forEach(part => {
+    const m = part.match(/^\[来源:(\d+)\]$/);
+    if (m) {
+      const idx = parseInt(m[1]);
+      const cit = _nhCitations.find(c => c.index === idx);
+      html += '<span class="citation-mark" onclick="showCitation(' + idx + ')" title="' + esc(cit?.fileName || '来源') + '">[' + idx + ']</span>';
+    } else if (part.trim()) {
+      html += simpleMarkdown(part);
+    }
+  });
+  el.innerHTML = html || '<div style="text-align:center;padding:40px;color:var(--text3);">暂无内容</div>';
+  // Render LaTeX in the content
+  try { renderMathInElement(el); } catch(e) {}
+}
+
+function showCitation(idx) {
+  const cit = _nhCitations.find(c => c.index === idx);
+  if (!cit) return;
+  showAppModal('<h3>📎 来源 [' + idx + ']</h3>' +
+    '<div style="margin-bottom:8px;"><span class="tag" style="background:var(--pri-pale);color:var(--primary);">' + esc(cit.sourceType || '') + '</span> ' +
+    '<span style="font-size:14px;font-weight:700;color:var(--text);">' + esc(cit.fileName || '') + '</span></div>' +
+    (cit.highlightText ? '<div class="body-text" style="background:var(--bg);border-radius:12px;padding:12px;max-height:200px;overflow-y:auto;">' + esc(cit.highlightText) + '</div>' : '') +
+    '<div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-neu" onclick="closeAppModal()">关闭</button></div>');
+}
+
+function toggleNHSidebar() {
+  _nhSidebarVisible = !_nhSidebarVisible;
+  document.getElementById('nh-sidebar').classList.toggle('show', _nhSidebarVisible);
+  if (_nhSidebarVisible) renderNHSidebar();
+}
+
+async function renderNHSidebar() {
+  const body = document.getElementById('nh-sb-body');
+  if (!_nhSourceFiles.length) {
+    body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3);">📂 暂无源文件</div>';
+    return;
+  }
+
+  let html = '';
+  _nhSourceFiles.forEach((sf, i) => {
+    const citCount = _nhCitations.filter(c => c.sourceId === sf.id).length;
+    const icon = sf.type === 'study_note' ? '📝' : '📄';
+    const bgColor = sf.type === 'study_note' ? 'var(--success)' : 'var(--warn)';
+    html += '<div class="nh-sb-file-item" onclick="loadNHSourceFile(' + i + ')">' +
+      '<div class="nh-sb-file-icon" style="background:' + bgColor + '20;color:' + bgColor + ';">' + icon + '</div>' +
+      '<div style="flex:1;min-width:0;">' +
+      '<div style="font-size:14px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(sf.title || '未命名') + '</div>' +
+      '<div class="meta-text">' + (sf.logicalPath ? esc(fmtPath(sf.logicalPath)) : sf.type === 'study_note' ? '学习纪要' : '学习资料') + '</div>' +
+      '</div>' +
+      (citCount > 0 ? '<span class="tag" style="background:var(--pri-pale);color:var(--primary);">引用×' + citCount + '</span>' : '') +
+      '</div>';
+  });
+  body.innerHTML = html;
+}
+
+let _nhSourceFormatRendered = true;
+
+function toggleNHSourceFormat() {
+  _nhSourceFormatRendered = !_nhSourceFormatRendered;
+  const el = document.getElementById('nh-sb-preview-content');
+  const btn = document.getElementById('nh-sb-fmt-toggle');
+  const raw = window._nhSourceRawContent || '';
+  if (_nhSourceFormatRendered) {
+    el.innerHTML = simpleMarkdown(raw.substring(0, 8000)) + (raw.length > 8000 ? '<div style="text-align:center;color:var(--text3);padding:10px;">... 内容已截断</div>' : '');
+    btn.textContent = '📋 原格式';
+    try { renderMathInElement(el); } catch(e) {}
+  } else {
+    el.innerHTML = '<pre style="white-space:pre-wrap;font-family:inherit;font-size:14px;line-height:1.8;margin:0;">' + esc(raw.substring(0, 8000)) + '</pre>' + (raw.length > 8000 ? '<div style="text-align:center;color:var(--text3);padding:10px;">... 原内容已截断</div>' : '');
+    btn.textContent = '✨ 渲染';
+  }
+}
+
+async function loadNHSourceFile(idx) {
+  const sf = _nhSourceFiles[idx];
+  if (!sf) return;
+  const body = document.getElementById('nh-sb-body');
+  body.innerHTML = '<div style="text-align:center;padding:40px;"><div class="spinner"></div></div>';
+
+  try {
+    let content = '';
+    if (sf.type === 'study_note') {
+      const res = await safeFetch(API + '/study-notes/' + sf.id);
+      if (res.ok) {
+        const json = await res.json();
+        const note = json.data || json;
+        if (note.blocks && note.blocks.length) {
+          content = note.blocks.filter(b => b.type === 'text').map(b => b.content).join('\n\n');
+        } else {
+          content = note.content || '';
+        }
+      }
+    } else {
+      const res = await safeFetch(API + '/materials/' + sf.id + '/file-content');
+      if (res.ok) {
+        const json = await res.json();
+        const data = json.data || json;
+        if (data.pages && data.pages.length) {
+          content = data.pages.join('\n\n');
+        } else if (data.content) {
+          content = data.content;
+        }
+      }
+    }
+
+    // Store raw content for toggle
+    window._nhSourceRawContent = content;
+    body.innerHTML = '<div class="nh-sb-file-preview">' +
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">' +
+      '<div style="flex:1;font-size:16px;font-weight:800;color:var(--text);">' + esc(sf.title || '源文件') + '</div>' +
+      '<button class="btn btn-neu" style="font-size:11px;padding:5px 12px;border-radius:10px;flex-shrink:0;" id="nh-sb-fmt-toggle" onclick="toggleNHSourceFormat()">📋 原格式</button>' +
+      '</div>' +
+      '<div style="line-height:1.85;color:var(--text);max-height:70vh;overflow-y:auto;" id="nh-sb-preview-content">' +
+      simpleMarkdown(content.substring(0, 8000)) +
+      (content.length > 8000 ? '<div style="text-align:center;color:var(--text3);padding:10px;">... 内容已截断</div>' : '') +
+      '</div></div>';
+    try { renderMathInElement(body); } catch(e) {}
+  } catch (e) {
+    body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text2);">加载失败: ' + esc(e.message) + '</div>';
+  }
+}
+
+async function refineNote(prompt) {
+  if (!prompt || !_nhFullContent) return;
+  const el = document.getElementById('nh-fs-content');
+  el.innerHTML = '<div style="text-align:center;padding:40px;"><div class="spinner"></div><div class="meta-text" style="margin-top:10px;">正在优化...</div></div>';
+
+  const sourceIds = _nhSourceFiles.map(sf => ({ id: sf.id, type: sf.type || 'study_note' }));
+
+  try {
+    const res = await fetch(API + '/ai/refine-note', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentNote: _nhFullContent, refinementPrompt: prompt, sourceIds, stylePreferences: _nhStylePrefs || undefined })
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '', fullContent = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6).trim();
+          if (data === '[DONE]') break;
+          try { const p = JSON.parse(data); if (p.content) { fullContent += p.content; _nhFullContent = fullContent; renderNHContent(); el.scrollTop = el.scrollHeight; } } catch {}
+        }
+      }
+    }
+    renderNHContent();
+  } catch (e) {
+    el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text2);">优化失败: ' + esc(e.message) + '<br/><button class="btn btn-neu" style="margin-top:12px;" onclick="refineNote(\'' + esc(prompt).replace(/'/g, "\\'") + '\')">重试</button></div>';
+  }
+}
+
+async function saveNHNote() {
+  if (!_nhFullContent) return;
+  try {
+    // Split content into blocks by heading markers
+    const blocks = [];
+    const sections = _nhFullContent.split(/\n\n(?=#{1,4}\s)/);
+    sections.forEach((section, i) => {
+      blocks.push({ id: String(i + 1), type: 'text', content: section.trim() });
+    });
+
+    const title = _nhFullContent.split(/[\n。]/)[0].substring(0, 50);
+    const body = { title, content: _nhFullContent, blocks, tags: [] };
+
+    // Inherit logical_path from first source file
+    const sfWithPath = _nhSourceFiles.find(sf => sf.logicalPath);
+    if (sfWithPath) body.logical_path = sfWithPath.logicalPath;
+
+    const res = await safeFetch(API + '/study-notes', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    const newId = json.data?.id || json.id;
+
+    closeNHFullscreen();
+    if (newId) {
+      safeFetch(API + '/knowledge-builder/process-content', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'study_note', id: newId })
+      }).catch(() => {});
+      setTimeout(() => viewNoteFullscreen(newId, title), 500);
+    }
+  } catch (e) { alert('保存失败: ' + e.message); }
+}
+
+// ═══════════════════════════════════════════════════
+// UPDATED NoteHelper Panel — opens fullscreen on "enter fullscreen"
+// ═══════════════════════════════════════════════════
+// Override the save in panel to open fullscreen instead
+let _panelContent = '';
+let _panelCitations = [];
+
+// Replace the generateNoteStream result handling
+const origGenerateNoteStream = generateNoteStream;
+generateNoteStream = async function() {
+  // Call original implementation but intercept the result
+  const sourceIds = [];
+  if (_fsNoteId) sourceIds.push({ id: _fsNoteId, type: _fsNoteType || 'study_note' });
+  if (_fsMatId && _fsMatId !== _fsNoteId) sourceIds.push({ id: _fsMatId, type: 'material' });
+
+  if (!sourceIds.length) {
+    document.getElementById('nh-panel-loading').style.display = 'none';
+    document.getElementById('nh-panel-result').style.display = 'block';
+    document.getElementById('nh-panel-result').innerHTML = '<div class="meta-text" style="text-align:center;padding:20px;">请先打开一份学习纪要或资料，再使用 AI 生成笔记。</div>';
+    return;
+  }
+
+  const resultEl = document.getElementById('nh-panel-result');
+  const loadingEl = document.getElementById('nh-panel-loading');
+
+  try {
+    const res = await fetch(API + '/ai/generate-note', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sourceIds })
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+
+    loadingEl.style.display = 'none';
+    resultEl.style.display = 'block';
+    resultEl.innerHTML = '<span class="generating-cursor"></span>';
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '', fullContent = '', citations = [];
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6).trim();
+          if (data === '[DONE]') break;
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.content) {
+              fullContent += parsed.content;
+              resultEl.innerHTML = simpleMarkdown(fullContent) + '<span class="generating-cursor"></span>';
+              resultEl.scrollTop = resultEl.scrollHeight;
+            }
+            if (parsed.citations) citations = parsed.citations;
+          } catch {}
+        }
+      }
+    }
+
+    resultEl.innerHTML = simpleMarkdown(fullContent);
+    _panelContent = fullContent;
+    _panelCitations = citations;
+
+    // Build source files list
+    const sfs = [];
+    if (_fsNoteId) {
+      let title = document.getElementById('fs-note-title')?.textContent || '学习纪要';
+      sfs.push({ id: _fsNoteId, type: _fsNoteType || 'study_note', title: title, logicalPath: '' });
+    }
+    if (_fsMatId && _fsMatId !== _fsNoteId) {
+      let title = document.getElementById('fs-mat-title')?.textContent || '学习资料';
+      sfs.push({ id: _fsMatId, type: 'material', title: title });
+    }
+
+    document.getElementById('nh-panel-actions').innerHTML =
+      '<button class="btn btn-primary" style="font-size:13px;padding:8px 18px;border-radius:14px;" onclick="openNHFullscreenFromPanel()">🖥️ 全屏编辑</button>' +
+      '<button class="btn btn-neu" style="font-size:13px;padding:8px 18px;border-radius:14px;" onclick="saveGeneratedNote()">📝 快速保存</button>';
+
+    window._nhSourceFilesForPanel = sfs;
+
+  } catch (e) {
+    loadingEl.style.display = 'none';
+    resultEl.style.display = 'block';
+    resultEl.innerHTML = '<div style="text-align:center;color:var(--text2);padding:20px;">生成失败: ' + esc(e.message) + '</div>';
+  }
+};
+
+function openNHFullscreenFromPanel() {
+  closeNoteHelperPanel();
+  setTimeout(() => {
+    openNHFullscreen(_panelContent, _panelCitations, window._nhSourceFilesForPanel || []);
+  }, 350);
+}
+
+// ═══════════════════════════════════════════════════
+// BLOCK EDITOR — study note edit/read modes
+// ═══════════════════════════════════════════════════
+let _beId = null;          // existing note ID (if editing)
+let _beMode = 'edit';      // 'edit' | 'read'
+let _beBlocks = [];        // [{id,type,content|uri|name}]
+let _beTags = [];
+let _beLogicalPath = '';
+let _bePapercore = '';
+
+function openBlockEditor(id, title, blocks, tags, papercore, logicalPath) {
+  _beId = id || null;
+  _beMode = id ? 'read' : 'edit';  // existing notes open in read mode
+  _beBlocks = (blocks && blocks.length) ? blocks : [{ id: '1', type: 'text', content: '' }];
+  _beTags = tags || [];
+  _bePapercore = papercore || '';
+  _beLogicalPath = logicalPath || '';
+
+  document.getElementById('be-title').value = title || '';
+  document.getElementById('be-overlay').classList.add('show');
+  updateBEModeUI();
+  renderBEBlocks();
+}
+
+function closeBlockEditor() {
+  document.getElementById('be-overlay').classList.remove('show');
+}
+
+function toggleBEMode() {
+  _beMode = _beMode === 'edit' ? 'read' : 'edit';
+  updateBEModeUI();
+  renderBEBlocks();
+}
+
+function updateBEModeUI() {
+  const btn = document.getElementById('be-mode-btn');
+  const bar = document.getElementById('be-bottom-bar');
+  if (_beMode === 'edit') {
+    btn.innerHTML = '📖 阅读';
+    btn.className = 'btn btn-neu';
+    bar.style.display = 'flex';
+    document.getElementById('be-title').readOnly = false;
+    document.getElementById('be-title').style.pointerEvents = 'auto';
+  } else {
+    btn.innerHTML = '✏️ 编辑';
+    btn.className = 'btn btn-primary';
+    bar.style.display = 'none';
+    document.getElementById('be-title').readOnly = true;
+    document.getElementById('be-title').style.pointerEvents = 'none';
+  }
+}
+
+function renderBEBlocks() {
+  const list = document.getElementById('be-block-list');
+  let html = '';
+
+  _beBlocks.forEach((block, idx) => {
+    if (_beMode === 'edit') {
+      if (block.type === 'text') {
+        html += '<div class="be-text-block" draggable="true" data-idx="' + idx + '" ondragstart="beDragStart(event,' + idx + ')" ondragover="event.preventDefault()" ondrop="beDrop(event,' + idx + ')">' +
+          '<textarea class="be-textarea" id="be-text-' + idx + '" oninput="beTextChanged(' + idx + ',this.value)" placeholder="输入内容...支持 Markdown 和 LaTeX">' + esc(block.content || '') + '</textarea>' +
+          '<button class="be-block-handle" draggable="true" ondragstart="event.stopPropagation();beDragStart(event,' + idx + ')" title="拖拽排序">⋮⋮</button>' +
+          (_beBlocks.length > 1 ? '<button class="be-block-delete" onclick="beDeleteBlock(' + idx + ')" title="删除">✕</button>' : '') +
+          '</div>';
+      } else if (block.type === 'image') {
+        html += '<div class="be-img-block" draggable="true" data-idx="' + idx + '" ondragstart="beDragStart(event,' + idx + ')" ondragover="event.preventDefault()" ondrop="beDrop(event,' + idx + ')">' +
+          '<div class="be-img-wrap"><img src="' + esc(block.uri) + '" alt="' + esc(block.name || '') + '"/><div style="font-size:12px;color:var(--text3);margin-top:4px;">' + esc(block.name || '') + '</div></div>' +
+          '<button class="be-block-handle" draggable="true">⋮⋮</button>' +
+          '<button class="be-block-delete" onclick="beDeleteBlock(' + idx + ')">✕</button>' +
+          '</div>';
+      } else if (block.type === 'file') {
+        html += '<div class="be-file-block" draggable="true" data-idx="' + idx + '" ondragstart="beDragStart(event,' + idx + ')" ondragover="event.preventDefault()" ondrop="beDrop(event,' + idx + ')">' +
+          '<span style="font-size:24px;">📎</span>' +
+          '<div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:700;color:var(--text);">' + esc(block.name || '文件') + '</div><div class="meta-text">文件附件</div></div>' +
+          '<button class="be-block-handle" draggable="true">⋮⋮</button>' +
+          '<button class="be-block-delete" onclick="beDeleteBlock(' + idx + ')">✕</button>' +
+          '</div>';
+      }
+    } else {
+      // Reading mode
+      if (block.type === 'text') {
+        html += '<div class="be-read-block">' + simpleMarkdown(block.content || '') + '</div>';
+      } else if (block.type === 'image') {
+        html += '<div class="be-read-block" style="text-align:center;"><img src="' + esc(block.uri) + '" style="max-width:100%;max-height:300px;border-radius:12px;" alt="' + esc(block.name || '') + '"/><div style="font-size:12px;color:var(--text3);margin-top:6px;">' + esc(block.name || '') + '</div></div>';
+      } else if (block.type === 'file') {
+        html += '<div style="display:flex;align-items:center;gap:12px;padding:16px;background:var(--card);border-radius:16px;box-shadow:var(--neu-raised-sm);"><span style="font-size:28px;">📎</span><div><div style="font-size:15px;font-weight:700;color:var(--text);">' + esc(block.name || '文件') + '</div><div class="meta-text">附件</div></div></div>';
+      }
+    }
+  });
+
+  // Reading mode extras
+  if (_beMode === 'read') {
+    if (_bePapercore) {
+      html += '<div class="card" style="margin-top:14px;"><div class="section-title">AI 摘要</div><div class="body-text" style="line-height:1.7;">' + simpleMarkdown(_bePapercore) + '</div></div>';
+    }
+    if (_beTags.length > 0) {
+      html += '<div style="margin-top:10px;">' + _beTags.map(t => '<span class="tag" style="background:var(--pri-pale);color:var(--primary);margin-right:6px;margin-bottom:6px;">' + esc(t) + '</span>').join('') + '</div>';
+    }
+    if (_beLogicalPath) {
+      html += '<div class="meta-text" style="margin-top:8px;">📁 ' + esc(fmtPath(_beLogicalPath)) + '</div>';
+    }
+    // NoteHelper FAB trigger in reading mode
+    html += '<div style="text-align:center;margin-top:20px;"><button class="btn btn-primary" style="font-size:14px;padding:10px 24px;border-radius:20px;" onclick="triggerBEHelper()">⚡ AI 生成相关笔记</button></div>';
+  }
+
+  list.innerHTML = html || '<div style="text-align:center;padding:40px;color:var(--text3);">暂无内容</div>';
+
+  // Render LaTeX in reading mode
+  if (_beMode === 'read') {
+    try { renderMathInElement(list); } catch(e) {}
+  }
+}
+
+function beTextChanged(idx, value) {
+  if (_beBlocks[idx] && _beBlocks[idx].type === 'text') {
+    _beBlocks[idx].content = value;
+  }
+}
+
+function addTextBlock() {
+  const id = String(Date.now());
+  _beBlocks.push({ id, type: 'text', content: '' });
+  renderBEBlocks();
+  setTimeout(() => {
+    const ta = document.getElementById('be-text-' + (_beBlocks.length - 1));
+    if (ta) ta.focus();
+  }, 100);
+}
+
+function addImageBlock() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.onchange = function() {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      _beBlocks.push({ id: String(Date.now()), type: 'image', uri: e.target.result, name: file.name });
+      renderBEBlocks();
+    };
+    reader.readAsDataURL(file);
+  };
+  input.click();
+}
+
+function addFileBlock() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.pdf,.docx,.pptx,.md,.txt,.csv';
+  input.onchange = function() {
+    const file = input.files[0];
+    if (!file) return;
+    _beBlocks.push({ id: String(Date.now()), type: 'file', uri: '', name: file.name });
+    renderBEBlocks();
+  };
+  input.click();
+}
+
+function beDeleteBlock(idx) {
+  if (_beBlocks.length <= 1) return;
+  _beBlocks.splice(idx, 1);
+  renderBEBlocks();
+}
+
+// Drag and drop reorder
+let _beDragIdx = -1;
+function beDragStart(e, idx) {
+  _beDragIdx = idx;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', String(idx));
+}
+
+function beDrop(e, targetIdx) {
+  e.preventDefault();
+  if (_beDragIdx < 0 || _beDragIdx >= _beBlocks.length) return;
+  const [item] = _beBlocks.splice(_beDragIdx, 1);
+  _beBlocks.splice(targetIdx, 0, item);
+  _beDragIdx = -1;
+  renderBEBlocks();
+}
+
+function applyFormat(marker, type) {
+  // Find the focused textarea
+  const active = document.activeElement;
+  let idx = -1;
+  if (active && active.classList.contains('be-textarea')) {
+    const idMatch = active.id.match(/be-text-(\d+)/);
+    if (idMatch) idx = parseInt(idMatch[1]);
+  }
+  // Fallback: first text block
+  if (idx < 0 || !_beBlocks[idx] || _beBlocks[idx].type !== 'text') {
+    for (let i = 0; i < _beBlocks.length; i++) {
+      if (_beBlocks[i].type === 'text') { idx = i; break; }
+    }
+  }
+  if (idx < 0) { addTextBlock(); idx = _beBlocks.length - 1; }
+
+  const block = _beBlocks[idx];
+  const ta = document.getElementById('be-text-' + idx);
+  if (!ta) return;
+
+  const start = ta.selectionStart || 0;
+  const end = ta.selectionEnd || 0;
+  const before = (block.content || '').substring(0, start);
+  const sel = (block.content || '').substring(start, end);
+  const after = (block.content || '').substring(end);
+
+  if (type === 'code') {
+    block.content = before + '\n\`\`\`\n' + (sel || 'code') + '\n\`\`\`\n' + after;
+  } else {
+    const prefix = marker;
+    block.content = before + prefix + sel + after;
+  }
+
+  ta.value = block.content;
+  ta.focus();
+  const newPos = start + (type === 'code' ? 4 : marker.length);
+  ta.setSelectionRange(newPos + (sel ? 0 : 0), newPos + sel.length);
+}
+
+async function saveBlockEditor() {
+  const title = document.getElementById('be-title').value.trim();
+  const textBlocks = _beBlocks.filter(b => b.type === 'text');
+  if (!title && textBlocks.every(b => !b.content.trim())) { alert('请输入标题或内容'); return; }
+
+  try {
+    // Upload local image/file blocks
+    const resolvedBlocks = [];
+    for (const block of _beBlocks) {
+      if ((block.type === 'image' || block.type === 'file') && block.uri && block.uri.startsWith('data:')) {
+        try {
+          const blob = await (await fetch(block.uri)).blob();
+          const formData = new FormData();
+          formData.append('file', blob, block.name || 'file');
+          const uploadRes = await fetch(API + '/upload', { method: 'POST', body: formData });
+          if (uploadRes.ok) {
+            const uploadJson = await uploadRes.json();
+            const uploaded = uploadJson.data || uploadJson;
+            block.uri = uploaded.fileUrl || block.uri;
+          }
+        } catch(e) { console.error('Upload failed for block:', e); }
+      }
+      resolvedBlocks.push(block);
+    }
+
+    const contentText = resolvedBlocks.filter(b => b.type === 'text').map(b => b.content).join('\n\n');
+    const body = {
+      title: title || '未命名笔记',
+      content: contentText,
+      blocks: resolvedBlocks,
+      tags: _beTags,
+      logical_path: _beLogicalPath || undefined
+    };
+
+    let res;
+    if (_beId) {
+      res = await safeFetch(API + '/study-notes/' + _beId, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+      });
+    } else {
+      res = await safeFetch(API + '/study-notes', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+      });
+    }
+
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    const savedId = json.data?.id || json.id || _beId;
+
+    closeBlockEditor();
+
+    // Trigger AI processing if new
+    if (!_beId && savedId) {
+      safeFetch(API + '/knowledge-builder/process-content', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'study_note', id: savedId })
+      }).catch(() => {});
+    }
+
+    refreshCurrentTab();
+  } catch (e) { alert('保存失败: ' + e.message); }
+}
+
+function triggerBEHelper() {
+  if (!_beId) return;
+  const title = document.getElementById('be-title').value || '学习纪要';
+  const sfs = [{ id: _beId, type: 'study_note', title: title, logicalPath: _beLogicalPath }];
+  const content = _beBlocks.filter(b => b.type === 'text').map(b => b.content).join('\n\n');
+  _fsNoteId = _beId;
+  _fsNoteType = 'study_note';
+  openNoteHelperPanel();
+}
+
+// ═══════════════════════════════════════════════════
+// UPDATED: openCreateNote → opens block editor instead
+// ═══════════════════════════════════════════════════
+function openCreateNote() {
+  openBlockEditor(null, '', [{ id: '1', type: 'text', content: '' }], [], '', '');
+}
+
+// ═══════════════════════════════════════════════════
+// UPDATED: viewNoteFullscreen → has edit button to open block editor
+// ═══════════════════════════════════════════════════
+const origViewNoteFullscreen = viewNoteFullscreen;
+viewNoteFullscreen = async function(id, title) {
+  _fsNoteId = id; _fsNoteType = 'study_note';
+  const overlay = document.getElementById('fs-note');
+  document.getElementById('fs-note-title').textContent = title || '学习纪要';
+  document.getElementById('fs-note-body').innerHTML = '<div style="text-align:center;padding:40px 0;"><div class="spinner"></div></div>';
+  overlay.classList.add('show');
+
+  try {
+    const res = await safeFetch(API + '/study-notes/' + id);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    const note = json.data || json;
+    const blocks = note.blocks || [];
+    const papercore = note.papercore || '';
+    const tags = note.tags || [];
+
+    // Store for NoteHelper
+    window._currentNoteData = note;
+
+    let html = '';
+
+    // Reading mode: render blocks
+    if (blocks && blocks.length > 0) {
+      blocks.forEach(b => {
+        if (b.type === 'text') {
+          html += '<div class="be-read-block">' + simpleMarkdown(b.content || '') + '</div>';
+        } else if (b.type === 'image') {
+          html += '<div class="be-read-block" style="text-align:center;"><img src="' + esc(b.uri) + '" style="max-width:100%;max-height:300px;border-radius:12px;" alt="' + esc(b.name||'') + '"/></div>';
+        } else if (b.type === 'file') {
+          html += '<div style="display:flex;align-items:center;gap:12px;padding:14px;background:var(--card);border-radius:14px;box-shadow:var(--neu-raised-sm);margin-bottom:10px;"><span style="font-size:24px;">📎</span><div><div style="font-size:14px;font-weight:700;">' + esc(b.name||'文件') + '</div></div></div>';
+        }
+      });
+    } else if (note.content) {
+      html += '<div class="be-read-block">' + simpleMarkdown(note.content) + '</div>';
+    }
+
+    if (papercore) {
+      html += '<div class="card" style="margin:14px 0;"><div class="section-title">AI 摘要</div><div class="body-text" style="line-height:1.7;">' + simpleMarkdown(papercore) + '</div></div>';
+    }
+    if (tags.length > 0) {
+      html += '<div style="margin-bottom:8px;">' + tags.map(t => '<span class="tag" style="background:var(--pri-pale);color:var(--primary);margin-right:6px;margin-bottom:6px;">' + esc(t) + '</span>').join('') + '</div>';
+    }
+    // Edit button
+    html += '<div style="text-align:center;margin-top:16px;"><button class="btn btn-primary" style="font-size:14px;padding:10px 24px;border-radius:20px;" onclick="openBlockEditorForNote()">✏️ 编辑笔记</button></div>';
+
+    document.getElementById('fs-note-body').innerHTML = html || '<div class="empty-state"><div class="empty-icon">📝</div><div class="empty-title">暂无内容</div></div>';
+
+    // Render LaTeX
+    try { renderMathInElement(document.getElementById('fs-note-body')); } catch(e) {}
+
+    // Mark as viewed
+    safeFetch(API + '/control-center/mark-viewed', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'study_note', id }) }).catch(() => {});
+
+    // Show FAB
+    document.getElementById('nh-fab').classList.add('show');
+    document.getElementById('fs-nh-btn').style.display = 'inline-flex';
+  } catch (e) {
+    document.getElementById('fs-note-body').innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">加载失败</div><div class="empty-desc">' + esc(e.message) + '</div></div>';
+  }
+};
+
+function openBlockEditorForNote() {
+  const note = window._currentNoteData;
+  if (!note) return;
+  const blocks = note.blocks && note.blocks.length ? note.blocks : [{ id: '1', type: 'text', content: note.content || '' }];
+  closeFullscreenNote();
+  setTimeout(() => {
+    openBlockEditor(note.id, note.title || '', blocks, note.tags || [], note.papercore || '', note.logical_path || '');
+  }, 300);
+}
+
+// ═══════════════════════════════════════════════════
+// UPDATE: saveGeneratedNote to also work from panel
+// ═══════════════════════════════════════════════════
+saveGeneratedNote = async function() {
+  const content = _panelContent || window._nhGeneratedContent;
+  if (!content) return;
+  try {
+    const title = content.split(/[\n。]/)[0].substring(0, 50);
+    const blocks = content.split(/\n\n(?=#{1,4}\s)/).map((s, i) => ({ id: String(i + 1), type: 'text', content: s.trim() }));
+    const res = await safeFetch(API + '/study-notes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, content, blocks })
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    const newId = json.data?.id || json.id;
+    closeNoteHelperPanel();
+    if (newId) setTimeout(() => viewNoteFullscreen(newId, title), 400);
+  } catch (e) { alert('保存失败: ' + e.message); }
+};
+
+// ═══════════════════════════════════════════════════
+// UPDATE: material viewer adds reprocess button
+// ═══════════════════════════════════════════════════
+const origViewMaterialFullscreen = viewMaterialFullscreen;
+viewMaterialFullscreen = async function(id, title) {
+  _fsMatId = id; _fsNoteType = 'material';
+  const overlay = document.getElementById('fs-material');
+  document.getElementById('fs-mat-title').textContent = title || '学习资料';
+  document.getElementById('fs-mat-body').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;flex:1;"><div class="spinner"></div></div>';
+  overlay.classList.add('show');
+
+  try {
+    const [fcRes, matRes] = await Promise.all([
+      safeFetch(API + '/materials/' + id + '/file-content'),
+      safeFetch(API + '/materials').then(r => r.ok ? r.json() : Promise.resolve({ data: [] }))
+    ]);
+
+    if (!fcRes.ok) throw new Error('HTTP ' + fcRes.status);
+    const fc = await fcRes.json();
+    const data = fc.data || fc;
+    const fileType = (data.fileType || '').toUpperCase();
+    let viewUrl = data.viewUrl || '';
+
+    // Find metadata
+    let papercore = '', tags = [], logicalPath = '';
+    if (matRes) {
+      const matData = (matRes.data || matRes).data || matRes.data || [];
+      const found = Array.isArray(matData) ? matData.find(m => m.id === id) : null;
+      if (found) { papercore = found.papercore || ''; tags = found.tags || []; logicalPath = found.logical_path || ''; }
+    }
+
+    document.getElementById('nh-fab').classList.add('show');
+    document.getElementById('fs-mat-nh-btn').style.display = 'inline-flex';
+
+    let html = '';
+
+    // PDF viewer with fallback open-in-new-tab link
+    if (fileType === 'PDF' && viewUrl) {
+      const fullUrl = viewUrl.startsWith('http') ? viewUrl : 'http://localhost:9091' + viewUrl;
+      html = '<div style="flex:1;display:flex;flex-direction:column;">' +
+        '<iframe class="pdf-frame" src="' + esc(fullUrl) + '#toolbar=0" style="flex:1;min-height:400px;"></iframe>' +
+        '<div style="text-align:center;padding:8px;">' +
+        '<a href="' + esc(fullUrl) + '" target="_blank" class="btn btn-neu" style="display:inline-block;text-decoration:none;font-size:12px;">在新窗口打开 PDF</a>' +
+        '</div>' +
+        '</div>';
+    } else if (data.pages && data.pages.length > 0) {
+      html += '<div style="padding:10px 18px;overflow-y:auto;flex:1;">';
+      html += '<div class="mat-text-pages">';
+      data.pages.forEach((page, i) => {
+        html += (i > 0 ? '<div class="page-sep">— 第 ' + (i + 1) + ' 页 —</div>' : '');
+        html += '<p style="margin-bottom:12px;">' + esc(page) + '</p>';
+      });
+      html += '</div></div>';
+    } else {
+      html += '<div class="empty-state"><div class="empty-icon">📄</div><div class="empty-title">暂无可预览内容</div><div class="empty-desc">此文件类型不支持在线预览</div></div>';
+    }
+
+    // Footer with metadata + reprocess button
+    html += '<div style="padding:14px 18px;border-top:1px solid var(--border);flex-shrink:0;max-height:200px;overflow-y:auto;">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
+    html += '<div class="section-title" style="margin-bottom:0;">AI 摘要</div>';
+    html += '<button class="btn btn-neu" style="font-size:11px;padding:5px 12px;border-radius:12px;" onclick="reprocessMaterial(\'' + esc(id) + '\')">🔄 重新分析</button>';
+    html += '</div>';
+    if (papercore) html += '<div class="body-text" style="font-size:13px;line-height:1.7;margin-bottom:8px;">' + simpleMarkdown(papercore) + '</div>';
+    if (tags.length > 0) html += tags.map(t => '<span class="tag" style="background:var(--pri-pale);color:var(--primary);margin-right:4px;">' + esc(t) + '</span>').join('');
+    if (logicalPath) html += '<div class="meta-text" style="margin-top:6px;">📁 ' + esc(fmtPath(logicalPath)) + '</div>';
+    html += '</div>';
+
+    document.getElementById('fs-mat-body').innerHTML = html;
+
+    safeFetch(API + '/control-center/mark-viewed', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'material', id }) }).catch(() => {});
+
+  } catch (e) {
+    document.getElementById('fs-mat-body').innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">加载失败</div><div class="empty-desc">' + esc(e.message) + '</div></div>';
+  }
+};
+
+async function reprocessMaterial(id) {
+  const btn = event?.target;
+  if (btn) { btn.textContent = '处理中...'; btn.disabled = true; }
+  try {
+    const res = await safeFetch(API + '/knowledge-builder/reprocess-material', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id })
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    // Reload
+    setTimeout(() => viewMaterialFullscreen(id, document.getElementById('fs-mat-title').textContent), 500);
+  } catch (e) {
+    alert('重新分析失败: ' + e.message);
+    if (btn) { btn.textContent = '🔄 重新分析'; btn.disabled = false; }
+  }
 }
 
 </script>
