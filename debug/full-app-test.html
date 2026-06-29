@@ -299,7 +299,7 @@
     border-bottom: 1px solid var(--border); cursor: pointer;
     transition: background 0.1s;
   }
-  .list-item .li-left { flex-shrink: 0; width: 28px; text-align: center; font-size: 20px; }
+  .list-item .li-left { flex-shrink: 0; width: 42px; text-align: center; font-size: 20px; }
   .list-item .li-body { flex: 1; min-width: 0; text-align: left; display: flex; flex-direction: column; justify-content: center; }
   .list-item .li-title { font-size: 14px; font-weight: 700; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
   .list-item .li-sub { font-size: 13px; color: var(--text3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
@@ -627,6 +627,7 @@ let graphData = null;
 let kLegendVisible = false;
 let kViewMode = 'graph';
 let comSubTab = 'public';
+let _ctrlRecords = [];
 
 let gvx = 0, gvy = 0, gvw = 500, gvh = 650;
 let gDragging = false, gDragSX = 0, gDragSY = 0, gDragVX = 0, gDragVY = 0;
@@ -692,6 +693,7 @@ async function loadControlCenter() {
       safeFetch(API+'/control-center/recent-records?limit=30').then(r=>r.ok?r.json():Promise.reject('HTTP '+r.status))
     ]);
     const gd=gr.data, records=rr.data||[];
+    _ctrlRecords = records;
     const notes=records.filter(r=>r.record_type==='study_note').length;
     const mats=records.filter(r=>r.record_type==='material').length;
     const unviewed=records.filter(r=>r.ai_processed&&!r.viewed_after_process).length;
@@ -702,10 +704,10 @@ async function loadControlCenter() {
       <div class="stat-card"><div class="num" style="color:${unviewed>0?'var(--primary)':'var(--text3)'};">${unviewed||'0'}</div><div class="label">待查看</div></div>`;
     let h='<div class="card" style="padding:0;overflow:hidden;">';
     if(!records.length){h+='<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-title">暂无记录</div><div class="empty-desc">创建学习纪要或上传资料开始使用</div></div>';}
-    else records.slice(0,12).forEach(r=>{
+    else records.slice(0,12).forEach((r,i)=>{
       const icon=r.record_type==='study_note'?'📝':'📄';
       const unread=r.ai_processed&&!r.viewed_after_process;
-      h+=`<div class="list-item">
+      h+=`<div class="list-item" onclick="viewRecord(${i})">
         <span class="li-left">${icon}</span>
         <div class="li-body"><div class="li-title">${esc(r.title||r.name||'未命名')}</div><div class="li-sub">${esc(fmtPath(r.logical_path))}</div></div>
         <div class="li-meta">
@@ -719,6 +721,28 @@ async function loadControlCenter() {
   }
 }
 function showCreateModal(t){alert((t==='material'?'上传资料':'创建学习纪要')+'\n\n在完整 App 中，此处会打开文件选择器或编辑器。\n（演示模式）');}
+function viewRecord(idx){
+	const r=_ctrlRecords[idx];if(!r)return;
+	const path=esc(fmtPath(r.logical_path));
+	const title=esc(r.title||r.name||'未命名');
+	const type=r.record_type==='study_note'?'学习纪要':'学习资料';
+	const papercore=r.papercore||'暂无AI摘要';
+	const tags=(r.tags||[]).join(', ')||'无';
+	showAppModal(`<h3>${r.record_type==='study_note'?'📝':'📄'} ${title}</h3>
+		<div style="margin-bottom:12px;"><span class="tag" style="background:var(--pri-pale);color:var(--primary);margin-right:6px;">${type}</span><span class="tag" style="background:var(--pri-pale);color:var(--text2);">${path}</span></div>
+		<div class="section-title">AI 摘要</div>
+		<div class="body-text" style="background:var(--surface);border-radius:14px;padding:14px;max-height:240px;overflow-y:auto;line-height:1.8;">${esc(papercore)}</div>
+		<div style="margin-top:12px;"><div class="section-title">知识标签</div><div style="color:var(--text2);font-size:14px;">${esc(tags)}</div></div>
+		<div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-neu" onclick="closeAppModal()">关闭</button></div>`);
+}
+
+function viewReflection(idx){
+	const r=_profileReflectionsData[idx];if(!r)return;
+	showAppModal(`<h3>📊 ${esc(r.period_label||'反思报告')}</h3>
+		<div style="margin-bottom:12px;"><span class="tag" style="background:var(--pri-pale);color:var(--primary);">${esc(r.period_type||'weekly')}</span><span class="tag" style="background:var(--pri-pale);color:var(--text2);margin-left:6px;">${fmtDate(r.created_at)}</span></div>
+		<div class="body-text" style="background:var(--surface);border-radius:14px;padding:14px;max-height:320px;overflow-y:auto;line-height:1.8;">${esc(r.content||r.papercore||'暂无内容')}</div>
+		<div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-neu" onclick="closeAppModal()">关闭</button></div>`);
+}
 
 // ── TAB 2: KNOWLEDGE GRAPH ──
 function loadGraphIfNeeded(){if(currentTab!==1)return;if(graphData){renderGraph();return;}loadGraphData();}
@@ -952,7 +976,7 @@ async function loadProfile(){
     document.querySelector('#mi-reflections .mi-badge').textContent=reflCount||'0';
     const badge=document.querySelector('#mi-reflections .mi-badge');if(badge)badge.textContent=reflCount||'0';
     const refls=_profileReflectionsData.slice(0,3);
-    let rh=refls.length?refls.map(r=>`<div class="list-item"><span class="li-left">📄</span><div class="li-body"><div class="li-title">${esc(r.period_label||'反思报告')}</div><div class="li-sub">${fmtDate(r.created_at)}</div></div><span style="color:var(--text4);font-size:18px;flex-shrink:0;">›</span></div>`).join(''):'<div style="text-align:center;padding:18px;color:var(--text3);">暂无反思报告</div>';
+    let rh=refls.length?refls.map((r,i)=>`<div class="list-item" onclick="viewReflection(${i})"><span class="li-left">📄</span><div class="li-body"><div class="li-title">${esc(r.period_label||'反思报告')}</div><div class="li-sub">${fmtDate(r.created_at)}</div></div><div class="li-meta"><span style="color:var(--text4);font-size:18px;">›</span></div></div>`).join(''):'<div style="text-align:center;padding:18px;color:var(--text3);">暂无反思报告</div>';
     document.getElementById('profile-reflections').innerHTML=`<div class="card" style="padding:0;overflow:hidden;">${rh}</div>`;
   }catch(e){document.getElementById('profile-stats').innerHTML='<div class="stat-card" style="grid-column:1/-1;"><div class="label">加载失败</div></div>';}
 }
