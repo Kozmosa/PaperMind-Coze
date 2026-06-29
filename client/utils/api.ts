@@ -325,6 +325,11 @@ export const api = {
     }),
   getChatSessionMessages: (sessionId: string) =>
     request<any[]>(`/chat-sessions/${sessionId}/messages`),
+  saveChatMessage: (sessionId: string, data: { role: string; content: string; citations?: any[] }) =>
+    request<any>(`/chat-sessions/${sessionId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 
   // Knowledge Builder
   triggerKnowledgeBuilder: () =>

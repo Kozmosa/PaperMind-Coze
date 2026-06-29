@@ -268,6 +268,23 @@ export default function ChatScreen() {
           sessionId: currentSessionId.current,
         }));
       });
+
+      // 保存用户消息和 AI 回复到数据库
+      if (currentSessionId.current) {
+        try {
+          await api.saveChatMessage(currentSessionId.current, {
+            role: 'user',
+            content: userMsg.content,
+          });
+          await api.saveChatMessage(currentSessionId.current, {
+            role: 'assistant',
+            content: fullContentRef.current,
+            citations: citationsRef.current,
+          });
+        } catch (e) {
+          console.warn('Failed to save chat messages to DB:', e);
+        }
+      }
     } catch (e: any) {
       setMessages((prev) => [...prev, {
         id: 'error-' + Date.now(),

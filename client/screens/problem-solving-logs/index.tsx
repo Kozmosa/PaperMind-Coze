@@ -13,7 +13,7 @@ type ProblemLog = {
   question: string;
   answer: string;
   steps: string;
-  solved_at: string;
+  created_at: string;
   citation_snippets: any[];
 };
 
@@ -154,7 +154,7 @@ export default function ProblemSolvingLogsScreen() {
                       {log.answer?.slice(0, 100)}...
                     </Text>
                     <Text style={{ fontSize: 12, color: '#B2BEC3', marginTop: 8 }}>
-                      {new Date(log.solved_at).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}
+                      {new Date(log.created_at).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}
                     </Text>
                   </View>
                   <Feather name="chevron-right" size={18} color="#B2BEC3" />

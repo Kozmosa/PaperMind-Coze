@@ -9,7 +9,7 @@ const client = getSupabaseClient();
 router.get('/', async (req: Request, res: Response) => {
   try {
     const userId = (req as any).userId;
-    let query = client.from('problem_solving_logs').select('*').order('solved_at', { ascending: false });
+    let query = client.from('problem_solving_logs').select('*').order('created_at', { ascending: false });
     if (userId && userId !== 'guest') {
       query = query.eq('user_id', userId);
     }
@@ -57,8 +57,8 @@ router.get('/stats', async (req: Request, res: Response) => {
 
     let query = client
       .from('problem_solving_logs')
-      .select('solved_at')
-      .gte('solved_at', startDate);
+      .select('created_at')
+      .gte('created_at', startDate);
     if (userId && userId !== 'guest') {
       query = query.eq('user_id', userId);
     }
@@ -68,7 +68,7 @@ router.get('/stats', async (req: Request, res: Response) => {
     // 按天统计
     const stats: Record<string, number> = {};
     data?.forEach((log: any) => {
-      const date = new Date(log.solved_at).toISOString().split('T')[0];
+      const date = new Date(log.created_at).toISOString().split('T')[0];
       stats[date] = (stats[date] || 0) + 1;
     });
 
