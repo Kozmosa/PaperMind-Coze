@@ -6,12 +6,12 @@
 <title>PaperMind · 完整APP测试</title>
 <style>
   /* ============================================================
-     PaperMind — Neumorphic · 浅灰+蓝 · 纯色体系
+     PaperMind — Neumorphic · 暖灰薰衣草 · per DESIGN.md
      ============================================================ */
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
   body {
-    background: #E2E4EB;
+    background: #E8EAEF;
     display: flex; justify-content: center; align-items: center;
     min-height: 100vh;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', sans-serif;
@@ -20,27 +20,30 @@
 
   /* ── Neumorphic Color System ── */
   :root {
-    --bg:        #EEF0F5;
-    --surface:   #F7F8FC;
-    --card:      #FFFFFF;
-    --primary:   #5B5FEF;
-    --pri-light: #8B8FF5;
-    --pri-pale:  #EDEEFD;
-    --pri-soft:  #D6D9FB;
-    --text:      #1E1E2E;
-    --text2:     #6B7280;
+    --bg:        #F0F0F3;
+    --surface:   #F0F0F3;
+    --card:      #F0F0F3;
+    --primary:   #6C63FF;
+    --pri-light: #896BFF;
+    --pri-pale:  #EDECFF;
+    --pri-soft:  #D9D6FF;
+    --text:      #2D3436;
+    --text2:     #636E72;
     --text3:     #A0A5B5;
     --text4:     #C4C8D8;
-    --border:    #E8EAF0;
-    --shadow:    #C8CCD8;
-    --shadow-dk: #A0A5B5;
+    --border:    #E4E6ED;
+    --shadow:    #D0D3DB;
+    --shadow-dk: #B8BBC4;
+    --success:   #00B894;
+    --warn:      #FDCB6E;
+    --accent:    #FF6B9D;
 
     /* Neumorphic shadows */
-    --neu-raised:    4px 4px 8px #D1D9E6, -4px -4px 8px #FFFFFF;
-    --neu-raised-sm: 2px 2px 4px #D1D9E6, -2px -2px 4px #FFFFFF;
-    --neu-pressed:   inset 2px 2px 4px #D1D9E6, inset -2px -2px 4px #FFFFFF;
-    --neu-convex:    6px 6px 12px #D1D9E6, -6px -6px 12px #FFFFFF;
-    --neu-flat:      0px 0px 0px #EEF0F5, 0px 0px 0px #FFFFFF;
+    --neu-raised:    4px 4px 8px #D0D3DB, -4px -4px 8px #FFFFFF;
+    --neu-raised-sm: 2px 2px 4px #D0D3DB, -2px -2px 4px #FFFFFF;
+    --neu-pressed:   inset 2px 2px 4px #D0D3DB, inset -2px -2px 4px #FFFFFF;
+    --neu-convex:    6px 6px 12px #D0D3DB, -6px -6px 12px #FFFFFF;
+    --neu-flat:      0px 0px 0px #F0F0F3, 0px 0px 0px #FFFFFF;
 
     --radius-sm:   12px;
     --radius:      16px;
@@ -129,10 +132,9 @@
     padding: 18px;
     box-shadow: var(--neu-raised);
   }
-  .card-white {
-    background: var(--card); border-radius: var(--radius-xl);
+  .card-flat {
+    background: var(--bg); border-radius: var(--radius-xl);
     padding: 18px;
-    box-shadow: var(--neu-raised);
   }
 
   /* ── Segmented Control (Neumorphic) ── */
@@ -196,7 +198,6 @@
     background: var(--card); border-radius: var(--radius-xl);
     overflow: hidden; position: relative;
     box-shadow: var(--neu-raised);
-    border: 1px solid var(--border);
   }
   .graph-wrap svg { width: 100%; height: 100%; display: block; user-select: none; -webkit-user-select: none; }
   .graph-wrap svg text { pointer-events: none; }
@@ -207,7 +208,6 @@
   .zoom-btn {
     width: 36px; height: 36px; border-radius: 18px;
     background: rgba(255,255,255,0.85);
-    border: 1px solid var(--border);
     font-size: 18px; cursor: pointer;
     backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
     display: flex; align-items: center; justify-content: center;
@@ -608,7 +608,7 @@
 </div>
 
 <div class="outer-info">
-  <b>PaperMind</b> · 390×844 · 浅灰+蓝 Neumorphic 设计
+  <b>PaperMind</b> · 390×844 · 暖灰薰衣草 Neumorphic 设计
   <div style="margin-top:6px;">
     <button onclick="refreshCurrentTab()">🔄 刷新当前页</button>
     <button onclick="switchTab(1);loadGraphIfNeeded();">🧠 打开图谱</button>
@@ -787,7 +787,7 @@ function tagMaskHTML() {
   return '<div class="tag-mask" id="k-tag-mask" onclick="closeKTagPopup()"><div class="tag-sheet" id="k-tag-sheet" onclick="event.stopPropagation()"></div></div>';
 }
 
-const L2C=['#EDEEFD','#E8EAFD','#E3E5FC','#DEE0FC','#F0F1FD','#EBECFC','#E6E8FB','#E1E3FB'];
+const L2C=['#EDECFF','#E8E7FF','#E3E2FE','#DEDDFE','#F0EFFF','#EBEAFF','#E6E5FD','#E1E0FD'];
 
 function renderGraph(){
   if(!graphData)return;
@@ -801,14 +801,14 @@ function renderGraph(){
     const cx=(Math.min(...xs)+Math.max(...xs))/2,cy=(Math.min(...ys)+Math.max(...ys))/2;
     const rx=Math.max(55,(Math.max(...xs)-Math.min(...xs))/2+50),ry=Math.max(45,(Math.max(...ys)-Math.min(...ys))/2+40),r=Math.max(85,rx,ry);
     p.push(`<ellipse cx="${cx}" cy="${cy}" rx="${r}" ry="${r}" fill="${L2C[i%L2C.length]}" opacity="0.7"/>`);
-    p.push(`<text x="${cx}" y="${cy-r+15}" text-anchor="middle" font-size="12" fill="#6B7280" font-weight="600">${esc(l2.name)}</text>`);
+    p.push(`<text x="${cx}" y="${cy-r+15}" text-anchor="middle" font-size="12" fill="#636E72" font-weight="600">${esc(l2.name)}</text>`);
   });
-  (domains||[]).forEach(d=>{if(d.cx!=null&&d.cy!=null&&d.r!=null)p.push(`<circle cx="${d.cx}" cy="${d.cy}" r="${d.r}" fill="none" stroke="#5B5FEF" stroke-width="1" stroke-dasharray="8,6" opacity="0.2"/>`);});
-  edges.filter(e=>e.type==='hierarchy').forEach(e=>{const f=tagMap.get(e.from),t=tagMap.get(e.to);if(!f||!t||f.level==='L1')return;p.push(`<line x1="${f.x}" y1="${f.y}" x2="${t.x}" y2="${t.y}" stroke="#8B8FF5" stroke-width="1.2" opacity="0.4"/>`);});
-  edges.filter(e=>e.type==='cooccurrence').slice(0,20).forEach(e=>{const f=tagMap.get(e.from),t=tagMap.get(e.to);if(!f||!t)return;const sw=Math.min((e.weight||1)*0.5+0.5,2);p.push(`<line x1="${f.x}" y1="${f.y}" x2="${t.x}" y2="${t.y}" stroke="#8B8FF5" stroke-width="${sw}" stroke-dasharray="3,4" opacity="0.3"/>`);});
-  l2s.forEach(n=>{const nm=esc(n.name);p.push(`<g onclick="selectKTag('${n.id}')" style="cursor:pointer;"><circle cx="${n.x}" cy="${n.y}" r="20" fill="#FFFFFF" stroke="#8B8FF5" stroke-width="2.5"/><text x="${n.x}" y="${n.y+4}" text-anchor="middle" font-size="11" fill="#1E1E2E" font-weight="700">${nm.length>4?nm.slice(0,4):nm}</text><text x="${n.x}" y="${n.y+36}" text-anchor="middle" font-size="10" fill="#A0A5B5" font-weight="600">${n.count}项</text></g>`);});
-  l1s.forEach(n=>{p.push(`<g onclick="selectKTag('${n.id}')" style="cursor:pointer;"><circle cx="${n.x}" cy="${n.y}" r="28" fill="#5B5FEF" stroke="#8B8FF5" stroke-width="3"/><text x="${n.x}" y="${n.y+5}" text-anchor="middle" font-size="14" fill="#FFFFFF" font-weight="800">${esc(n.name)}</text></g>`);});
-  l3s.forEach(n=>{const nm=esc(n.name);p.push(`<g onclick="selectKTag('${n.id}')" style="cursor:pointer;"><circle cx="${n.x}" cy="${n.y}" r="13" fill="#FFFFFF" stroke="#C4C8D8" stroke-width="1.5"/><text x="${n.x}" y="${n.y+26}" text-anchor="middle" font-size="9" fill="#6B7280" font-weight="500">${nm.length>5?nm.slice(0,5):nm}</text></g>`);});
+  (domains||[]).forEach(d=>{if(d.cx!=null&&d.cy!=null&&d.r!=null)p.push(`<circle cx="${d.cx}" cy="${d.cy}" r="${d.r}" fill="none" stroke="#6C63FF" stroke-width="1" stroke-dasharray="8,6" opacity="0.2"/>`);});
+  edges.filter(e=>e.type==='hierarchy').forEach(e=>{const f=tagMap.get(e.from),t=tagMap.get(e.to);if(!f||!t||f.level==='L1')return;p.push(`<line x1="${f.x}" y1="${f.y}" x2="${t.x}" y2="${t.y}" stroke="#896BFF" stroke-width="1.2" opacity="0.4"/>`);});
+  edges.filter(e=>e.type==='cooccurrence').slice(0,20).forEach(e=>{const f=tagMap.get(e.from),t=tagMap.get(e.to);if(!f||!t)return;const sw=Math.min((e.weight||1)*0.5+0.5,2);p.push(`<line x1="${f.x}" y1="${f.y}" x2="${t.x}" y2="${t.y}" stroke="#896BFF" stroke-width="${sw}" stroke-dasharray="3,4" opacity="0.3"/>`);});
+  l2s.forEach(n=>{const nm=esc(n.name);p.push(`<g onclick="selectKTag('${n.id}')" style="cursor:pointer;"><circle cx="${n.x}" cy="${n.y}" r="20" fill="#FFFFFF" stroke="#896BFF" stroke-width="2.5"/><text x="${n.x}" y="${n.y+4}" text-anchor="middle" font-size="11" fill="#2D3436" font-weight="700">${nm.length>4?nm.slice(0,4):nm}</text><text x="${n.x}" y="${n.y+36}" text-anchor="middle" font-size="10" fill="#A0A5B5" font-weight="600">${n.count}项</text></g>`);});
+  l1s.forEach(n=>{p.push(`<g onclick="selectKTag('${n.id}')" style="cursor:pointer;"><circle cx="${n.x}" cy="${n.y}" r="28" fill="#6C63FF" stroke="#896BFF" stroke-width="3"/><text x="${n.x}" y="${n.y+5}" text-anchor="middle" font-size="14" fill="#FFFFFF" font-weight="800">${esc(n.name)}</text></g>`);});
+  l3s.forEach(n=>{const nm=esc(n.name);p.push(`<g onclick="selectKTag('${n.id}')" style="cursor:pointer;"><circle cx="${n.x}" cy="${n.y}" r="13" fill="#FFFFFF" stroke="#C4C8D8" stroke-width="1.5"/><text x="${n.x}" y="${n.y+26}" text-anchor="middle" font-size="9" fill="#636E72" font-weight="500">${nm.length>5?nm.slice(0,5):nm}</text></g>`);});
   const c=document.getElementById('k-content');
   c.innerHTML=`<svg viewBox="${gvx} ${gvy} ${gvw} ${gvh}" preserveAspectRatio="xMidYMid meet">${p.join('')}</svg><div id="k-popup-ct"></div>`+zoomBtnsHTML()+tagMaskHTML();
   document.getElementById('k-zoom-btns').style.display='flex';
@@ -818,7 +818,7 @@ function graphZoomIn(){const cx=gvx+gvw/2,cy=gvy+gvh/2;gvw*=0.75;gvh*=0.75;gvx=c
 function graphZoomOut(){const cx=gvx+gvw/2,cy=gvy+gvh/2;gvw*=1.35;gvh*=1.35;gvx=cx-gvw/2;gvy=cy-gvh/2;renderGraph();}
 async function selectKTag(id){
   const node=graphData.nodes.find(n=>n.id===id);if(!node)return;
-  const lc={L1:'#5B5FEF',L2:'#8B8FF5',L3:'#C4C8D8'};
+  const lc={L1:'#6C63FF',L2:'#896BFF',L3:'#C4C8D8'};
   const sheet=document.getElementById('k-tag-sheet');sheet.innerHTML='<div style="text-align:center;padding:40px 0;"><div class="spinner"></div></div>';
   document.getElementById('k-tag-mask').classList.add('show');
   try{
