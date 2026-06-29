@@ -425,6 +425,102 @@
   .outer-info button:hover { box-shadow: 0 6px 16px rgba(91,95,239,0.4); }
   .outer-info button:active { transform: scale(0.97); }
   .outer-info .conn { font-size: 12px; margin-top: 6px; font-weight: 600; }
+
+  /* ── Fullscreen Overlay ── */
+  .fs-overlay {
+    position: absolute; inset: 0; z-index: 100;
+    background: var(--bg); display: none; flex-direction: column;
+    transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+  }
+  .fs-overlay.show { display: flex; transform: translateX(0); }
+  .fs-header {
+    display: flex; align-items: center; gap: 12px; padding: 12px 18px;
+    border-bottom: 1px solid var(--border); flex-shrink: 0; background: var(--bg);
+  }
+  .fs-body { flex: 1; overflow-y: auto; padding: 18px; -webkit-overflow-scrolling: touch; }
+  .fs-back { font-size: 22px; cursor: pointer; color: var(--text2); padding: 4px; background: none; border: none; }
+
+  /* ── Note content (sticky-note style) ── */
+  .sticky-note {
+    background: #FFF9E6; border-radius: 12px 12px 12px 4px;
+    padding: 20px; margin-bottom: 14px; line-height: 1.85;
+    font-size: 15px; color: var(--text);
+    box-shadow: 1px 2px 6px rgba(0,0,0,0.06);
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .sticky-note h1,.sticky-note h2,.sticky-note h3 { font-weight: 800; margin: 12px 0 6px; }
+  .sticky-note h1 { font-size: 20px; } .sticky-note h2 { font-size: 17px; } .sticky-note h3 { font-size: 15px; }
+  .sticky-note ul,.sticky-note ol { padding-left: 20px; margin: 6px 0; }
+  .sticky-note code { background: #F0E8D0; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+  .sticky-note pre { background: #F5F0E0; padding: 12px; border-radius: 8px; overflow-x: auto; font-size: 13px; margin: 8px 0; }
+  .sticky-note blockquote { border-left: 3px solid #E0D5B0; padding-left: 14px; color: var(--text2); margin: 8px 0; }
+  .sticky-note table { border-collapse: collapse; width: 100%; margin: 8px 0; }
+  .sticky-note th,.sticky-note td { border: 1px solid #E0D5B0; padding: 8px 12px; text-align: left; font-size: 13px; }
+  .sticky-note th { background: #FDF5E0; font-weight: 700; }
+
+  /* ── PDF / Material viewer ── */
+  .pdf-frame { width: 100%; height: 100%; border: none; border-radius: 12px; background: #FFF; }
+  .mat-text-pages { font-size: 15px; line-height: 1.8; color: var(--text); }
+  .mat-text-pages .page-sep { text-align: center; color: var(--text3); font-size: 12px; margin: 20px 0; border-top: 1px dashed var(--border); padding-top: 10px; }
+
+  /* ── NoteHelper FAB ── */
+  .nh-fab {
+    position: absolute; bottom: 80px; right: 18px; z-index: 90;
+    width: 52px; height: 52px; border-radius: 26px;
+    background: var(--primary); color: #FFF; border: none;
+    font-size: 22px; cursor: pointer;
+    box-shadow: 0 4px 16px rgba(108,99,255,0.4);
+    display: none; align-items: center; justify-content: center;
+    transition: all 0.2s ease;
+  }
+  .nh-fab.show { display: flex; }
+  .nh-fab:active { transform: scale(0.92); }
+  .nh-fab-label {
+    position: absolute; right: 60px; top: 50%; transform: translateY(-50%);
+    background: var(--text); color: #FFF; font-size: 12px; font-weight: 700;
+    padding: 4px 10px; border-radius: 10px; white-space: nowrap;
+  }
+
+  /* ── NoteHelper Panel ── */
+  .nh-panel-mask {
+    position: absolute; inset: 0; z-index: 95;
+    background: rgba(45,52,54,0.35);
+    display: none; flex-direction: column; justify-content: flex-end;
+  }
+  .nh-panel-mask.show { display: flex; }
+  .nh-panel {
+    background: var(--bg); border-radius: 28px 28px 0 0;
+    max-height: 55%; display: flex; flex-direction: column;
+    box-shadow: 0 -8px 24px rgba(184,187,196,0.3);
+  }
+  .nh-panel-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px 12px; border-bottom: 1px solid var(--border);
+  }
+  .nh-panel-body { flex: 1; overflow-y: auto; padding: 16px 20px; }
+  .nh-panel-body .generating-cursor::after { content: '▌'; animation: blink 1s infinite; }
+  @keyframes blink { 0%,50% { opacity: 1; } 51%,100% { opacity: 0; } }
+
+  /* ── Form elements ── */
+  .form-group { margin-bottom: 14px; }
+  .form-label { font-size: 13px; font-weight: 700; color: var(--text2); margin-bottom: 4px; display: block; }
+  .form-input,.form-textarea {
+    width: 100%; padding: 12px 16px; border: none; outline: none;
+    border-radius: 16px; font-size: 15px; font-family: inherit;
+    background: var(--bg); color: var(--text);
+    box-shadow: var(--neu-pressed);
+  }
+  .form-textarea { resize: vertical; min-height: 100px; }
+  .form-input:focus,.form-textarea:focus { box-shadow: 0 0 0 3px var(--pri-pale), var(--neu-pressed); }
+
+  /* ── Folder picker for move ── */
+  .folder-picker-item {
+    display: flex; align-items: center; gap: 10px; padding: 12px 16px;
+    cursor: pointer; border-bottom: 1px solid var(--border); transition: background 0.1s;
+  }
+  .folder-picker-item:active { background: var(--surface); }
+  .folder-picker-item.selected { background: var(--pri-pale); color: var(--primary); font-weight: 700; }
+
 </style>
 </head>
 <body>
@@ -598,7 +694,95 @@
   </div>
 
   <!-- ======== Bottom Tab Bar ======== -->
-  <div class="tab-bar">
+  
+  <!-- ======== Fullscreen Note Viewer ======== -->
+  <div class="fs-overlay" id="fs-note">
+    <div class="fs-header">
+      <button class="fs-back" onclick="closeFullscreenNote()">←</button>
+      <div style="flex:1;min-width:0;"><div style="font-size:16px;font-weight:800;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" id="fs-note-title">笔记</div></div>
+      <button class="btn btn-neu" style="font-size:12px;padding:6px 14px;border-radius:14px;" onclick="triggerNoteHelper()" id="fs-nh-btn">⚡ AI 生成</button>
+    </div>
+    <div class="fs-body" id="fs-note-body"><div class="spinner"></div></div>
+  </div>
+
+  <!-- ======== Fullscreen Material Viewer ======== -->
+  <div class="fs-overlay" id="fs-material">
+    <div class="fs-header">
+      <button class="fs-back" onclick="closeFullscreenMaterial()">←</button>
+      <div style="flex:1;min-width:0;"><div style="font-size:16px;font-weight:800;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" id="fs-mat-title">资料</div></div>
+      <button class="btn btn-neu" style="font-size:12px;padding:6px 14px;border-radius:14px;" onclick="triggerNoteHelper()" id="fs-mat-nh-btn">⚡ AI 生成</button>
+    </div>
+    <div class="fs-body" id="fs-mat-body" style="padding:0;display:flex;flex-direction:column;"><div class="spinner"></div></div>
+  </div>
+
+  <!-- ======== NoteHelper FAB ======== -->
+  <button class="nh-fab" id="nh-fab" onclick="openNoteHelperPanel()">⚡</button>
+
+  <!-- ======== NoteHelper Panel ======== -->
+  <div class="nh-panel-mask" id="nh-panel-mask" onclick="closeNoteHelperPanel(event)">
+    <div class="nh-panel" id="nh-panel" onclick="event.stopPropagation()">
+      <div class="nh-panel-header">
+        <div style="font-size:17px;font-weight:800;color:var(--text);">⚡ AI 笔记助手</div>
+        <button style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text2);" onclick="closeNoteHelperPanel()">✕</button>
+      </div>
+      <div class="nh-panel-body" id="nh-panel-body">
+        <div style="text-align:center;padding:20px 0;" id="nh-panel-loading"><div class="spinner"></div><div class="meta-text" style="margin-top:8px;">正在生成笔记...</div></div>
+        <div id="nh-panel-result" style="display:none;font-size:15px;line-height:1.8;color:var(--text);max-height:260px;overflow-y:auto;"></div>
+        <div id="nh-panel-actions" style="display:none;margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== Create Note Modal ======== -->
+  <div class="modal-mask" id="create-note-mask" onclick="closeCreateNote()">
+    <div class="modal" onclick="event.stopPropagation()" style="width:340px;max-height:85%;">
+      <h3>✏️ 写入学习纪要</h3>
+      <div class="form-group"><label class="form-label">标题</label><input class="form-input" id="cn-title" placeholder="输入标题..."></div>
+      <div class="form-group"><label class="form-label">内容（支持 Markdown）</label><textarea class="form-textarea" id="cn-content" placeholder="输入笔记内容..." style="min-height:160px;"></textarea></div>
+      <div class="form-group"><label class="form-label">分类路径（可选）</label><input class="form-input" id="cn-path" placeholder="例如: /数学/复分析/留数定理/"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button class="btn btn-neu" onclick="closeCreateNote()">取消</button>
+        <button class="btn btn-primary" id="cn-submit-btn" onclick="submitCreateNote()">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== Upload Material Modal ======== -->
+  <div class="modal-mask" id="upload-mat-mask" onclick="closeUploadMaterial()">
+    <div class="modal" onclick="event.stopPropagation()" style="width:340px;">
+      <h3>📤 上传资料</h3>
+      <div class="form-group"><label class="form-label">选择文件</label>
+        <div style="display:flex;align-items:center;gap:10px;background:var(--bg);border-radius:16px;padding:10px 16px;box-shadow:var(--neu-pressed);">
+          <input type="file" id="um-file" accept=".pdf,.pptx,.ppt,.docx,.md,.txt,.csv,.xlsx,.jpg,.png" style="flex:1;font-size:14px;font-family:inherit;" onchange="onFileSelected(this)">
+        </div>
+        <div class="meta-text" style="margin-top:4px;" id="um-file-info">支持 PDF, PPTX, PPT, DOCX, MD, TXT 等</div>
+      </div>
+      <div class="form-group"><label class="form-label">标题（可选，默认用文件名）</label><input class="form-input" id="um-title" placeholder="输入标题..."></div>
+      <div class="form-group"><label class="form-label">分类路径（可选）</label><input class="form-input" id="um-path" placeholder="例如: /数学/运筹学/"></div>
+      <div id="um-progress" style="display:none;margin-bottom:12px;"><div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden;"><div id="um-progress-bar" style="height:100%;background:var(--primary);width:0%;transition:width 0.3s;"></div></div><div class="meta-text" style="margin-top:4px;text-align:center;" id="um-progress-text">上传中...</div></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button class="btn btn-neu" onclick="closeUploadMaterial()">取消</button>
+        <button class="btn btn-primary" id="um-submit-btn" onclick="submitUploadMaterial()">上传</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== Folder Picker Modal (for file moving) ======== -->
+  <div class="modal-mask" id="move-file-mask" onclick="closeMoveFile()">
+    <div class="modal" onclick="event.stopPropagation()" style="width:340px;max-height:80%;">
+      <h3>📁 移动到文件夹</h3>
+      <div style="margin-bottom:12px;"><div class="meta-text">当前路径: <b id="move-cur-path">--</b></div></div>
+      <div style="max-height:300px;overflow-y:auto;background:var(--bg);border-radius:16px;padding:8px 0;box-shadow:var(--neu-pressed);" id="move-folder-list">
+        <div style="text-align:center;padding:20px;"><div class="spinner"></div></div>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px;">
+        <button class="btn btn-neu" onclick="closeMoveFile()">取消</button>
+        <button class="btn btn-primary" id="move-submit-btn" onclick="submitMoveFile()">移动</button>
+      </div>
+    </div>
+  </div>
+
+<div class="tab-bar">
     <button class="tab-item active" onclick="switchTab(0)">主页</button>
     <button class="tab-item" onclick="switchTab(1)">知识</button>
     <button class="tab-item" onclick="switchTab(2)">AI</button>
@@ -713,6 +897,7 @@ async function loadControlCenter() {
         <div class="li-meta">
           <span class="li-dot" style="visibility:${unread?'visible':'hidden'};"></span>
           <span class="li-date">${fmtDate(r.created_at)}</span>
+          <button class="btn-icon" style="width:26px;height:26px;font-size:12px;flex-shrink:0;margin-left:6px;box-shadow:none;" onclick="event.stopPropagation();moveFromList(${i})" title="移动到其他文件夹">📁</button>
         </div></div>`;
     });h+='</div>';document.getElementById('ctrl-records').innerHTML=h;
   }catch(e){
@@ -722,18 +907,17 @@ async function loadControlCenter() {
 }
 function showCreateModal(t){alert((t==='material'?'上传资料':'创建学习纪要')+'\n\n在完整 App 中，此处会打开文件选择器或编辑器。\n（演示模式）');}
 function viewRecord(idx){
-	const r=_ctrlRecords[idx];if(!r)return;
-	const path=esc(fmtPath(r.logical_path));
-	const title=esc(r.title||r.name||'未命名');
-	const type=r.record_type==='study_note'?'学习纪要':'学习资料';
-	const papercore=r.papercore||'暂无AI摘要';
-	const tags=(r.tags||[]).join(', ')||'无';
-	showAppModal(`<h3>${r.record_type==='study_note'?'📝':'📄'} ${title}</h3>
-		<div style="margin-bottom:12px;"><span class="tag" style="background:var(--pri-pale);color:var(--primary);margin-right:6px;">${type}</span><span class="tag" style="background:var(--pri-pale);color:var(--text2);">${path}</span></div>
-		<div class="section-title">AI 摘要</div>
-		<div class="body-text" style="background:var(--surface);border-radius:14px;padding:14px;max-height:240px;overflow-y:auto;line-height:1.8;">${esc(papercore)}</div>
-		<div style="margin-top:12px;"><div class="section-title">知识标签</div><div style="color:var(--text2);font-size:14px;">${esc(tags)}</div></div>
-		<div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-neu" onclick="closeAppModal()">关闭</button></div>`);
+  const r=_ctrlRecords[idx];if(!r)return;
+  if(r.record_type==='study_note'){viewNoteFullscreen(r.id,r.title||r.name);return;}
+  if(r.record_type==='material'){viewMaterialFullscreen(r.id,r.title||r.name||'未命名');return;}
+  showAppModal(`<h3>📄 ${esc(r.title||r.name||'未命名')}</h3><div class="body-text">${esc(r.papercore||'暂无内容')}</div>`);
+}
+
+// Move file from control center list
+function moveFromList(idx){
+  const r=_ctrlRecords[idx];if(!r)return;
+  const currentPath = fmtPath(r.logical_path);
+  showMoveFileDialog(r.id, r.record_type||'study_note', r.title||r.name||'', currentPath);
 }
 
 function viewReflection(idx){
@@ -745,7 +929,7 @@ function viewReflection(idx){
 }
 
 // ── TAB 2: KNOWLEDGE GRAPH ──
-function loadGraphIfNeeded(){if(currentTab!==1)return;if(graphData){renderGraph();return;}loadGraphData();}
+function loadGraphIfNeeded(){if(currentTab!==1)return;if(kViewMode==='folder'){loadFolderView();return;}if(graphData){renderGraph();return;}loadGraphData();}
 function switchKMode(mode){
   kViewMode=mode;
   document.getElementById('k-btn-graph').classList.toggle('active',mode==='graph');
@@ -870,7 +1054,7 @@ async function loadFolderView(){
 }
 function buildFolderTree(records){
   const root=new Map();
-  records.forEach(rec=>{let path=rec.logical_path||'';try{const p=JSON.parse(path);if(Array.isArray(p)&&p.length>0)path=p[0];}catch{}path=path.replace(/^\[?"?\/?/,'/').replace(/\/?"?\]?$/,'/');const parts=path.split('/').filter(Boolean);if(!parts.length)return;let cur=root,full='';parts.forEach((part,i)=>{full+='/'+part;if(!cur.has(part))cur.set(part,{name:part,fullPath:full+'/',subs:new Map(),docs:[]});const node=cur.get(part);if(i===parts.length-1)node.docs.push({title:rec.title||rec.name||'',type:rec.record_type||'study_note'});cur=node.subs;});});
+  records.forEach(rec=>{let path=rec.logical_path||'';try{const p=JSON.parse(path);if(Array.isArray(p)&&p.length>0)path=p[0];}catch{}path=path.replace(/^\[?"?\/?/,'/').replace(/\/?"?\]?$/,'/');const parts=path.split('/').filter(Boolean);if(!parts.length)return;let cur=root,full='';parts.forEach((part,i)=>{full+='/'+part;if(!cur.has(part))cur.set(part,{name:part,fullPath:full+'/',subs:new Map(),docs:[]});const node=cur.get(part);if(i===parts.length-1)node.docs.push({id:rec.id,title:rec.title||rec.name||'',type:rec.record_type||'study_note'});cur=node.subs;});});
   return root;
 }
 function renderFolderTree(folders,depth=0){
@@ -879,7 +1063,7 @@ function renderFolderTree(folders,depth=0){
     h+=`<div class="folder-row" style="padding-left:${16+depth*24}px;" onclick="const n=this.nextElementSibling;n.style.display=n.style.display==='none'?'block':'none';const ch=this.querySelector('.chev');if(ch)ch.textContent=n.style.display!=='none'?'▼':'▶';"><span class="chev" style="font-size:11px;color:var(--text4);">▶</span><span style="font-size:17px;">📁</span><span style="flex:1;font-size:15px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(node.name)}</span><span style="font-size:12px;color:var(--text3);font-weight:600;">${count}</span></div>`;
     h+=`<div style="display:none;">`;
     if(node.subs.size>0)h+=renderFolderTree(node.subs,depth+1);
-    node.docs.forEach(doc=>{h+=`<div class="doc-row"><span style="font-size:14px;">${doc.type==='study_note'?'📝':'📄'}</span><span style="font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(doc.title)}</span></div>`;});
+    node.docs.forEach(doc=>{h+=`<div class="doc-row" onclick="event.stopPropagation();viewFolderDoc('${esc(doc.id)}','${esc(doc.type)}','${esc(doc.title)}')" style="cursor:pointer;"><span style="font-size:14px;">${doc.type==='study_note'?'📝':'📄'}</span><span style="flex:1;font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(doc.title)}</span><button class="btn-icon" style="width:28px;height:28px;font-size:14px;flex-shrink:0;box-shadow:none;" onclick="event.stopPropagation();showMoveFileDialog('${esc(doc.id)}','${esc(doc.type)}','${esc(doc.title)}','${esc(node.fullPath)}')" title="移动到其他文件夹">📁</button></div>`;});
     h+='</div>';});
   return h;
 }
@@ -1054,6 +1238,587 @@ async function saveStylePreference(){
 checkConn();
 loadControlCenter();
 setupGraphInteraction();
+
+// ═══════════════════════════════════════════
+// FULLSCREEN NOTE VIEWER (sticky-note style)
+// ═══════════════════════════════════════════
+let _fsNoteId = null;
+let _fsNoteType = 'study_note';
+
+async function viewNoteFullscreen(id, title) {
+  _fsNoteId = id; _fsNoteType = 'study_note';
+  const overlay = document.getElementById('fs-note');
+  document.getElementById('fs-note-title').textContent = title || '学习纪要';
+  document.getElementById('fs-note-body').innerHTML = '<div style="text-align:center;padding:40px 0;"><div class="spinner"></div></div>';
+  overlay.classList.add('show');
+
+  try {
+    const res = await safeFetch(API + '/study-notes/' + id);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    const note = json.data || json;
+    const content = note.content || '';
+    const blocks = note.blocks || [];
+    const papercore = note.papercore || '';
+    const tags = note.tags || [];
+    const path = fmtPath(note.logical_path);
+
+    let html = '';
+
+    // Render blocks if available
+    if (blocks && blocks.length > 0) {
+      blocks.forEach(b => {
+        if (b.type === 'text') {
+          html += '<div class="sticky-note">' + simpleMarkdown(b.content || '') + '</div>';
+        } else if (b.type === 'image') {
+          html += '<div class="sticky-note"><img src="' + esc(b.uri) + '" style="max-width:100%;border-radius:8px;" alt="' + esc(b.name||'') + '"/></div>';
+        }
+      });
+    } else if (content) {
+      // Render raw content as sticky note
+      html += '<div class="sticky-note">' + simpleMarkdown(content) + '</div>';
+    }
+
+    // Papercore summary
+    if (papercore) {
+      html += '<div class="card" style="margin-bottom:14px;"><div class="section-title">AI 摘要</div><div class="body-text" style="line-height:1.7;">' + esc(papercore) + '</div></div>';
+    }
+
+    // Tags and path
+    if (tags.length > 0) {
+      html += '<div style="margin-bottom:14px;">' + tags.map(t => '<span class="tag" style="background:var(--pri-pale);color:var(--primary);margin-right:6px;margin-bottom:6px;">' + esc(t) + '</span>').join('') + '</div>';
+    }
+
+    document.getElementById('fs-note-body').innerHTML = html || '<div class="empty-state"><div class="empty-icon">📝</div><div class="empty-title">暂无内容</div></div>';
+
+    // Mark as viewed
+    safeFetch(API + '/control-center/mark-viewed', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'study_note', id }) }).catch(() => {});
+
+    // Show NoteHelper FAB
+    document.getElementById('nh-fab').classList.add('show');
+    document.getElementById('fs-nh-btn').style.display = 'inline-flex';
+  } catch (e) {
+    document.getElementById('fs-note-body').innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">加载失败</div><div class="empty-desc">' + esc(e.message) + '</div></div>';
+  }
+}
+
+function closeFullscreenNote() {
+  document.getElementById('fs-note').classList.remove('show');
+  document.getElementById('nh-fab').classList.remove('show');
+  _fsNoteId = null;
+}
+
+// Simple markdown → HTML (inline only, no lib)
+function simpleMarkdown(md) {
+  if (!md) return '';
+  let h = esc(md);
+  h = h.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  h = h.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  h = h.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+  h = h.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  h = h.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  h = h.replace(/`([^`]+)`/g, '<code>$1</code>');
+  h = h.replace(/^\- (.+)$/gm, '<li>$1</li>');
+  h = h.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+  h = h.replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>');
+  return h;
+}
+
+// ═══════════════════════════════════════════
+// FULLSCREEN MATERIAL VIEWER (PDF/text)
+// ═══════════════════════════════════════════
+let _fsMatId = null;
+
+async function viewMaterialFullscreen(id, title) {
+  _fsMatId = id; _fsNoteType = 'material';
+  const overlay = document.getElementById('fs-material');
+  document.getElementById('fs-mat-title').textContent = title || '学习资料';
+  document.getElementById('fs-mat-body').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;flex:1;"><div class="spinner"></div></div>';
+  overlay.classList.add('show');
+
+  try {
+    const [fcRes, matRes] = await Promise.all([
+      safeFetch(API + '/materials/' + id + '/file-content'),
+      safeFetch(API + '/materials').then(r => r.ok ? r.json() : Promise.resolve({ data: [] }))
+    ]);
+
+    if (!fcRes.ok) throw new Error('HTTP ' + fcRes.status);
+    const fc = await fcRes.json();
+    const data = fc.data || fc;
+    const fileType = (data.fileType || '').toUpperCase();
+    const viewUrl = data.viewUrl || '';
+
+    // Find metadata from materials list
+    let papercore = '', tags = [], logicalPath = '';
+    if (matRes) {
+      const matData = (matRes.data || matRes).data || matRes.data || [];
+      const found = Array.isArray(matData) ? matData.find(m => m.id === id) : null;
+      if (found) {
+        papercore = found.papercore || '';
+        tags = found.tags || [];
+        logicalPath = found.logical_path || '';
+      }
+    }
+
+    // Show NoteHelper FAB
+    document.getElementById('nh-fab').classList.add('show');
+    document.getElementById('fs-mat-nh-btn').style.display = 'inline-flex';
+
+    let html = '';
+
+    // PDF viewer
+    if (fileType === 'PDF' && viewUrl) {
+      const fullUrl = viewUrl.startsWith('http') ? viewUrl : 'http://localhost:9091' + viewUrl;
+      html = '<iframe class="pdf-frame" src="' + fullUrl + '" style="flex:1;min-height:500px;"></iframe>';
+    }
+    // Textual content
+    else if (data.pages && data.pages.length > 0) {
+      html += '<div style="padding:10px 18px;overflow-y:auto;flex:1;">';
+      html += '<div class="mat-text-pages">';
+      data.pages.forEach((page, i) => {
+        html += (i > 0 ? '<div class="page-sep">— 第 ' + (i + 1) + ' 页 —</div>' : '');
+        html += '<p style="margin-bottom:12px;">' + esc(page) + '</p>';
+      });
+      html += '</div></div>';
+    } else {
+      html += '<div class="empty-state"><div class="empty-icon">📄</div><div class="empty-title">暂无可预览内容</div><div class="empty-desc">此文件类型不支持在线预览</div></div>';
+    }
+
+    // Papercore & tags footer
+    if (papercore || tags.length > 0) {
+      html += '<div style="padding:14px 18px;border-top:1px solid var(--border);flex-shrink:0;max-height:180px;overflow-y:auto;">';
+      if (papercore) html += '<div class="section-title">AI 摘要</div><div class="body-text" style="font-size:13px;line-height:1.7;margin-bottom:8px;">' + esc(papercore) + '</div>';
+      if (tags.length > 0) html += tags.map(t => '<span class="tag" style="background:var(--pri-pale);color:var(--primary);margin-right:4px;">' + esc(t) + '</span>').join('');
+      html += '</div>';
+    }
+
+    document.getElementById('fs-mat-body').innerHTML = html;
+
+    // Mark as viewed
+    safeFetch(API + '/control-center/mark-viewed', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'material', id }) }).catch(() => {});
+
+  } catch (e) {
+    document.getElementById('fs-mat-body').innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">加载失败</div><div class="empty-desc">' + esc(e.message) + '</div></div>';
+  }
+}
+
+function closeFullscreenMaterial() {
+  document.getElementById('fs-material').classList.remove('show');
+  document.getElementById('nh-fab').classList.remove('show');
+  _fsMatId = null;
+}
+
+// ═══════════════════════════════════════════
+// NOTE HELPER: AI generation FAB + Panel
+// ═══════════════════════════════════════════
+let _nhGenAbort = null;
+
+function triggerNoteHelper() {
+  // Close any current viewer and open NoteHelper panel
+  closeFullscreenNote();
+  closeFullscreenMaterial();
+  setTimeout(() => openNoteHelperPanel(), 350);
+}
+
+function openNoteHelperPanel() {
+  const panel = document.getElementById('nh-panel-mask');
+  panel.classList.add('show');
+  document.getElementById('nh-fab').classList.remove('show');
+  document.getElementById('nh-panel-loading').style.display = 'block';
+  document.getElementById('nh-panel-result').style.display = 'none';
+  document.getElementById('nh-panel-actions').innerHTML = '';
+  generateNoteStream();
+}
+
+function closeNoteHelperPanel(e) {
+  if (e && e.target !== document.getElementById('nh-panel-mask')) return;
+  document.getElementById('nh-panel-mask').classList.remove('show');
+  if (_nhGenAbort) { _nhGenAbort.abort(); _nhGenAbort = null; }
+}
+
+async function generateNoteStream() {
+  const sourceIds = [];
+  if (_fsNoteId) sourceIds.push({ id: _fsNoteId, type: _fsNoteType || 'study_note' });
+  if (_fsMatId && _fsMatId !== _fsNoteId) sourceIds.push({ id: _fsMatId, type: 'material' });
+
+  if (!sourceIds.length) {
+    document.getElementById('nh-panel-loading').style.display = 'none';
+    document.getElementById('nh-panel-result').style.display = 'block';
+    document.getElementById('nh-panel-result').innerHTML = '<div class="meta-text" style="text-align:center;padding:20px;">请先打开一份学习纪要或资料，再使用 AI 生成笔记。</div>';
+    return;
+  }
+
+  _nhGenAbort = new AbortController();
+  const resultEl = document.getElementById('nh-panel-result');
+  const loadingEl = document.getElementById('nh-panel-loading');
+
+  try {
+    const res = await fetch(API + '/ai/generate-note', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sourceIds }),
+      signal: _nhGenAbort.signal
+    });
+
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+
+    loadingEl.style.display = 'none';
+    resultEl.style.display = 'block';
+    resultEl.innerHTML = '<span class="generating-cursor"></span>';
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let fullContent = '';
+    let citations = [];
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6).trim();
+          if (data === '[DONE]') break;
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.content) {
+              fullContent += parsed.content;
+              resultEl.innerHTML = simpleMarkdown(fullContent) + '<span class="generating-cursor"></span>';
+              resultEl.scrollTop = resultEl.scrollHeight;
+            }
+            if (parsed.citations) citations = parsed.citations;
+          } catch {}
+        }
+      }
+    }
+
+    resultEl.innerHTML = simpleMarkdown(fullContent);
+    resultEl.classList.remove('generating-cursor');
+
+    // Show actions
+    document.getElementById('nh-panel-actions').innerHTML = `
+      <button class="btn btn-primary" style="font-size:13px;padding:8px 18px;border-radius:14px;" onclick="saveGeneratedNote()">📝 保存为笔记</button>
+      <button class="btn btn-neu" style="font-size:13px;padding:8px 18px;border-radius:14px;" onclick="refineGeneratedNote()">🔄 优化</button>
+      <button class="btn btn-neu" style="font-size:13px;padding:8px 18px;border-radius:14px;" onclick="openRefineInput()">✏️ 自定义修改</button>
+    `;
+    window._nhGeneratedContent = fullContent;
+    window._nhCitations = citations;
+
+  } catch (e) {
+    if (e.name === 'AbortError') return;
+    loadingEl.style.display = 'none';
+    resultEl.style.display = 'block';
+    resultEl.innerHTML = '<div style="text-align:center;color:var(--text2);padding:20px;">生成失败: ' + esc(e.message) + '<br/><button class="btn btn-neu" style="margin-top:10px;" onclick="generateNoteStream()">重试</button></div>';
+  }
+}
+
+async function saveGeneratedNote() {
+  const content = window._nhGeneratedContent;
+  if (!content) return;
+  try {
+    const title = content.split(/[\n。]/)[0].substring(0, 50);
+    const res = await safeFetch(API + '/study-notes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, content, blocks: [{ id: '1', type: 'text', content }] })
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    const newId = json.data?.id || json.id;
+    closeNoteHelperPanel();
+    if (newId) setTimeout(() => viewNoteFullscreen(newId, title), 400);
+  } catch (e) { alert('保存失败: ' + e.message); }
+}
+
+async function refineGeneratedNote() {
+  const content = window._nhGeneratedContent;
+  if (!content) return;
+  document.getElementById('nh-panel-result').innerHTML = '<span class="generating-cursor"></span>';
+  document.getElementById('nh-panel-loading').style.display = 'none';
+  document.getElementById('nh-panel-actions').innerHTML = '';
+
+  const sourceIds = [];
+  if (_fsNoteId) sourceIds.push({ id: _fsNoteId, type: _fsNoteType || 'study_note' });
+
+  try {
+    const res = await fetch(API + '/ai/refine-note', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentNote: content, refinementPrompt: '请优化这段笔记，使其更加详细且结构清晰，添加更多细节和例子。', sourceIds })
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '', fullContent = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6).trim();
+          if (data === '[DONE]') break;
+          try { const p = JSON.parse(data); if (p.content) { fullContent += p.content; document.getElementById('nh-panel-result').innerHTML = simpleMarkdown(fullContent) + '<span class="generating-cursor"></span>'; } } catch {}
+        }
+      }
+    }
+    document.getElementById('nh-panel-result').innerHTML = simpleMarkdown(fullContent);
+    window._nhGeneratedContent = fullContent;
+    document.getElementById('nh-panel-actions').innerHTML = `
+      <button class="btn btn-primary" style="font-size:13px;padding:8px 18px;border-radius:14px;" onclick="saveGeneratedNote()">📝 保存为笔记</button>
+      <button class="btn btn-neu" style="font-size:13px;padding:8px 18px;border-radius:14px;" onclick="refineGeneratedNote()">🔄 再优化</button>
+    `;
+  } catch (e) {
+    document.getElementById('nh-panel-result').innerHTML = '<div style="text-align:center;color:var(--text2);padding:20px;">优化失败: ' + esc(e.message) + '</div>';
+  }
+}
+
+function openRefineInput() {
+  const prompt = prompt('请输入修改要求（例如：更详细、添加表格、举例说明）', '请更详细地展开，添加更多示例');
+  if (!prompt) return;
+  document.getElementById('nh-panel-result').innerHTML = '<span class="generating-cursor"></span>';
+  document.getElementById('nh-panel-actions').innerHTML = '';
+
+  const content = window._nhGeneratedContent || '';
+  const sourceIds = [];
+  if (_fsNoteId) sourceIds.push({ id: _fsNoteId, type: _fsNoteType || 'study_note' });
+
+  fetch(API + '/ai/refine-note', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ currentNote: content, refinementPrompt: prompt, sourceIds })
+  }).then(async res => {
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '', fullContent = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const data = line.slice(6).trim();
+        if (data === '[DONE]') break;
+        try { const p = JSON.parse(data); if (p.content) { fullContent += p.content; document.getElementById('nh-panel-result').innerHTML = simpleMarkdown(fullContent) + '<span class="generating-cursor"></span>'; } } catch {}
+      }
+    }
+    document.getElementById('nh-panel-result').innerHTML = simpleMarkdown(fullContent);
+    window._nhGeneratedContent = fullContent;
+    document.getElementById('nh-panel-actions').innerHTML = `
+      <button class="btn btn-primary" style="font-size:13px;padding:8px 18px;border-radius:14px;" onclick="saveGeneratedNote()">📝 保存为笔记</button>
+      <button class="btn btn-neu" style="font-size:13px;padding:8px 18px;border-radius:14px;" onclick="refineGeneratedNote()">🔄 再优化</button>
+    `;
+  }).catch(e => {
+    document.getElementById('nh-panel-result').innerHTML = '<div style="text-align:center;color:var(--text2);padding:20px;">修改失败: ' + esc(e.message) + '</div>';
+  });
+}
+
+// ═══════════════════════════════════════════
+// CREATE NOTE & UPLOAD MATERIAL
+// ═══════════════════════════════════════════
+function openCreateNote() {
+  document.getElementById('cn-title').value = '';
+  document.getElementById('cn-content').value = '';
+  document.getElementById('cn-path').value = '';
+  document.getElementById('create-note-mask').classList.add('show');
+}
+function closeCreateNote() { document.getElementById('create-note-mask').classList.remove('show'); }
+
+async function submitCreateNote() {
+  const title = document.getElementById('cn-title').value.trim();
+  const content = document.getElementById('cn-content').value.trim();
+  const path = document.getElementById('cn-path').value.trim();
+  if (!title && !content) { alert('请输入标题或内容'); return; }
+
+  const btn = document.getElementById('cn-submit-btn');
+  btn.textContent = '保存中...'; btn.disabled = true;
+
+  try {
+    const body = { title: title || '未命名笔记', content, blocks: [{ id: '1', type: 'text', content }] };
+    if (path) body.logical_path = JSON.stringify([path.endsWith('/') ? path : path + '/']);
+
+    const res = await safeFetch(API + '/study-notes', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    const newId = json.data?.id || json.id;
+    closeCreateNote();
+    // Trigger AI processing
+    if (newId) {
+      safeFetch(API + '/knowledge-builder/process-content', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'study_note', id: newId })
+      }).catch(() => {});
+    }
+    refreshCurrentTab();
+  } catch (e) { alert('保存失败: ' + e.message); }
+  finally { btn.textContent = '保存'; btn.disabled = false; }
+}
+
+function openUploadMaterial() {
+  document.getElementById('um-file').value = '';
+  document.getElementById('um-title').value = '';
+  document.getElementById('um-path').value = '';
+  document.getElementById('um-file-info').textContent = '支持 PDF, PPTX, PPT, DOCX, MD, TXT 等';
+  document.getElementById('um-progress').style.display = 'none';
+  document.getElementById('upload-mat-mask').classList.add('show');
+}
+function closeUploadMaterial() { document.getElementById('upload-mat-mask').classList.remove('show'); }
+
+let _selectedFile = null;
+function onFileSelected(input) {
+  _selectedFile = input.files[0];
+  if (_selectedFile) {
+    document.getElementById('um-file-info').textContent = '已选: ' + _selectedFile.name + ' (' + (_selectedFile.size / 1024).toFixed(1) + ' KB)';
+    if (!document.getElementById('um-title').value) {
+      document.getElementById('um-title').value = _selectedFile.name.replace(/\.[^.]+$/, '');
+    }
+  }
+}
+
+async function submitUploadMaterial() {
+  if (!_selectedFile) { alert('请先选择文件'); return; }
+  const btn = document.getElementById('um-submit-btn');
+  btn.disabled = true; btn.textContent = '上传中...';
+  document.getElementById('um-progress').style.display = 'block';
+  document.getElementById('um-progress-bar').style.width = '30%';
+  document.getElementById('um-progress-text').textContent = '上传中...';
+
+  try {
+    const formData = new FormData();
+    formData.append('file', _selectedFile);
+
+    const uploadRes = await fetch(API + '/upload', { method: 'POST', body: formData });
+    if (!uploadRes.ok) throw new Error('上传失败 HTTP ' + uploadRes.status);
+    const uploadJson = await uploadRes.json();
+    const { fileUrl, fileName, mimeType } = uploadJson.data || uploadJson;
+
+    document.getElementById('um-progress-bar').style.width = '60%';
+    document.getElementById('um-progress-text').textContent = '创建记录...';
+
+    const title = document.getElementById('um-title').value.trim() || _selectedFile.name;
+    const path = document.getElementById('um-path').value.trim();
+
+    const body = { title, name: fileName, file_url: fileUrl, file_name: fileName, mime_type: mimeType };
+    if (path) body.logical_path = JSON.stringify([path.endsWith('/') ? path : path + '/']);
+
+    const matRes = await safeFetch(API + '/materials', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+    });
+    if (!matRes.ok) throw new Error('创建材料失败 HTTP ' + matRes.status);
+    const matJson = await matRes.json();
+    const matId = matJson.data?.id || matJson.id;
+
+    document.getElementById('um-progress-bar').style.width = '100%';
+    document.getElementById('um-progress-text').textContent = '上传成功！';
+
+    if (matId) {
+      safeFetch(API + '/knowledge-builder/process-content', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'material', id: matId })
+      }).catch(() => {});
+    }
+
+    setTimeout(() => { closeUploadMaterial(); refreshCurrentTab(); }, 800);
+  } catch (e) {
+    alert('上传失败: ' + e.message);
+    document.getElementById('um-progress').style.display = 'none';
+  } finally { btn.disabled = false; btn.textContent = '上传'; }
+}
+
+// ═══════════════════════════════════════════
+// FOLDER VIEW: file moving between folders
+// ═══════════════════════════════════════════
+let _moveFileId = null, _moveFileType = null, _moveSelectedPath = null;
+
+function viewFolderDoc(id, type, title) {
+  if (type === 'study_note') viewNoteFullscreen(id, title);
+  else viewMaterialFullscreen(id, title);
+}
+
+// Called from folder doc-row: long press to show move option
+function showMoveFileDialog(id, type, title, currentPath) {
+  _moveFileId = id;
+  _moveFileType = type;
+  _moveSelectedPath = null;
+  document.getElementById('move-cur-path').textContent = esc(currentPath || '/');
+  document.getElementById('move-submit-btn').disabled = true;
+  document.getElementById('move-file-mask').classList.add('show');
+  loadFolderPicker();
+}
+
+async function loadFolderPicker() {
+  const list = document.getElementById('move-folder-list');
+  list.innerHTML = '<div style="text-align:center;padding:20px;"><div class="spinner"></div></div>';
+  try {
+    const res = await safeFetch(API + '/control-center/recent-records?limit=200');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    const records = json.data || [];
+    // Extract unique folder paths
+    const folders = new Set();
+    folders.add('/');
+    records.forEach(r => {
+      let path = r.logical_path || '';
+      try {
+        const p = JSON.parse(path);
+        if (Array.isArray(p) && p.length > 0) path = p[0];
+      } catch {}
+      path = path.replace(/^\[?"?\/?|\/?"?\]?$/g, '/');
+      const parts = path.split('/').filter(Boolean);
+      let cur = '';
+      parts.forEach(part => { cur += '/' + part; folders.add(cur + '/'); });
+    });
+
+    const sorted = [...folders].sort();
+    let html = '';
+    sorted.forEach(f => {
+      const display = f === '/' ? '/ (根目录)' : f;
+      html += '<div class="folder-picker-item" onclick="selectMoveFolder(\'' + esc(f) + '\', this)" data-path="' + esc(f) + '">📁 ' + esc(display) + '</div>';
+    });
+    list.innerHTML = html || '<div style="text-align:center;padding:16px;color:var(--text3);">暂无文件夹</div>';
+  } catch (e) {
+    list.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text3);">加载失败: ' + esc(e.message) + '</div>';
+  }
+}
+
+function selectMoveFolder(path, el) {
+  _moveSelectedPath = path;
+  document.querySelectorAll('.folder-picker-item').forEach(i => i.classList.remove('selected'));
+  if (el) el.classList.add('selected');
+  document.getElementById('move-submit-btn').disabled = false;
+}
+
+async function submitMoveFile() {
+  if (!_moveFileId || !_moveSelectedPath) return;
+  const endpoint = _moveFileType === 'study_note' ? '/study-notes/' : '/materials/';
+  try {
+    const lp = JSON.stringify([_moveSelectedPath]);
+    const res = await safeFetch(API + endpoint + _moveFileId, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ logical_path: lp })
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    closeMoveFile();
+    refreshCurrentTab();
+  } catch (e) { alert('移动失败: ' + e.message); }
+}
+
+function closeMoveFile() {
+  document.getElementById('move-file-mask').classList.remove('show');
+  _moveFileId = null; _moveFileType = null; _moveSelectedPath = null;
+}
+
 </script>
 </body>
 </html>
