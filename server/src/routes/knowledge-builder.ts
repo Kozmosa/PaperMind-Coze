@@ -566,8 +566,8 @@ ${papercore.slice(0, 600)}
     }
   }
 
-  // Filter invalid
-  const filteredL3s = finalL3s.filter(t => !INVALID.has(t) && !t.startsWith('无法') && !t.startsWith('未'));
+  // Filter invalid + L3 must not duplicate parent L2 name
+  const filteredL3s = finalL3s.filter(t => !INVALID.has(t) && !t.startsWith('无法') && !t.startsWith('未') && t !== l2);
 
   console.log(`[tags-result] L1="${l1}" L2="${l2}" l2IsNew=${l2IsNew} L3=[${filteredL3s.join(', ')}]`);
   return { L1: l1, L2: l2, l2IsNew, tags: filteredL3s };
@@ -691,34 +691,56 @@ router.post('/process-content', async (req: Request, res: Response) => {
       text = dbExtractedText;
     }
 
+    // 提取文件名
+    const recordFileName = (record as any).name || (record as any).title || (record as any).file_name || undefined;
+
     // Detect unsupported/placeholder content
     const isPlaceholder = text.startsWith('[') && (text.includes('需OCR') || text.includes('旧版PPT') || text.includes('无法自动提取'));
     const isUnsupported = text.includes('旧版PPT二进制格式');
 
-    if (!text || text.trim().length < 5 || isPlaceholder) {
-      const fallbackPapercore = isUnsupported
-        ? '该文件为旧版PPT格式，无法提取文本。请手动补充学习心得或转为PPTX格式后重新上传。'
-        : (isPlaceholder ? text : '');
-      await supabase.from(table).update({
-        ai_processed: true,
-        papercore: fallbackPapercore,
-        logical_path: '/未分类/',
-      }).eq('id', id).eq('user_id', userId);
-      return res.json({ data: { id, status: 'skipped', reason: isUnsupported ? 'unsupported_ppt' : 'insufficient content' } });
+    // 强制解析：即使内容不可读/为空，也根据文件名尝试 LLM 分类
+    if (!text || text.trim().length < 5 || isPlaceholder || isUnsupported) {
+      const forcePapercore = buildDegradedPapercore(recordFileName);
+      const existingHierarchy2 = await getExistingTagHierarchy(userId);
+      try {
+        const forced = await generateHierarchicalTags(forcePapercore, forcePapercore.length, existingHierarchy2, userId);
+        const { L1, L2, tags: kps } = forced;
+        const lps = buildLogicalPaths(L1, L2, kps);
+        await supabase.from(table).update({
+          ai_processed: true, papercore: forcePapercore,
+          logical_path: JSON.stringify(lps), tags: [L1, L2, ...kps].filter(Boolean),
+        }).eq('id', id).eq('user_id', userId);
+        return res.json({ data: { id, status: 'processed', papercore: forcePapercore, tags: [L1, L2, ...kps], logical_path: lps, reason: 'forced' } });
+      } catch (e: any) {
+        console.error('[forced-classify] error:', e.message);
+        await supabase.from(table).update({
+          ai_processed: true, papercore: forcePapercore,
+          logical_path: '/未分类/',
+        }).eq('id', id).eq('user_id', userId);
+        return res.json({ data: { id, status: 'skipped', reason: 'forced classification failed' } });
+      }
     }
 
-    // 提取文件名用于降级 Papercore
-    const recordFileName = (record as any).name || (record as any).title || (record as any).file_name || undefined;
-
-    // Check text readability (filter garbled PDF content)
+    // Check text readability (filter garbled PDF content) — still force classify
     if (!isReadableText(text)) {
       const degradedPapercore = buildDegradedPapercore(recordFileName);
-      await supabase.from(table).update({
-        ai_processed: true,
-        papercore: degradedPapercore,
-        logical_path: JSON.stringify(['/未分类/']),
-      }).eq('id', id).eq('user_id', userId);
-      return res.json({ data: { id, status: 'processed', papercore: degradedPapercore, reason: 'degraded' } });
+      const existingHierarchy3 = await getExistingTagHierarchy(userId);
+      try {
+        const forced = await generateHierarchicalTags(degradedPapercore, degradedPapercore.length, existingHierarchy3, userId);
+        const { L1, L2, tags: kps } = forced;
+        const lps = buildLogicalPaths(L1, L2, kps);
+        await supabase.from(table).update({
+          ai_processed: true, papercore: degradedPapercore,
+          logical_path: JSON.stringify(lps), tags: [L1, L2, ...kps].filter(Boolean),
+        }).eq('id', id).eq('user_id', userId);
+        return res.json({ data: { id, status: 'processed', papercore: degradedPapercore, tags: [L1, L2, ...kps], logical_path: lps, reason: 'forced-degraded' } });
+      } catch (e: any) {
+        await supabase.from(table).update({
+          ai_processed: true, papercore: degradedPapercore,
+          logical_path: JSON.stringify(['/未分类/']),
+        }).eq('id', id).eq('user_id', userId);
+        return res.json({ data: { id, status: 'skipped', reason: 'degraded classification failed' } });
+      }
     }
 
     // Get existing tag hierarchy
