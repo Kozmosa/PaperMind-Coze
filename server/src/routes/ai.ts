@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { anthropic, DEFAULT_MODEL } from '../config/ai.js';
 import { getSupabaseClient } from '../storage/database/supabase-client.js';
+import { knowledgeVectorIndex } from '../utils/knowledge-vector-index.js';
 
 const router = Router();
 const client = getSupabaseClient();
@@ -34,7 +35,7 @@ router.post('/chat', async (req: Request, res: Response) => {
         systemPrompt = await buildNoteHelperPrompt(context);
         break;
       case 'tutor':
-        systemPrompt = await buildTutorPrompt(context);
+        systemPrompt = await buildTutorPrompt(context, message);
         break;
       case 'reflection_mind':
         systemPrompt = await buildReflectionPrompt(context);
@@ -72,6 +73,7 @@ router.post('/chat', async (req: Request, res: Response) => {
  * POST /api/v1/ai/tutor
  * Tutor 专用接口 - 返回结构化 JSON（包含答案和引用）
  * Body: { message: string, context?: any }
+ * 支持图片：context: { imageBase64: string, mediaType: string }
  */
 router.post('/tutor', async (req: Request, res: Response) => {
   try {
@@ -80,11 +82,29 @@ router.post('/tutor', async (req: Request, res: Response) => {
       return res.status(400).json({ error: '缺少 message 参数' });
     }
 
+    const imageBase64 = context?.imageBase64 || null;
+    const mediaType = context?.mediaType || 'image/jpeg';
+
     res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
     res.setHeader('Cache-Control', 'no-cache, no-store, no-transform, must-revalidate');
     res.setHeader('Connection', 'keep-alive');
 
-    const systemPrompt = await buildTutorPrompt(context);
+    const hasImage = !!imageBase64;
+    const systemPrompt = await buildTutorPrompt(context, message, hasImage);
+
+    // 构建消息：有图片时用 multipart content blocks，否则纯文本
+    let messages: any[];
+    if (hasImage) {
+      messages = [{
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: mediaType, data: imageBase64 } },
+          { type: 'text', text: message }
+        ]
+      }];
+    } else {
+      messages = [{ role: 'user', content: message }];
+    }
 
     // 先收集完整回复，再解析 citations
     let fullContent = '';
@@ -93,7 +113,7 @@ router.post('/tutor', async (req: Request, res: Response) => {
       model: DEFAULT_MODEL,
       max_tokens: 4096,
       system: systemPrompt,
-      messages: [{ role: 'user', content: message }],
+      messages,
     });
 
     for await (const event of stream) {
@@ -155,12 +175,16 @@ function extractCitations(answer: string, context?: any): any[] {
 /**
  * POST /api/v1/ai/knowledge-builder
  * knowledge_builder 专用 - 辅助构建知识节点（一次性输出 Papercore/Tags/Relations）
+ * Body: { rawContent?: string, imageBase64?: string, mediaType?: string }
+ * 支持图片输入（截图/手写笔记 → 提取概念生成 Papercore + Tags）
  */
 router.post('/knowledge-builder', async (req: Request, res: Response) => {
   try {
-    const { rawContent } = req.body;
-    if (!rawContent) {
-      return res.status(400).json({ error: '缺少原始内容' });
+    const { rawContent, imageBase64, mediaType } = req.body;
+    const hasImage = !!imageBase64;
+
+    if (!rawContent && !hasImage) {
+      return res.status(400).json({ error: '缺少内容（rawContent 或 imageBase64）' });
     }
 
     res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
@@ -177,18 +201,44 @@ router.post('/knowledge-builder', async (req: Request, res: Response) => {
     const nodesCtx = JSON.stringify(existingNodes || []);
 
     const systemPrompt = `你是知识构建助手 knowledge_builder，帮助用户构建知识节点：
-
+${hasImage ? '\n🖼️ 用户上传了一张图片（可能是公式截图、手写笔记、教材页面等）。请仔细分析图片内容，识别其中的公式、概念和关键术语。' : ''}
 现有知识图谱节点：${nodesCtx}
 
-请根据用户输入的原始内容，输出：
-PAPERCORE: [简洁的知识核概]
-TAGS: [标签1], [标签2]`;
+请根据用户输入的内容，输出：
+PAPERCORE: [简洁的知识核概，30-80字，用第一人称表达理解]
+TAGS: [标签1], [标签2], [标签3]
+
+注意：
+- Papercore 是个人化的理解总结，不是原文照抄
+- Tags 以 # 开头，3-5 个
+
+直接输出以下格式：
+PAPERCORE: <内容>
+TAGS: <标签列表>`;
+
+    // 构建消息：有图片时用 multipart content blocks
+    let messages: any[];
+    if (hasImage) {
+      const contentBlocks: any[] = [];
+      contentBlocks.push({
+        type: 'image',
+        source: { type: 'base64', media_type: mediaType || 'image/jpeg', data: imageBase64 }
+      });
+      if (rawContent) {
+        contentBlocks.push({ type: 'text', text: rawContent });
+      } else {
+        contentBlocks.push({ type: 'text', text: '请分析这张图片，提取其中的知识概念，生成 Papercore 和 Tags。' });
+      }
+      messages = [{ role: 'user', content: contentBlocks }];
+    } else {
+      messages = [{ role: 'user', content: rawContent }];
+    }
 
     const stream = anthropic.messages.stream({
       model: DEFAULT_MODEL,
       max_tokens: 4096,
       system: systemPrompt,
-      messages: [{ role: 'user', content: rawContent }],
+      messages,
     });
 
     for await (const event of stream) {
@@ -298,6 +348,110 @@ router.post('/suggest', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * POST /api/v1/ai/suggest-relations
+ * 根据 Papercore 语义搜索相关节点，并用 LLM 分类关系类型
+ * Body: { papercore: string, tags?: string[], topK?: number }
+ * Response: JSON { suggestions: [{ nodeId, short_name, papercore, relation_type, score }] }
+ */
+router.post('/suggest-relations', async (req: Request, res: Response) => {
+  try {
+    const { papercore, tags, topK = 10 } = req.body;
+    if (!papercore) {
+      return res.status(400).json({ error: '缺少 papercore 参数' });
+    }
+
+    // 1. 语义搜索
+    const searchResults = await knowledgeVectorIndex.search(papercore, topK, 0.3);
+
+    if (searchResults.length === 0) {
+      return res.json({ suggestions: [] });
+    }
+
+    // 2. 用 LLM 分类关系类型
+    const candidates = searchResults.map(r =>
+      `[ID:${r.id}] 名称:${r.short_name || '节点' + r.id} Papercore:${r.papercore?.substring(0, 80)} 标签:${(r.tags || []).join(',')}`
+    ).join('\n');
+
+    const systemPrompt = `你是知识图谱关系分类助手。给定一个新的知识节点，判断它与现有节点的关系类型。
+
+新节点的 Papercore: "${papercore}"${tags?.length ? `\n新节点标签: ${tags.join(', ')}` : ''}
+
+现有候选节点：
+${candidates}
+
+请对以上每个候选节点，判断关系类型。关系类型定义：
+- prerequisite: 前置知识（需要先学这个节点才能理解新节点）
+- related: 相关知识（同一层次的关联概念）
+- parent: 上层概念（新节点是这个概念的子集/特例）
+
+返回严格的 JSON 数组格式，不要包含任何其他文字：
+[
+  {"nodeId": <数字ID>, "relation_type": "prerequisite|related|parent"},
+  ...
+]
+
+如果某个节点不属于以上任何类型，不要包含它。最多返回5个关系。`;
+
+    const msg = await anthropic.messages.create({
+      model: DEFAULT_MODEL,
+      max_tokens: 1024,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: '请分析并返回 JSON 数组。' }],
+    });
+
+    // 3. 解析 LLM 响应
+    let classified: Array<{ nodeId: number; relation_type: string }> = [];
+    try {
+      const text = (msg.content[0] as any)?.text || '';
+      const jsonMatch = text.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        classified = JSON.parse(jsonMatch[0]);
+      }
+    } catch (parseErr) {
+      console.warn('[suggest-relations] LLM JSON parse failed, falling back to vector-only');
+    }
+
+    // 4. 合并语义分数和 LLM 分类
+    const scoreMap: Record<number, number> = {};
+    searchResults.forEach(r => { scoreMap[r.id] = r.score; });
+
+    const suggestions = classified
+      .filter(c => scoreMap[c.nodeId] !== undefined)
+      .map(c => {
+        const sr = searchResults.find(r => r.id === c.nodeId)!;
+        return {
+          nodeId: c.nodeId,
+          short_name: sr.short_name,
+          papercore: sr.papercore,
+          tags: sr.tags,
+          relation_type: c.relation_type,
+          score: Math.round(scoreMap[c.nodeId] * 100) / 100,
+        };
+      });
+
+    // 5. 没有被 LLM 分类的，标记为 related（降级处理）
+    const classifiedIds = new Set(classified.map(c => c.nodeId));
+    for (const sr of searchResults) {
+      if (!classifiedIds.has(sr.id)) {
+        suggestions.push({
+          nodeId: sr.id,
+          short_name: sr.short_name,
+          papercore: sr.papercore,
+          tags: sr.tags,
+          relation_type: 'related',
+          score: Math.round(sr.score * 100) / 100,
+        });
+      }
+    }
+
+    res.json({ suggestions: suggestions.slice(0, 8) });
+  } catch (error: any) {
+    console.error('SuggestRelations Error:', error);
+    res.status(500).json({ error: error.message || '关系建议失败' });
+  }
+});
+
 async function buildKnowledgeBuilderPrompt(context?: any): Promise<string> {
   const { data: nodes } = await client
     .from('knowledge_nodes')
@@ -354,7 +508,7 @@ ${stylePreference || '尚无明确的笔记偏好记录，请用通用高质量�
 请直接生成笔记内容，不需要询问用户。`;
 }
 
-async function buildTutorPrompt(context?: any): Promise<string> {
+async function buildTutorPrompt(context?: any, userMessage?: string, hasImage?: boolean): Promise<string> {
   let knowledgeContext = '';
   let fileContentsContext = '';
 
@@ -400,8 +554,62 @@ async function buildTutorPrompt(context?: any): Promise<string> {
         }
       }
     }
-  } else {
-    // 默认加载全部知识节点供 tutor 检索
+  } else if (userMessage && knowledgeVectorIndex.isReady()) {
+    // 使用语义搜索获取相关节点
+    const searchResults = await knowledgeVectorIndex.search(userMessage, 10, 0.3);
+    if (searchResults.length > 0) {
+      const nodeIds = searchResults.map(r => r.id);
+      const { data: nodes } = await client
+        .from('knowledge_nodes')
+        .select('id, papercore, tags, short_name, attached_draft_ids')
+        .in('id', nodeIds);
+
+      if (nodes && nodes.length > 0) {
+        // Sort nodes by search score for relevance
+        const scoreMap: Record<number, number> = {};
+        searchResults.forEach(r => { scoreMap[r.id] = r.score; });
+        const sortedNodes = nodes.sort((a: any, b: any) => (scoreMap[b.id] || 0) - (scoreMap[a.id] || 0));
+
+        const nodeList = sortedNodes.map((n: any) =>
+          `[${n.short_name || '节点' + n.id}] ${n.papercore || '(暂无概述)'} 标签:${(n.tags || []).join(',')} [语义相关度: ${(scoreMap[n.id] || 0).toFixed(2)}]`
+        ).join('\n');
+        knowledgeContext = `【语义检索知识节点 (${sortedNodes.length}个，按相关度排序)】\n${nodeList}`;
+
+        // 获取关联的文件内容
+        const allDraftIds = sortedNodes
+          .filter((n: any) => n.attached_draft_ids && n.attached_draft_ids.length > 0)
+          .flatMap((n: any) => n.attached_draft_ids);
+
+        if (allDraftIds.length > 0) {
+          const { data: fileContents } = await client
+            .from('file_contents')
+            .select('draft_id, extracted_text, page_number')
+            .in('draft_id', allDraftIds.slice(0, 20));
+
+          if (fileContents && fileContents.length > 0) {
+            const { data: drafts } = await client
+              .from('draft_pool')
+              .select('id, file_name, file_url')
+              .in('id', allDraftIds.slice(0, 20));
+
+            const draftMap: Record<number, any> = {};
+            (drafts || []).forEach((d: any) => { draftMap[d.id] = d; });
+
+            const fileDetails = fileContents.map((fc: any) => {
+              const draft = draftMap[fc.draft_id] || {};
+              const pageInfo = fc.page_number ? `[第${fc.page_number}页]` : '';
+              return `${pageInfo}「${draft.file_name || '未知文件'}」: ${(fc.extracted_text || '').substring(0, 300)}`;
+            });
+
+            fileContentsContext = `\n\n相关文件内容：\n${fileDetails.join('\n---\n')}`;
+          }
+        }
+      }
+    }
+  }
+
+  // 语义搜索失败或无结果时，降级为全量加载
+  if (!knowledgeContext) {
     const { data: nodes } = await client
       .from('knowledge_nodes')
       .select('id, papercore, tags, short_name, attached_draft_ids')
@@ -446,9 +654,17 @@ async function buildTutorPrompt(context?: any): Promise<string> {
     }
   }
 
+  const imageInstruction = hasImage
+    ? `\n🖼️ 用户上传了一张图片。请仔细分析图片中的内容（文字、公式、图表等）。在回答时：
+- 先描述你在图片中看到的内容（公式、推导步骤等）
+- 用 markdown 标注关键区域（例如"图片左上角的公式..."、"第2步到第3步的推导..."）
+- 将图片内容与知识库中的相关节点关联起来
+- 如果图片是手写笔记，尝试识别其中的文字和公式\n`
+    : '';
+
   if (!knowledgeContext) {
     return `你是智能导师 tutor。
-
+${imageInstruction}
 知识库中尚未找到与该问题直接相关的内容。
 
 ⚠️ 请先告知用户"知识库中没有相应内容"，然后用你的常识给出解答，最后询问用户是否需要将解答补充进知识库。
@@ -457,7 +673,7 @@ async function buildTutorPrompt(context?: any): Promise<string> {
   }
 
   return `你是智能导师 tutor，基于以下知识库内容回答用户的问题。
-
+${imageInstruction}
 ${knowledgeContext}${fileContentsContext}
 
 ⚠️ 重要要求：
@@ -890,6 +1106,23 @@ ${sourcesContext}
     }
     res.write('data: [DONE]\n\n');
     res.end();
+  }
+});
+
+/**
+ * POST /api/v1/ai/refresh-index
+ * 重建知识节点向量索引
+ */
+router.post('/refresh-index', async (_req: Request, res: Response) => {
+  try {
+    await knowledgeVectorIndex.buildIndex();
+    res.json({
+      success: true,
+      nodeCount: knowledgeVectorIndex.getNodeCount(),
+      ready: knowledgeVectorIndex.isReady(),
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || '索引重建失败' });
   }
 });
 

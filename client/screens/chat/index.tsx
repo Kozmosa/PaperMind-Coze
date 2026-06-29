@@ -9,6 +9,7 @@ import {
   Modal,
   FlatList,
   Alert,
+  Image,
 } from 'react-native';
 import { useCallback, useState, useRef, useEffect } from 'react';
 import { useFocusEffect } from 'expo-router';
@@ -18,6 +19,7 @@ import MarkdownRenderer from '@/components/markdown/MarkdownRenderer';
 import { api } from '@/utils/api';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 
 type Message = {
   id: string;
@@ -25,6 +27,7 @@ type Message = {
   content: string;
   citations?: Citation[];
   timestamp: number;
+  imageUri?: string;
 };
 
 type Citation = {
@@ -133,11 +136,15 @@ export default function ChatScreen() {
   const handleSubmit = async () => {
     if (!input.trim() || loading) return;
 
+    // Image URI to store for displaying in bubble
+    const imageUri = uploadFile?.uri || null;
+
     const userMsg: Message = {
       id: Date.now().toString(),
       role: 'user',
       content: input.trim(),
       timestamp: Date.now(),
+      imageUri: imageUri || undefined,
     };
 
     // Reset citations before sending
@@ -159,14 +166,39 @@ export default function ChatScreen() {
         context.nodeIds = [selectedNodeId];
       }
       if (uploadFile) {
-        // 上传文件
-        const uploadRes = await api.uploadFile(uploadFile.uri, uploadFile.name, 'application/octet-stream');
-        context.draftId = uploadRes.draftId;
+        // 判断是否为图片，是则编码为 base64
+        const isImage = uploadFile.uri.match(/\.(jpg|jpeg|png|gif|webp|bmp)($|\?)/i) ||
+                        uploadFile.name.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/i);
+
+        if (isImage) {
+          try {
+            const base64 = await FileSystem.readAsStringAsync(uploadFile.uri, {
+              encoding: FileSystem.EncodingType.Base64,
+            });
+            const ext = (uploadFile.name.split('.').pop() || 'jpeg').toLowerCase();
+            const mimeMap: Record<string, string> = {
+              jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
+              gif: 'image/gif', webp: 'image/webp', bmp: 'image/bmp',
+            };
+            context.imageBase64 = base64;
+            context.mediaType = mimeMap[ext] || 'image/jpeg';
+          } catch (e) {
+            console.warn('Failed to encode image as base64:', e);
+          }
+        }
+
+        // 仍然上传文件到服务端存档
+        try {
+          const uploadRes = await api.uploadFile(uploadFile.uri, uploadFile.name, 'application/octet-stream');
+          context.draftId = uploadRes.draftId;
+        } catch (e) {
+          console.warn('File upload failed (non-blocking):', e);
+        }
         setUploadFile(null);
       }
 
       // 流式请求 - tutor 使用专用端点返回 citations
-      const apiEndpoint = selectedAgent === 'tutor' 
+      const apiEndpoint = selectedAgent === 'tutor'
         ? `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/ai/tutor`
         : `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/ai/chat`;
 
@@ -386,7 +418,13 @@ export default function ChatScreen() {
             </View>
 
             <TouchableOpacity
-              style={{ marginLeft: 12 }}
+              style={{ marginRight: 12 }}
+              onPress={() => router.push('/knowledge-builder')}
+            >
+              <Feather name="plus-square" size={22} color="#6C63FF" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ marginLeft: 0 }}
               onPress={() => router.push('/problem-solving-logs')}
             >
               <Feather name="list" size={22} color="#2D3436" />
@@ -426,6 +464,12 @@ export default function ChatScreen() {
               <View key={msg.id} style={{ marginBottom: 16 }}>
                 {msg.role === 'user' ? (
                   <View style={{ alignItems: 'flex-end' }}>
+                    {msg.imageUri && (
+                      <Image
+                        source={{ uri: msg.imageUri }}
+                        style={{ width: 200, height: 150, borderRadius: 12, marginBottom: 6, resizeMode: 'contain' }}
+                      />
+                    )}
                     <View style={{ backgroundColor: '#6C63FF', borderRadius: 18, borderBottomRightRadius: 4, paddingHorizontal: 16, paddingVertical: 10, maxWidth: '80%' }}>
                       <Text style={{ color: '#FFF', fontSize: 15, lineHeight: 22 }}>{msg.content}</Text>
                     </View>

@@ -23,6 +23,9 @@
 
 @layer theme {
   :root {
+    /* Force light color scheme — disables browser dark mode auto-styling */
+    color-scheme: light;
+
     @variant light {
       /* Base Colors */
       --background: #FAF5F0;

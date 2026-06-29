@@ -6,7 +6,6 @@ import {
   StyleSheet, 
   Keyboard,
   Platform,
-  useColorScheme,
   ViewStyle,
   TextStyle
 } from 'react-native';
@@ -59,8 +58,8 @@ export const SmartDateInput = ({
   iconSize = 18
 }: SmartDateInputProps) => {
   const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  // Force light theme — do not follow system dark mode
+  const isDark = false;
 
   // 默认展示格式
   const format = displayFormat || (mode === 'time' ? 'HH:mm' : 'YYYY-MM-DD');

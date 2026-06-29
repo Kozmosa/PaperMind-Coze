@@ -61,3 +61,14 @@ app.use('/api/v1/chat-sessions', chatSessionsRouter);
 app.listen(port, () => {
   console.log(`Server listening at http://localhost:${port}/`);
 });
+
+// Warm-start knowledge vector index in background (lazy dynamic import to avoid blocking startup)
+setTimeout(() => {
+  import('./utils/knowledge-vector-index.js').then(mod => {
+    mod.knowledgeVectorIndex.buildIndex().catch(err => {
+      console.warn('[Index] Background build failed:', err.message);
+    });
+  }).catch(() => {
+    // embedding deps not available — safe to skip warm-start
+  });
+}, 2000);

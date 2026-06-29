@@ -484,4 +484,11 @@ export const api = {
     }
     return request<any>(`/materials/${id}/file-content`);
   },
+
+  // Suggest relations for a new knowledge node
+  suggestRelations: (papercore: string, tags?: string[], topK?: number) =>
+    request<{ suggestions: Array<{ nodeId: number; short_name: string; papercore: string; tags: string[]; relation_type: string; score: number }> }>(
+      '/ai/suggest-relations',
+      { method: 'POST', body: JSON.stringify({ papercore, tags, topK }) }
+    ),
 };

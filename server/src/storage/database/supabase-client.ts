@@ -1,11 +1,12 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { execSync } from 'child_process';
-import { getReportBuffer, createWrappedFetch } from 'coze-coding-dev-sdk';
 import { createRequire } from 'node:module';
 
 let envLoaded = false;
 
 const _require = createRequire(import.meta.url);
+const _path = _require('path') as typeof import('path');
+const _fs = _require('fs') as typeof import('fs');
 
 interface SupabaseCredentials {
   url: string;
@@ -19,7 +20,12 @@ function loadEnv(): void {
 
   try {
     try {
-      _require('dotenv').config();
+      // 搜索 .env 文件：先尝试当前目录，再尝试父目录
+      let envPath = _path.resolve('.env');
+      if (!_fs.existsSync(envPath)) {
+        envPath = _path.resolve('..', '.env');
+      }
+      _require('dotenv').config({ override: true, path: envPath });
       if (process.env.COZE_SUPABASE_URL && process.env.COZE_SUPABASE_ANON_KEY) {
         envLoaded = true;
         return;
@@ -107,14 +113,19 @@ function getSupabaseClient(token?: string): SupabaseClient {
   if (token) {
     globalOptions.headers = { Authorization: `Bearer ${token}` };
   }
-  try {
-    const buffer = getReportBuffer();
-    if (buffer) {
-      globalOptions.fetch = createWrappedFetch(buffer, 'supabase');
+  // Attempt to wire up Coze SDK telemetry — non-blocking
+  import('coze-coding-dev-sdk').then(cozeSdk => {
+    try {
+      const buffer = cozeSdk.getReportBuffer();
+      if (buffer) {
+        globalOptions.fetch = cozeSdk.createWrappedFetch(buffer, 'supabase');
+      }
+    } catch {
+      // silent
     }
-  } catch {
-    // Silent — reporting setup failure should not block client creation
-  }
+  }).catch(() => {
+    // coze-coding-dev-sdk not available or hangs — safe to ignore
+  });
 
   return createClient(url, key, {
     global: globalOptions,
