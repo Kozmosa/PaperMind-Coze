@@ -2165,7 +2165,7 @@ async function loadUmFolderPicker() {
   const list = document.getElementById('um-folder-list');
   list.innerHTML = '<div style="text-align:center;padding:14px;color:var(--text3);font-size:12px;">加载文件夹结构...</div>';
   try {
-    // Combine paths from actual records + knowledge graph
+    // Collect paths from actual records + knowledge graph
     const paths = new Set();
 
     // Source 1: Actual file/folder structure from recent records
@@ -2206,17 +2206,58 @@ async function loadUmFolderPicker() {
       list.innerHTML = '<div style="text-align:center;padding:14px;color:var(--text3);font-size:12px;">暂无分类路径，上传后自动归类</div>';
       return;
     }
-    const sorted = [...paths].sort();
-    const currentPath = document.getElementById('um-path').value;
-    let html = '';
-    sorted.forEach(p => {
-      const selected = p === currentPath ? ' selected' : '';
-      html += '<div class="folder-select-item' + selected + '" onclick="selectUmFolder(&quot;' + esc(p) + '&quot;, this)">📁 ' + esc(p) + '</div>';
+
+    // Build tree from flat paths
+    const root = new Map();
+    paths.forEach(p => {
+      const parts = p.split('/').filter(Boolean);
+      let cur = root;
+      let full = '';
+      parts.forEach(part => {
+        full += '/' + part + '/';
+        if (!cur.has(part)) cur.set(part, { name: part, fullPath: full, subs: new Map() });
+        cur = cur.get(part).subs;
+      });
     });
-    list.innerHTML = html;
+
+    const currentPath = document.getElementById('um-path').value;
+    list.innerHTML = renderUmFolderTree(root, 0, currentPath) || '<div style="text-align:center;padding:14px;color:var(--text3);">暂无文件夹</div>';
+
   } catch (e) {
     list.innerHTML = '<div style="text-align:center;padding:14px;color:var(--text3);font-size:12px;">加载失败: ' + esc(e.message) + '</div>';
   }
+}
+
+function renderUmFolderTree(folders, depth, currentPath) {
+  const sorted = [...folders.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  let h = '';
+  sorted.forEach(([key, node]) => {
+    const hasKids = node.subs.size > 0;
+    const selClass = node.fullPath === currentPath ? ' selected' : '';
+    h += '<div class="folder-select-item' + selClass + '" style="padding-left:' + (16 + depth * 22) + 'px;" onclick="selectUmFolder(&quot;' + esc(node.fullPath) + '&quot;, this)">';
+    if (hasKids) {
+      h += '<span class="um-tree-chev" style="font-size:10px;color:var(--text4);width:16px;flex-shrink:0;" onclick="event.stopPropagation();toggleUmTree(this)">▶</span>';
+    } else {
+      h += '<span style="width:16px;flex-shrink:0;"></span>';
+    }
+    h += '<span style="font-size:15px;flex-shrink:0;">📁</span>';
+    h += '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(node.name) + '</span>';
+    h += '</div>';
+    if (hasKids) {
+      h += '<div class="um-tree-kids" style="display:none;">';
+      h += renderUmFolderTree(node.subs, depth + 1, currentPath);
+      h += '</div>';
+    }
+  });
+  return h;
+}
+
+function toggleUmTree(chev) {
+  const kids = chev.parentElement.nextElementSibling;
+  if (!kids || !kids.classList.contains('um-tree-kids')) return;
+  const isHidden = kids.style.display === 'none';
+  kids.style.display = isHidden ? 'block' : 'none';
+  chev.textContent = isHidden ? '▼' : '▶';
 }
 
 function selectUmFolder(path, el) {
