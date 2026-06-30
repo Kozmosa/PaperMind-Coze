@@ -813,7 +813,7 @@
 
       <div style="display:flex;gap:12px;margin-bottom:22px;">
         <button class="btn btn-primary" style="flex:1;padding:13px;border-radius:16px;" onclick="openCreateNote()">✏️ 写入学习纪要</button>
-        <button class="btn btn-neu" style="flex:1;padding:13px;border-radius:16px;" onclick="showCreateModal('material')">📤 上传资料</button>
+        <button class="btn btn-neu" style="flex:1;padding:13px;border-radius:16px;" onclick="openUploadMaterial()">📤 上传资料</button>
       </div>
 
       <div class="section-title">最近记录</div>
@@ -1297,7 +1297,7 @@ async function loadControlCenter() {
     document.getElementById('ctrl-records').innerHTML='<div class="empty-state"><div class="empty-icon">🔌</div><div class="empty-title">无法连接后端</div><div class="empty-desc">请启动后端服务 (端口 9091)，然后点击下方按钮刷新</div><button class="btn btn-primary" onclick="refreshCurrentTab()" style="margin-top:12px;">🔄 重新加载</button></div>';
   }
 }
-function showCreateModal(t){alert((t==='material'?'上传资料':'创建学习纪要')+'\n\n在完整 App 中，此处会打开文件选择器或编辑器。\n（演示模式）');}
+function showCreateModal(t){if(t==='material'){openUploadMaterial();}else{alert('创建学习纪要\n\n在完整 App 中，此处会打开编辑器。\n（演示模式）');}}
 function viewRecord(idx){
   const r=_ctrlRecords[idx];if(!r)return;
   if(r.record_type==='study_note'){viewNoteFullscreen(r.id,r.title||r.name);return;}
