@@ -896,6 +896,7 @@ async function buildReflectionPrompt(context?: any, period?: string): Promise<st
   let logsContext = '';
   let pastReflections = '';
   let nodeActivity = '';
+  let qaLogsContext = '';
 
   // 计算时间范围
   let sinceDate: string | null = null;
@@ -915,6 +916,17 @@ async function buildReflectionPrompt(context?: any, period?: string): Promise<st
     if (sinceDate) logsQuery = logsQuery.gte('created_at', sinceDate);
     const { data: logs } = await logsQuery;
     if (logs && logs.length > 0) logsContext = `问题解决记录（${logs.length}条）：${JSON.stringify(logs)}`;
+
+    // 问答日志（Tutor 对话记录，按时间过滤）
+    let qaLogsQuery = client
+      .from('problem_solving_logs')
+      .select('question, answer, created_at')
+      .eq('user_id', context.userId)
+      .order('created_at', { ascending: false })
+      .limit(30);
+    if (sinceDate) qaLogsQuery = qaLogsQuery.gte('created_at', sinceDate);
+    const { data: qaLogs } = await qaLogsQuery;
+    if (qaLogs && qaLogs.length > 0) qaLogsContext = `问答日志（${qaLogs.length}条）：${JSON.stringify(qaLogs)}`;
 
     // 往期反思
     const { data: refs } = await client
@@ -946,6 +958,7 @@ async function buildReflectionPrompt(context?: any, period?: string): Promise<st
 分析用户${periodLabel}的学习行为，生成包含以下4个维度的反思报告：
 
 ${logsContext || '暂无问题记录。'}
+${qaLogsContext || '暂无问答日志。'}
 ${pastReflections || '暂无往期反思。'}
 ${nodeActivity || '暂无知识节点活动。'}
 

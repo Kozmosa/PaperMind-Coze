@@ -11,7 +11,7 @@ SERVER_PORT="9091"
 # Expo 项目配置
 EXPO_HOST="0.0.0.0"
 EXPO_DIR="expo"
-EXPO_PORT="5000"
+EXPO_PORT="5001"
 # 健康检查用 localhost（0.0.0.0 只能绑定不能连接）
 CHECK_HOST="localhost"
 WEB_URL="${COZE_PROJECT_DOMAIN_DEFAULT:-http://localhost:${SERVER_PORT}}"

@@ -1,7 +1,8 @@
 import { View, Text, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator } from 'react-native';
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { Feather, AntDesign } from '@expo/vector-icons';
+import { LineChart } from 'react-native-chart-kit';
 import { Screen } from '@/components/layout/Screen';
 import { api } from '@/utils/api';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
@@ -42,7 +43,12 @@ export default function ProblemSolvingLogsScreen() {
         api.getProblemSolvingStats(),
       ]);
       setLogs(logsRes.data || []);
-      setDailyCounts(statsRes.data?.dailyCounts || []);
+      // Backend returns { total, daily: Record<string, number> }
+      const daily = statsRes.data?.daily || {};
+      const counts: DailyCount[] = Object.entries(daily)
+        .map(([date, count]) => ({ date, count: count as number }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+      setDailyCounts(counts);
     } catch (e) {
       console.error('Failed to load data', e);
     } finally {
@@ -51,7 +57,6 @@ export default function ProblemSolvingLogsScreen() {
   };
 
   const totalCount = logs.length;
-  const maxCount = dailyCounts.length > 0 ? Math.max(...dailyCounts.map((d) => d.count)) : 1;
 
   return (
     <Screen statusBarStyle="dark" safeAreaEdges={['left', 'right', 'top']}>
@@ -96,27 +101,46 @@ export default function ProblemSolvingLogsScreen() {
               {dailyCounts.length > 0 && (
                 <View style={{ backgroundColor: '#F8F9FA', borderRadius: 12, padding: 16 }}>
                   <Text style={{ fontSize: 14, fontWeight: '600', color: '#2D3436', marginBottom: 12 }}>解决问题数量趋势</Text>
-                  <View style={{ height: 120, flexDirection: 'row', alignItems: 'flex-end', gap: 4 }}>
-                    {dailyCounts.map((d, i) => {
-                      const barH = Math.max(4, (d.count / maxCount) * 80);
-                      return (
-                        <View key={i} style={{ flex: 1, alignItems: 'center' }}>
-                          <View
-                            style={{
-                              width: 24,
-                              height: barH,
-                              backgroundColor: '#6C63FF',
-                              borderRadius: 4,
-                              marginBottom: 4,
-                            }}
-                          />
-                          <Text style={{ fontSize: 9, color: '#B2BEC3' }}>
-                            {d.date.slice(5)}
-                          </Text>
-                        </View>
-                      );
-                    })}
-                  </View>
+                  <LineChart
+                    data={{
+                      labels: dailyCounts.map(d => d.date.slice(5)),
+                      datasets: [{
+                        data: dailyCounts.map(d => d.count),
+                        color: (opacity = 1) => `rgba(108, 99, 255, ${opacity})`,
+                        strokeWidth: 2,
+                      }],
+                    }}
+                    width={SCREEN_W - 96}
+                    height={180}
+                    chartConfig={{
+                      backgroundColor: '#F8F9FA',
+                      backgroundGradientFrom: '#F8F9FA',
+                      backgroundGradientTo: '#F8F9FA',
+                      color: (opacity = 1) => `rgba(108, 99, 255, ${opacity})`,
+                      labelColor: (opacity = 1) => `rgba(178, 190, 195, ${opacity})`,
+                      strokeWidth: 2,
+                      decimalCount: 0,
+                      propsForBackgroundLines: {
+                        stroke: '#E8EAF0',
+                        strokeDasharray: '4 4',
+                        strokeWidth: 1,
+                      },
+                      propsForLabels: {
+                        fontSize: 9,
+                      },
+                    }}
+                    bezier
+                    withDots={true}
+                    withShadow={false}
+                    withInnerLines={true}
+                    withOuterLines={false}
+                    withVerticalLines={false}
+                    withHorizontalLines={true}
+                    withVerticalLabels={true}
+                    withHorizontalLabels={true}
+                    fromZero
+                    style={{ borderRadius: 8 }}
+                  />
                 </View>
               )}
             </View>
