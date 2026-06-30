@@ -936,7 +936,7 @@
       </div>
 
       <div class="card" style="padding:0;overflow:hidden;margin-bottom:14px;" id="profile-menu">
-        <div class="menu-item" onclick="showStyleModal()">
+        <div class="menu-item" onclick="openStyleMemo()">
           <div class="mi-icon" style="background:var(--pri-pale);">🪶</div>
           <div class="mi-body"><div class="mi-title">笔记风格偏好</div><div class="mi-sub" id="style-status">加载中...</div></div>
           <div class="mi-badge" style="background:var(--pri-pale);color:var(--primary);visibility:hidden;">--</div>
@@ -1548,7 +1548,7 @@ async function loadProfile(){
     _profileReflectionsData = rr.data || [];
     document.getElementById('profile-stats').style.gridTemplateColumns='repeat(2,1fr)';
     document.getElementById('profile-stats').innerHTML=`<div class="stat-card"><div class="num" style="color:var(--primary);">${tags}</div><div class="label">知识标签</div></div><div class="stat-card"><div class="num" style="color:var(--pri-light);">${reflCount}</div><div class="label">学习反思</div></div>`;
-    document.getElementById('style-status').textContent=sr.data?.general_preference?'已设置':'未设置';
+    document.getElementById('style-status').textContent=_nhStylePrefs?'已设置 · '+_nhStylePrefs.split(/[\\n。，]/)[0].substring(0,20)+'...':'未设置';
     document.querySelector('#mi-reflections .mi-badge').textContent=reflCount||'0';
     const badge=document.querySelector('#mi-reflections .mi-badge');if(badge)badge.textContent=reflCount||'0';
     const refls=_profileReflectionsData.slice(0,3);
@@ -2302,6 +2302,9 @@ function saveStyleMemo() {
   // Update NH panel preview if visible
   const nhPreview = document.getElementById('nh-panel-style-preview');
   if (nhPreview) nhPreview.textContent = _nhStylePrefs ? '已设置: ' + _nhStylePrefs.substring(0, 30) + '...' : '未设置风格偏好';
+  // Update profile page status if loaded
+  const profileStatus = document.getElementById('style-status');
+  if (profileStatus) profileStatus.textContent = _nhStylePrefs ? '已设置 · ' + _nhStylePrefs.split(/[\\n。，]/)[0].substring(0, 20) + '...' : '未设置';
   document.getElementById('style-memo-overlay').classList.remove('show');
 }
 
@@ -2313,6 +2316,8 @@ function clearStyleMemo() {
   updateStylePreview();
   const nhPreview = document.getElementById('nh-panel-style-preview');
   if (nhPreview) nhPreview.textContent = '未设置风格偏好';
+  const profileStatus = document.getElementById('style-status');
+  if (profileStatus) profileStatus.textContent = '未设置';
   document.getElementById('style-memo-overlay').classList.remove('show');
 }
 
@@ -2439,6 +2444,9 @@ function updateStyleFromSession() {
   showStyleUpdateToast(insights.length);
   // Refresh memo history if memo page is open
   renderStyleMemoHistory();
+  // Update profile page status if loaded
+  const profileStatus = document.getElementById('style-status');
+  if (profileStatus) profileStatus.textContent = _nhStylePrefs ? '已设置 · ' + _nhStylePrefs.split(/[\\n。，]/)[0].substring(0, 20) + '...' : '未设置';
 }
 
 function showStyleUpdateToast(count) {
