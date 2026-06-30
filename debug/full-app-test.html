@@ -564,20 +564,18 @@
     display: flex; flex-direction: column; gap: 0; padding: 0; flex-shrink: 0;
     border-top: 1px solid var(--border); background: var(--bg);
   }
-  /* Style preference card */
+  /* Style preference row (compact, clickable) */
   .nh-style-card {
-    display: flex; flex-direction: column; gap: 0;
-    padding: 12px 16px; border-bottom: 1px solid var(--border);
-    background: linear-gradient(135deg, var(--pri-pale) 0%, var(--bg) 60%);
-    cursor: default;
-  }
-  .nh-style-card .nh-style-header {
     display: flex; align-items: center; gap: 10px;
+    padding: 11px 16px; border-bottom: 1px solid var(--border);
+    background: var(--bg); cursor: pointer;
+    transition: background 0.15s;
   }
+  .nh-style-card:active { background: var(--surface); }
   .nh-style-card .nh-style-icon {
-    width: 40px; height: 40px; border-radius: 12px;
+    width: 34px; height: 34px; border-radius: 10px;
     background: var(--primary); color: #FFF; display: flex;
-    align-items: center; justify-content: center; font-size: 18px;
+    align-items: center; justify-content: center; font-size: 16px;
     flex-shrink: 0;
   }
   .nh-style-card .nh-style-info { flex: 1; min-width: 0; }
@@ -588,23 +586,70 @@
     font-size: 11px; color: var(--text3); overflow: hidden;
     text-overflow: ellipsis; white-space: nowrap; margin-top: 1px;
   }
-  .nh-style-card .nh-style-editor {
-    overflow: hidden; max-height: 0; opacity: 0;
-    transition: max-height 0.3s ease, opacity 0.25s ease, margin-top 0.3s ease;
-    margin-top: 0;
+  .nh-style-card .nh-style-arrow {
+    font-size: 16px; color: var(--text4); flex-shrink: 0;
   }
-  .nh-style-card .nh-style-editor.open {
-    max-height: 360px; opacity: 1; margin-top: 10px;
+  /* Style Memo Overlay (sticky note page) */
+  .style-memo-overlay {
+    position: absolute; inset: 0; z-index: 115; background: var(--bg);
+    display: none; flex-direction: column;
+    transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
   }
-  .nh-style-card .nh-style-editor textarea {
-    width: 100%; padding: 12px 16px; border: none; outline: none;
-    border-radius: 12px; font-size: 14px; font-family: inherit;
-    background: var(--bg); color: var(--text); resize: vertical;
-    min-height: 150px; box-shadow: var(--neu-pressed); line-height: 1.7;
+  .style-memo-overlay.show { display: flex; transform: translateY(0); }
+  .style-memo-topbar {
+    display: flex; align-items: center; gap: 10px; padding: 10px 16px;
+    background: var(--bg); border-bottom: 1px solid var(--border); flex-shrink: 0;
   }
-  .nh-style-card .nh-style-editor textarea:focus {
-    box-shadow: 0 0 0 3px var(--pri-pale), var(--neu-pressed);
+  .style-memo-body {
+    flex: 1; overflow-y: auto; padding: 16px;
+    display: flex; flex-direction: column; gap: 14px;
   }
+  /* Sticky note pad */
+  .style-memo-pad {
+    background: #FFFBE6; border-radius: 16px; padding: 4px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04);
+    position: relative;
+  }
+  .style-memo-pad::before {
+    content: '📌'; position: absolute; top: -14px; left: 50%;
+    transform: translateX(-50%); font-size: 20px; z-index: 1;
+  }
+  .style-memo-pad textarea {
+    width: 100%; min-height: 220px; padding: 18px 20px; border: none; outline: none;
+    border-radius: 14px; font-size: 15px; font-family: inherit;
+    background: transparent; color: #4A3728; resize: vertical;
+    line-height: 1.9;
+    background-image: repeating-linear-gradient(
+      transparent, transparent 33px, #E8E0C8 33px, #E8E0C8 34px
+    );
+    background-position: 0 10px;
+  }
+  .style-memo-pad textarea::placeholder { color: #B8A88A; }
+  .style-memo-pad textarea:focus { outline: none; }
+  /* Hint chips */
+  .style-memo-hints {
+    background: var(--bg); border-radius: 14px; padding: 14px 16px;
+    box-shadow: var(--neu-pressed);
+  }
+  .style-memo-hints .hint-chips {
+    display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;
+  }
+  .hint-chip {
+    font-size: 12px; padding: 5px 12px; border-radius: 12px;
+    background: var(--pri-pale); color: var(--primary); cursor: pointer;
+    font-weight: 600; transition: all 0.15s; white-space: nowrap;
+  }
+  .hint-chip:active { background: var(--primary); color: #FFF; }
+  /* Learning history */
+  .style-memo-history {
+    background: var(--bg); border-radius: 14px; padding: 14px 16px;
+    box-shadow: var(--neu-pressed);
+  }
+  .style-memo-history .history-line {
+    font-size: 12px; color: var(--text3); padding: 4px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .style-memo-history .history-line:last-child { border-bottom: none; }
   /* Quick action chips row */
   .nh-quick-row {
     display: flex; gap: 6px; padding: 10px 16px;
@@ -1022,30 +1067,14 @@
       <div style="text-align:center;padding:60px 0;color:var(--text3);">内容加载中...</div>
     </div>
     <div class="nh-fs-bottombar" id="nh-fs-bottombar">
-      <!-- Row 1: Style preference card -->
-      <div class="nh-style-card" id="nh-style-card">
-        <div class="nh-style-header">
-          <div class="nh-style-icon">🎨</div>
-          <div class="nh-style-info">
-            <div class="nh-style-label">学习风格偏好</div>
-            <div class="nh-style-desc" id="nh-style-preview">未设置 · AI 将使用默认风格生成笔记</div>
-          </div>
-          <button class="btn btn-neu" style="font-size:11px;padding:5px 12px;border-radius:10px;flex-shrink:0;" onclick="toggleNHStylePrefs()" id="nh-style-toggle">✏️ 编辑</button>
+      <!-- Row 1: Style preference (compact, opens memo page) -->
+      <div class="nh-style-card" id="nh-style-card" onclick="openStyleMemo()">
+        <div class="nh-style-icon">🎨</div>
+        <div class="nh-style-info">
+          <div class="nh-style-label">学习风格偏好</div>
+          <div class="nh-style-desc" id="nh-style-preview">未设置 · AI 将使用默认风格生成笔记</div>
         </div>
-        <div class="nh-style-editor" id="nh-style-editor">
-          <textarea id="nh-style-input" placeholder="描述你希望 AI 生成笔记时的风格偏好，AI 将始终遵循这些偏好...
-
-例如：
-• 侦探式纠错与溯源，不盲从原文内容
-• 定理使用需要条件审查与主动验证
-• 按数学逻辑流重组知识点，而非页码流
-• 强调反例与边界情况的警示
-• 使用学术化语言，保持严谨简洁"></textarea>
-          <div style="display:flex;gap:6px;margin-top:8px;justify-content:flex-end;">
-            <button class="btn btn-neu" style="font-size:11px;padding:5px 12px;border-radius:10px;" onclick="clearNHStylePrefs()">清除</button>
-            <button class="btn btn-primary" style="font-size:11px;padding:5px 16px;border-radius:10px;" onclick="saveNHStylePrefs()">保存并应用到 AI</button>
-          </div>
-        </div>
+        <div class="nh-style-arrow">›</div>
       </div>
       <!-- Row 2: Quick action chips -->
       <div class="nh-quick-row">
@@ -1100,6 +1129,45 @@
       <button class="btn btn-neu" style="font-size:12px;padding:7px 14px;border-radius:14px;" onclick="addImageBlock()">🖼️ 图片</button>
       <button class="btn btn-neu" style="font-size:12px;padding:7px 14px;border-radius:14px;" onclick="addFileBlock()">📎 文件</button>
       <button class="btn btn-neu" style="font-size:12px;padding:7px 14px;border-radius:14px;" onclick="addTextBlock()">+ 文本块</button>
+    </div>
+  </div>
+
+  <!-- ======== Style Memo Overlay (Sticky Note) ======== -->
+  <div class="style-memo-overlay" id="style-memo-overlay">
+    <div class="style-memo-topbar">
+      <button class="fs-back" onclick="closeStyleMemo()">←</button>
+      <div style="flex:1;font-size:16px;font-weight:800;color:var(--text);text-align:center;">🎨 学习风格偏好</div>
+      <button class="btn btn-primary" style="font-size:12px;padding:6px 16px;border-radius:14px;" onclick="saveStyleMemo()">💾 保存</button>
+    </div>
+    <div class="style-memo-body">
+      <!-- Sticky note pad -->
+      <div class="style-memo-pad">
+        <textarea id="style-memo-textarea" placeholder="在这里写下你喜欢的笔记风格偏好..."></textarea>
+      </div>
+      <!-- Quick hint chips -->
+      <div class="style-memo-hints">
+        <div style="font-size:12px;font-weight:700;color:var(--text2);">💡 点击快速添加风格提示</div>
+        <div class="hint-chips">
+          <span class="hint-chip" onclick="appendStyleHint('侦探式纠错与溯源，不盲从原文内容')">🔍 侦探式纠错</span>
+          <span class="hint-chip" onclick="appendStyleHint('按数学逻辑流重组知识点，而非页码流')">🔗 逻辑流重组</span>
+          <span class="hint-chip" onclick="appendStyleHint('定理使用需要条件审查与主动验证')">✅ 定理验证</span>
+          <span class="hint-chip" onclick="appendStyleHint('强调反例与边界情况的警示')">⚠️ 边界警示</span>
+          <span class="hint-chip" onclick="appendStyleHint('使用学术化语言，保持严谨简洁')">📐 学术语言</span>
+          <span class="hint-chip" onclick="appendStyleHint('补充更多解释和背景，让内容更详细')">📝 详细展开</span>
+          <span class="hint-chip" onclick="appendStyleHint('用表格形式整理关键概念的对比')">📊 表格对比</span>
+          <span class="hint-chip" onclick="appendStyleHint('为重要概念添加具体的例子帮助理解')">💡 举例子</span>
+        </div>
+      </div>
+      <!-- Auto-learned history -->
+      <div class="style-memo-history" id="style-memo-history" style="display:none;">
+        <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px;">🧠 自动学习记录</div>
+        <div id="style-memo-history-list"></div>
+      </div>
+      <!-- Bottom actions -->
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button class="btn btn-neu" style="font-size:13px;padding:8px 18px;border-radius:14px;" onclick="clearStyleMemo()">🗑️ 清空</button>
+        <button class="btn btn-primary" style="font-size:13px;padding:8px 24px;border-radius:14px;" onclick="saveStyleMemo()">💾 保存并应用到 AI</button>
+      </div>
     </div>
   </div>
 
@@ -1764,23 +1832,9 @@ function closeNoteHelperPanel(e) {
 }
 
 function openNHStyleFromPanel() {
-  // Close NH panel, open fullscreen, and expand style editor
+  // Close NH panel, then open the dedicated style memo page
   closeNoteHelperPanel();
-  if (_panelContent) {
-    setTimeout(() => {
-      openNHFullscreen(_panelContent, _panelCitations, window._nhSourceFilesForPanel || []);
-      setTimeout(() => {
-        const editor = document.getElementById('nh-style-editor');
-        if (editor && !editor.classList.contains('open')) {
-          toggleNHStylePrefs();
-        }
-      }, 400);
-    }, 350);
-  } else {
-    // No content yet, directly toggle the style editor in the NH fullscreen
-    // Wait a bit and trigger, but we need NH fullscreen to be open
-    // Just scroll to the style section
-  }
+  setTimeout(() => openStyleMemo(), 350);
 }
 
 async function generateNoteStream() {
@@ -2230,40 +2284,75 @@ let _nhStylePrefs = localStorage.getItem('papermind_note_style') || '';
 let _nhSessionOriginContent = '';
 let _nhSessionRefinements = [];
 
-function toggleNHStylePrefs() {
-  const editor = document.getElementById('nh-style-editor');
-  const toggle = document.getElementById('nh-style-toggle');
-  const isOpen = editor.classList.contains('open');
-  if (isOpen) {
-    editor.classList.remove('open');
-    toggle.textContent = '✏️ 编辑';
-  } else {
-    editor.classList.add('open');
-    toggle.textContent = '▲ 收起';
-    document.getElementById('nh-style-input').value = _nhStylePrefs;
-    setTimeout(() => document.getElementById('nh-style-input').focus(), 100);
-  }
+function openStyleMemo() {
+  document.getElementById('style-memo-overlay').classList.add('show');
+  document.getElementById('style-memo-textarea').value = _nhStylePrefs;
+  renderStyleMemoHistory();
+  setTimeout(() => document.getElementById('style-memo-textarea').focus(), 300);
 }
 
-function saveNHStylePrefs() {
-  _nhStylePrefs = document.getElementById('nh-style-input').value.trim();
+function closeStyleMemo() {
+  document.getElementById('style-memo-overlay').classList.remove('show');
+}
+
+function saveStyleMemo() {
+  _nhStylePrefs = document.getElementById('style-memo-textarea').value.trim();
   localStorage.setItem('papermind_note_style', _nhStylePrefs);
-  document.getElementById('nh-style-editor').classList.remove('open');
-  document.getElementById('nh-style-toggle').textContent = '✏️ 编辑';
   updateStylePreview();
-  // Also update the NH panel preview if visible
+  // Update NH panel preview if visible
   const nhPreview = document.getElementById('nh-panel-style-preview');
   if (nhPreview) nhPreview.textContent = _nhStylePrefs ? '已设置: ' + _nhStylePrefs.substring(0, 30) + '...' : '未设置风格偏好';
+  document.getElementById('style-memo-overlay').classList.remove('show');
 }
 
-function clearNHStylePrefs() {
+function clearStyleMemo() {
+  if (!confirm('确定清空所有风格偏好（包括自动学习记录）？')) return;
   _nhStylePrefs = '';
   localStorage.removeItem('papermind_note_style');
-  document.getElementById('nh-style-input').value = '';
+  document.getElementById('style-memo-textarea').value = '';
   updateStylePreview();
   const nhPreview = document.getElementById('nh-panel-style-preview');
   if (nhPreview) nhPreview.textContent = '未设置风格偏好';
+  document.getElementById('style-memo-overlay').classList.remove('show');
 }
+
+function appendStyleHint(text) {
+  const ta = document.getElementById('style-memo-textarea');
+  const current = ta.value.trim();
+  if (current && !current.endsWith('\n')) ta.value = current + '\n';
+  // Avoid duplicating hints
+  if (ta.value.includes(text)) return;
+  ta.value = (ta.value.trim() ? ta.value + '\n' : '') + '• ' + text;
+  ta.focus();
+  ta.setSelectionRange(ta.value.length, ta.value.length);
+}
+
+function renderStyleMemoHistory() {
+  const list = document.getElementById('style-memo-history-list');
+  const container = document.getElementById('style-memo-history');
+  if (!list || !container) return;
+  // Find auto-learning blocks in preferences
+  const blocks = _nhStylePrefs.split(/--- 自动学习 \((\d{4}-\d{2}-\d{2})\) ---/);
+  if (blocks.length <= 1) {
+    container.style.display = 'none';
+    return;
+  }
+  container.style.display = 'block';
+  let html = '';
+  for (let i = 1; i < blocks.length; i += 2) {
+    const date = blocks[i];
+    const content = (blocks[i + 1] || '').trim();
+    if (content) {
+      html += '<div class="history-line"><b>' + date + '</b>: ' + content.replace(/\n/g, ' ').substring(0, 100) + (content.length > 100 ? '...' : '') + '</div>';
+    }
+  }
+  list.innerHTML = html || '<div class="history-line" style="color:var(--text4);">暂无自动学习记录</div>';
+}
+
+// Keep backward compat: these may be called from old code paths
+function toggleNHStylePrefs() { openStyleMemo(); }
+function saveNHStylePrefs() { saveStyleMemo(); }
+function clearNHStylePrefs() { clearStyleMemo(); }
 
 function updateStyleFromSession() {
   // Analyze this session's editing patterns and append insights to style preferences
@@ -2348,6 +2437,8 @@ function updateStyleFromSession() {
 
   // Show a subtle toast
   showStyleUpdateToast(insights.length);
+  // Refresh memo history if memo page is open
+  renderStyleMemoHistory();
 }
 
 function showStyleUpdateToast(count) {
