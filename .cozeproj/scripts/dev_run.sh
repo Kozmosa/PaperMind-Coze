@@ -1,3 +1,4 @@
+#!/bin/bash
 ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 PREVIEW_DIR="/source/preview"
 LOG_DIR="${COZE_LOG_DIR:-$ROOT_DIR/logs}"
