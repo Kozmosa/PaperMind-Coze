@@ -31,7 +31,9 @@ const upload = multer({
     const allowedMimes = [
       'application/pdf',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/msword',
       'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'application/vnd.ms-powerpoint',
       'text/markdown',
       'text/plain',
       'application/octet-stream',
@@ -42,7 +44,7 @@ const upload = multer({
       'image/webp',
     ];
     const ext = path.extname(file.originalname).toLowerCase();
-    const allowedExts = ['.md', '.docx', '.pptx', '.pdf', '.txt', '.csv', '.xlsx', '.jpg', '.jpeg', '.png', '.gif', '.webp'];
+    const allowedExts = ['.md', '.docx', '.doc', '.pptx', '.ppt', '.pdf', '.txt', '.csv', '.xlsx', '.jpg', '.jpeg', '.png', '.gif', '.webp'];
     if (allowedExts.includes(ext) || allowedMimes.includes(file.mimetype.toLowerCase())) {
       cb(null, true);
     } else {
