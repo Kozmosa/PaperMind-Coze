@@ -597,6 +597,22 @@ function buildLogicalPaths(L1: string, L2: string, knowledgePoints: string[]): s
 // POST /process-content - Process a single record
 // ==========================================
 
+// Helper: Check if record has user-set logical_path (from upload form)
+function getUserSetLogicalPath(record: any): string | null {
+  const lp = record?.logical_path;
+  if (!lp || typeof lp !== 'string' || !lp.trim()) return null;
+  try {
+    const parsed = JSON.parse(lp);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      const first = String(parsed[0]).trim();
+      if (first && first !== '/' && first !== '/未分类/' && !first.includes('未分类')) {
+        return lp;
+      }
+    }
+  } catch {}
+  return null;
+}
+
 // Helper: Read material file content from disk (for uploaded materials)
 async function readMaterialFileFromDisk(material: any): Promise<string> {
   try {
@@ -706,16 +722,19 @@ router.post('/process-content', async (req: Request, res: Response) => {
         const forced = await generateHierarchicalTags(forcePapercore, forcePapercore.length, existingHierarchy2, userId);
         const { L1, L2, tags: kps } = forced;
         const lps = buildLogicalPaths(L1, L2, kps);
+        const userPath = getUserSetLogicalPath(record);
+        const finalLps = userPath ? JSON.parse(userPath) : lps;
         await supabase.from(table).update({
           ai_processed: true, papercore: forcePapercore,
-          logical_path: JSON.stringify(lps), tags: [L1, L2, ...kps].filter(Boolean),
+          logical_path: JSON.stringify(finalLps), tags: [L1, L2, ...kps].filter(Boolean),
         }).eq('id', id).eq('user_id', userId);
-        return res.json({ data: { id, status: 'processed', papercore: forcePapercore, tags: [L1, L2, ...kps], logical_path: lps, reason: 'forced' } });
+        return res.json({ data: { id, status: 'processed', papercore: forcePapercore, tags: [L1, L2, ...kps], logical_path: finalLps, reason: 'forced' } });
       } catch (e: any) {
         console.error('[forced-classify] error:', e.message);
+        const userPath = getUserSetLogicalPath(record);
         await supabase.from(table).update({
           ai_processed: true, papercore: forcePapercore,
-          logical_path: '/未分类/',
+          logical_path: userPath ? userPath : '/未分类/',
         }).eq('id', id).eq('user_id', userId);
         return res.json({ data: { id, status: 'skipped', reason: 'forced classification failed' } });
       }
@@ -729,15 +748,18 @@ router.post('/process-content', async (req: Request, res: Response) => {
         const forced = await generateHierarchicalTags(degradedPapercore, degradedPapercore.length, existingHierarchy3, userId);
         const { L1, L2, tags: kps } = forced;
         const lps = buildLogicalPaths(L1, L2, kps);
+        const userPath = getUserSetLogicalPath(record);
+        const finalLps = userPath ? JSON.parse(userPath) : lps;
         await supabase.from(table).update({
           ai_processed: true, papercore: degradedPapercore,
-          logical_path: JSON.stringify(lps), tags: [L1, L2, ...kps].filter(Boolean),
+          logical_path: JSON.stringify(finalLps), tags: [L1, L2, ...kps].filter(Boolean),
         }).eq('id', id).eq('user_id', userId);
-        return res.json({ data: { id, status: 'processed', papercore: degradedPapercore, tags: [L1, L2, ...kps], logical_path: lps, reason: 'forced-degraded' } });
+        return res.json({ data: { id, status: 'processed', papercore: degradedPapercore, tags: [L1, L2, ...kps], logical_path: finalLps, reason: 'forced-degraded' } });
       } catch (e: any) {
+        const userPath = getUserSetLogicalPath(record);
         await supabase.from(table).update({
           ai_processed: true, papercore: degradedPapercore,
-          logical_path: JSON.stringify(['/未分类/']),
+          logical_path: userPath ? userPath : JSON.stringify(['/未分类/']),
         }).eq('id', id).eq('user_id', userId);
         return res.json({ data: { id, status: 'skipped', reason: 'degraded classification failed' } });
       }
@@ -753,19 +775,45 @@ router.post('/process-content', async (req: Request, res: Response) => {
     const result = await generateHierarchicalTags(papercore, text.length, existingHierarchy, userId);
 
     const { L1, L2, tags: knowledgePoints } = result;
-    const logicalPaths = buildLogicalPaths(L1, L2, knowledgePoints);
-    const logicalPath = JSON.stringify(logicalPaths);
+    const aiLogicalPaths = buildLogicalPaths(L1, L2, knowledgePoints);
     const hierarchicalTags = [L1, L2, ...knowledgePoints].filter(Boolean);
+
+    // Respect user-set logical_path from upload form (don't overwrite with AI)
+    let existingLogicalPath = (record as any).logical_path;
+    let finalLogicalPath: string;
+    if (existingLogicalPath && typeof existingLogicalPath === 'string' && existingLogicalPath.trim()) {
+      try {
+        const parsed = JSON.parse(existingLogicalPath);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const first = String(parsed[0]).trim();
+          // Only keep user path if it's a real category (not root, not 未分类)
+          if (first && first !== '/' && first !== '/未分类/' && !first.includes('未分类')) {
+            finalLogicalPath = existingLogicalPath;
+            console.log(`[process-content] Keeping user-set logical_path: ${finalLogicalPath} (AI would have used: ${JSON.stringify(aiLogicalPaths)})`);
+          } else {
+            finalLogicalPath = JSON.stringify(aiLogicalPaths);
+          }
+        } else {
+          finalLogicalPath = JSON.stringify(aiLogicalPaths);
+        }
+      } catch {
+        finalLogicalPath = JSON.stringify(aiLogicalPaths);
+      }
+    } else {
+      finalLogicalPath = JSON.stringify(aiLogicalPaths);
+    }
 
     // Update the record
     const updatePayload = {
       tags: hierarchicalTags,
       papercore,
-      logical_path: logicalPath,
+      logical_path: finalLogicalPath,
       ai_processed: true,
       viewed_after_process: false,
       updated_at: new Date().toISOString(),
     };
+
+    const finalPaths = JSON.parse(finalLogicalPath);
 
     const { error: updateError } = await supabase
       .from(table)
@@ -780,7 +828,7 @@ router.post('/process-content', async (req: Request, res: Response) => {
         id,
         tags: hierarchicalTags,
         papercore,
-        logical_path: logicalPaths,
+        logical_path: finalPaths,
         status: 'processed',
       },
     });
