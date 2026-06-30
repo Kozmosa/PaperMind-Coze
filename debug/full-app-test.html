@@ -2163,22 +2163,45 @@ async function toggleUmFolderPicker() {
 
 async function loadUmFolderPicker() {
   const list = document.getElementById('um-folder-list');
-  list.innerHTML = '<div style="text-align:center;padding:14px;color:var(--text3);font-size:12px;">加载分类路径...</div>';
+  list.innerHTML = '<div style="text-align:center;padding:14px;color:var(--text3);font-size:12px;">加载文件夹结构...</div>';
   try {
-    const res = await safeFetch(API + '/knowledge-builder/graph-data');
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const json = await res.json();
-    const graphData = json.data || json;
-    const nodes = graphData.nodes || [];
-    // Extract all logical paths from L2/L3 nodes
+    // Combine paths from actual records + knowledge graph
     const paths = new Set();
-    nodes.forEach(n => {
-      if (n.logicalPath && n.depth >= 1) {
-        const parts = n.logicalPath.split('/').filter(Boolean);
-        let cur = '';
-        parts.forEach(part => { cur += '/' + part; paths.add(cur + '/'); });
+
+    // Source 1: Actual file/folder structure from recent records
+    try {
+      const recRes = await safeFetch(API + '/control-center/recent-records?limit=200');
+      if (recRes.ok) {
+        const recJson = await recRes.json();
+        const records = recJson.data || [];
+        records.forEach(rec => {
+          let path = rec.logical_path || '';
+          try { const p = JSON.parse(path); if (Array.isArray(p) && p.length > 0) path = p[0]; } catch {}
+          path = path.replace(/^\[?"?\/?/, '/').replace(/\/?"?\]?$/, '/');
+          const parts = path.split('/').filter(Boolean);
+          let cur = '';
+          parts.forEach(part => { cur += '/' + part; paths.add(cur + '/'); });
+        });
       }
-    });
+    } catch {}
+
+    // Source 2: Knowledge graph categories (may exist without records)
+    try {
+      const graphRes = await safeFetch(API + '/knowledge-builder/graph-data');
+      if (graphRes.ok) {
+        const graphJson = await graphRes.json();
+        const graphData = graphJson.data || graphJson;
+        const nodes = graphData.nodes || [];
+        nodes.forEach(n => {
+          if (n.logicalPath && n.depth >= 1) {
+            const parts = n.logicalPath.split('/').filter(Boolean);
+            let cur = '';
+            parts.forEach(part => { cur += '/' + part; paths.add(cur + '/'); });
+          }
+        });
+      }
+    } catch {}
+
     if (paths.size === 0) {
       list.innerHTML = '<div style="text-align:center;padding:14px;color:var(--text3);font-size:12px;">暂无分类路径，上传后自动归类</div>';
       return;
