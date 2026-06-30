@@ -15,7 +15,7 @@ let embedPipeline: any = null;
 async function getPipeline() {
   if (!embedPipeline) {
     console.log(`[embedding] Loading model: ${MODEL_NAME}...`);
-    embedPipeline = await pipeline('feature-extraction', MODEL_NAME, { quantized: true });
+    embedPipeline = await pipeline('feature-extraction', MODEL_NAME, { dtype: 'q8' });
     console.log('[embedding] Model loaded');
   }
   return embedPipeline;

@@ -65,9 +65,19 @@ app.listen(port, () => {
 
 // Warm-start knowledge vector index in background (lazy dynamic import to avoid blocking startup)
 setTimeout(() => {
-  import('./utils/knowledge-vector-index.js').then(mod => {
-    mod.knowledgeVectorIndex.buildIndex().catch(err => {
-      console.warn('[Index] Background build failed:', err.message);
+  // Warm-start unified vector index + tag vector store
+  import('./utils/unified-vector-index.js').then(async (indexMod) => {
+    // Build tag vector store first (used by unified index for re-ranking)
+    import('./utils/vector-store.js').then(async (tagMod) => {
+      await tagMod.tagVectorStore.buildFromDatabase().catch(err => {
+        console.warn('[Index] TagVectorStore build failed:', err.message);
+      });
+    }).catch(() => {
+      // safe to skip
+    });
+
+    await indexMod.unifiedVectorIndex.buildIndex().catch(err => {
+      console.warn('[Index] UnifiedVectorIndex build failed:', err.message);
     });
   }).catch(() => {
     // embedding deps not available — safe to skip warm-start

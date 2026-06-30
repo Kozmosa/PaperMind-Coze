@@ -358,7 +358,7 @@ export default function ChatScreen() {
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
             <Feather name="image" size={14} color="#D97706" />
             <Text style={{ marginLeft: 6, color: '#2D3436', fontWeight: '600', fontSize: 13, flex: 1 }} numberOfLines={1}>
-              {citation.label || citation.fileName || '用户上传的图片'}
+              {citation.label || citation.fileName || citation.title || '用户上传的图片'}
             </Text>
           </View>
           <Text style={{ color: '#636E72', fontSize: 13, lineHeight: 20 }}>
@@ -368,37 +368,128 @@ export default function ChatScreen() {
       );
     }
 
-    // Node citation
-    if (citation.type === 'node') {
+    // Knowledge node citation (purple)
+    if (citation.type === 'knowledge_node' || citation.type === 'node') {
+      const hasPapercore = !!citation.papercore;
       return (
-        <View key={idx} style={{ backgroundColor: '#EEF0FF', borderRadius: 12, padding: 12, marginTop: 8 }}>
+        <View key={idx} style={{ backgroundColor: '#EEF0FF', borderRadius: 12, padding: 12, marginTop: 8, borderLeftWidth: 3, borderLeftColor: '#6C63FF' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
             <Feather name="book-open" size={14} color="#6C63FF" />
             <Text style={{ marginLeft: 6, color: '#2D3436', fontWeight: '600', fontSize: 13, flex: 1 }} numberOfLines={1}>
-              {citation.label || `知识节点 ${citation.nodeId}`}
+              {citation.title || citation.label || `知识节点 ${citation.sourceId || citation.nodeId}`}
             </Text>
+            <View style={{ backgroundColor: '#6C63FF20', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
+              <Text style={{ color: '#6C63FF', fontSize: 10, fontWeight: '600' }}>知识节点</Text>
+            </View>
           </View>
-          <Text style={{ color: '#636E72', fontSize: 13, lineHeight: 20 }}>
-            关联的知识库节点
+          {hasPapercore && (
+            <Text style={{ color: '#636E72', fontSize: 13, lineHeight: 20 }} numberOfLines={3}>
+              {citation.papercore}
+            </Text>
+          )}
+          {!hasPapercore && (
+            <Text style={{ color: '#636E72', fontSize: 13, lineHeight: 20 }}>
+              关联的知识库节点
+            </Text>
+          )}
+        </View>
+      );
+    }
+
+    // Study note citation (green)
+    if (citation.type === 'study_note') {
+      return (
+        <View key={idx} style={{ backgroundColor: '#E8F5E9', borderRadius: 12, padding: 12, marginTop: 8, borderLeftWidth: 3, borderLeftColor: '#00B894' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+            <Feather name="edit-3" size={14} color="#00B894" />
+            <Text style={{ marginLeft: 6, color: '#2D3436', fontWeight: '600', fontSize: 13, flex: 1 }} numberOfLines={1}>
+              {citation.title || citation.fileName || `学习纪要`}
+            </Text>
+            <View style={{ backgroundColor: '#00B89420', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
+              <Text style={{ color: '#00B894', fontSize: 10, fontWeight: '600' }}>学习纪要</Text>
+            </View>
+          </View>
+          {citation.papercore ? (
+            <Text style={{ color: '#636E72', fontSize: 13, lineHeight: 20 }} numberOfLines={3}>
+              {citation.papercore}
+            </Text>
+          ) : null}
+          {citation.tags?.length > 0 && (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 4, gap: 4 }}>
+              {(citation.tags || []).slice(0, 5).map((t: string, i: number) => (
+                <Text key={i} style={{ color: '#00B894', fontSize: 11, backgroundColor: '#00B89414', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 1 }}>
+                  #{t}
+                </Text>
+              ))}
+            </View>
+          )}
+        </View>
+      );
+    }
+
+    // Material citation (orange)
+    if (citation.type === 'material') {
+      return (
+        <View key={idx} style={{ backgroundColor: '#FFF3E0', borderRadius: 12, padding: 12, marginTop: 8, borderLeftWidth: 3, borderLeftColor: '#FF9F43' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+            <Feather name="file-text" size={14} color="#FF9F43" />
+            <Text style={{ marginLeft: 6, color: '#2D3436', fontWeight: '600', fontSize: 13, flex: 1 }} numberOfLines={1}>
+              {citation.title || citation.fileName || `学习资料`}
+            </Text>
+            <View style={{ backgroundColor: '#FF9F4320', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
+              <Text style={{ color: '#FF9F43', fontSize: 10, fontWeight: '600' }}>资料</Text>
+            </View>
+          </View>
+          {citation.papercore ? (
+            <Text style={{ color: '#636E72', fontSize: 13, lineHeight: 20 }} numberOfLines={3}>
+              {citation.papercore}
+            </Text>
+          ) : null}
+          {citation.tags?.length > 0 && (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 4, gap: 4 }}>
+              {(citation.tags || []).slice(0, 5).map((t: string, i: number) => (
+                <Text key={i} style={{ color: '#FF9F43', fontSize: 11, backgroundColor: '#FF9F4314', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 1 }}>
+                  #{t}
+                </Text>
+              ))}
+            </View>
+          )}
+        </View>
+      );
+    }
+
+    // File content citation (gray with page number)
+    if (citation.type === 'file_content' || citation.type === 'file') {
+      const pageNum = citation.pageNumber || citation.page;
+      return (
+        <View key={idx} style={{ backgroundColor: '#F0F0F3', borderRadius: 12, padding: 12, marginTop: 8, borderLeftWidth: 3, borderLeftColor: pageNum ? '#0984E3' : '#636E72' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+            <Feather name="file-text" size={14} color={pageNum ? '#0984E3' : '#636E72'} />
+            <Text style={{ marginLeft: 6, color: '#2D3436', fontWeight: '600', fontSize: 13, flex: 1 }} numberOfLines={1}>
+              {citation.title || citation.fileName || citation.file_name || '未知文件'}
+            </Text>
+            {pageNum ? (
+              <View style={{ backgroundColor: '#0984E320', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
+                <Text style={{ color: '#0984E3', fontSize: 11, fontWeight: '600' }}>第{pageNum}页</Text>
+              </View>
+            ) : (
+              <View style={{ backgroundColor: '#636E7220', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
+                <Text style={{ color: '#636E72', fontSize: 10, fontWeight: '600' }}>原文</Text>
+              </View>
+            )}
+          </View>
+          <Text style={{ color: '#636E72', fontSize: 13, lineHeight: 20 }} numberOfLines={4}>
+            {citation.snippet || '关联的原文内容'}
           </Text>
         </View>
       );
     }
 
-    // Default file citation
+    // Unknown / fallback
     return (
       <View key={idx} style={{ backgroundColor: '#F0F0F3', borderRadius: 12, padding: 12, marginTop: 8 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-          <Feather name="file-text" size={14} color="#6C63FF" />
-          <Text style={{ marginLeft: 6, color: '#2D3436', fontWeight: '600', fontSize: 13, flex: 1 }} numberOfLines={1}>
-            {citation.fileName || citation.file_name || '未知文件'}
-          </Text>
-          {citation.page && (
-            <Text style={{ color: '#6C63FF', fontSize: 12 }}>P{citation.page}</Text>
-          )}
-        </View>
-        <Text style={{ color: '#636E72', fontSize: 13, lineHeight: 20 }}>
-          {citation.snippet || ''}
+        <Text style={{ color: '#636E72', fontSize: 13 }}>
+          {citation.title || citation.label || '引用来源'}
         </Text>
       </View>
     );

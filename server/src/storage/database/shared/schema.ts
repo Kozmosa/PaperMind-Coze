@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, serial, text, varchar, timestamp, boolean, jsonb, integer, index, uuid } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, varchar, timestamp, boolean, jsonb, integer, index, uuid, type AnyPgColumn } from "drizzle-orm/pg-core";
 import { createSchemaFactory } from "drizzle-zod";
 import { z } from "zod";
 
@@ -17,7 +17,7 @@ export const knowledgeNodes = pgTable(
     tags: jsonb("tags").default([]),
     relations: jsonb("relations").default({}),
     attached_draft_ids: jsonb("attached_draft_ids").default([]),
-    parent_id: integer("parent_id").references(() => knowledgeNodes.id),
+    parent_id: integer("parent_id").references((): AnyPgColumn => knowledgeNodes.id),
     created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },

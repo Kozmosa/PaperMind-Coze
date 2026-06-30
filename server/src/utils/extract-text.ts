@@ -89,9 +89,11 @@ async function extractPdf(filePath: string): Promise<ExtractedContent> {
     const PDFParse = await getPdfParser();
     const dataBuffer = fs.readFileSync(filePath);
     const parser = new PDFParse({ data: dataBuffer });
-    const data = await parser.getText();
+    const raw = await parser.getText();
+    const data: { text: string; numpages?: number } =
+      typeof raw === 'string' ? { text: raw, numpages: undefined } : raw;
     return {
-      text: data.text || data || '',
+      text: data.text || '',
       pageCount: data.numpages || 0,
     };
   } catch (err) {

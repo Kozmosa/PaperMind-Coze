@@ -1,4 +1,5 @@
-import { embed, findTopK, cosineSimilarity } from './embedding.js';
+import { embed, embedBatch, findTopK, cosineSimilarity } from './embedding.js';
+import { getSupabaseClient } from '../storage/database/supabase-client.js';
 
 interface TagEntry {
   id: string;
@@ -48,8 +49,75 @@ class TagVectorStore {
   }
 
   /**
-   * Add new tags to the store (for incremental updates)
+   * Build the vector store from all three content tables.
+   * Extracts and deduplicates tags from knowledge_nodes, study_notes, and materials.
    */
+  async buildFromDatabase(): Promise<void> {
+    this.tags = [];
+    const client = getSupabaseClient();
+
+    const allTags = new Map<string, 'L1' | 'L2' | 'L3'>();
+
+    // Helper to extract L1/L2/L3 from a tags array
+    const collectTags = (tagsArray: string[] | null | undefined) => {
+      if (!tagsArray || !Array.isArray(tagsArray)) return;
+      for (let i = 0; i < tagsArray.length; i++) {
+        const name = tagsArray[i]?.trim();
+        if (!name) continue;
+        // Infer level from position: index 0 = L1, index 1 = L2, index 2+ = L3
+        const level: 'L1' | 'L2' | 'L3' = i === 0 ? 'L1' : i === 1 ? 'L2' : 'L3';
+        const key = `${level}_${name}`;
+        if (!allTags.has(key)) {
+          allTags.set(key, level);
+        }
+      }
+    };
+
+    try {
+      // ── Fetch tags from all three tables ─────────────────
+      const [knRes, snRes, mRes] = await Promise.all([
+        client.from('knowledge_nodes').select('tags').not('tags', 'is', null).limit(5000),
+        client.from('study_notes').select('tags').not('tags', 'is', null).limit(5000),
+        client.from('materials').select('tags').not('tags', 'is', null).limit(5000),
+      ]);
+
+      if (knRes.data) knRes.data.forEach((row: any) => collectTags(row.tags));
+      if (snRes.data) snRes.data.forEach((row: any) => collectTags(row.tags));
+      if (mRes.data) mRes.data.forEach((row: any) => collectTags(row.tags));
+
+      console.log(`[vector-store] Collected ${allTags.size} unique tags from DB`);
+
+      // ── Embed all tags ───────────────────────────────────
+      if (allTags.size === 0) {
+        this.initialized = true;
+        return;
+      }
+
+      const entries = [...allTags.entries()];
+      const names = entries.map(([, name]) => name); // extract name from entries
+      const vecs = await embedBatch(names);
+
+      this.tags = entries.map(([key, level], idx) => {
+        // key is 'L1_<name>' etc, we need to extract the name
+        const name = key.slice(3); // strip 'L1_' / 'L2_' / 'L3_' prefix
+        return {
+          id: key,
+          name,
+          level,
+          vec: vecs[idx],
+        };
+      });
+
+      const l1Count = this.tags.filter(t => t.level === 'L1').length;
+      const l2Count = this.tags.filter(t => t.level === 'L2').length;
+      const l3Count = this.tags.filter(t => t.level === 'L3').length;
+      this.initialized = true;
+      console.log(`[vector-store] Indexed ${this.tags.length} tags from DB (L1:${l1Count}, L2:${l2Count}, L3:${l3Count})`);
+    } catch (err) {
+      console.error('[vector-store] buildFromDatabase failed:', err);
+      this.initialized = false;
+    }
+  }
   async addTags(tags: { name: string; level: 'L1' | 'L2' | 'L3' }[]) {
     for (const tag of tags) {
       if (!tag.name) continue;
@@ -63,25 +131,32 @@ class TagVectorStore {
   /**
    * Search for the most similar L1 tags to a document embedding
    */
-  searchL1(docVec: number[], topK = 3): { name: string; score: number }[] {
+  searchL1(docVec: number[], topK = 3, minScore = 0.4): { name: string; score: number }[] {
     const candidates = this.tags.filter(t => t.level === 'L1');
-    return findTopK(docVec, candidates, topK, 0.4).map(c => ({ name: c.name, score: c.score }));
+    return findTopK(docVec, candidates, topK, minScore).map(c => ({ name: c.name, score: c.score }));
   }
 
   /**
    * Search for the most similar L2 tags to a document embedding
    */
-  searchL2(docVec: number[], topK = 5): { name: string; score: number }[] {
+  searchL2(docVec: number[], topK = 5, minScore = 0.4): { name: string; score: number }[] {
     const candidates = this.tags.filter(t => t.level === 'L2');
-    return findTopK(docVec, candidates, topK, 0.4).map(c => ({ name: c.name, score: c.score }));
+    return findTopK(docVec, candidates, topK, minScore).map(c => ({ name: c.name, score: c.score }));
   }
 
   /**
    * Search for the most similar L3 tags to a document embedding
    */
-  searchL3(docVec: number[], topK = 10): { name: string; score: number }[] {
+  searchL3(docVec: number[], topK = 10, minScore = 0.4): { name: string; score: number }[] {
     const candidates = this.tags.filter(t => t.level === 'L3');
-    return findTopK(docVec, candidates, topK, 0.4).map(c => ({ name: c.name, score: c.score }));
+    return findTopK(docVec, candidates, topK, minScore).map(c => ({ name: c.name, score: c.score }));
+  }
+
+  /**
+   * Return all tag names as a flat string array (for literal matching).
+   */
+  getAllTags(): string[] {
+    return this.tags.map(t => t.name);
   }
 
   /**
