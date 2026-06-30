@@ -544,7 +544,7 @@
   .nh-fs-content h2 { font-size: 18px; font-weight: 800; margin: 14px 0 8px; }
   .nh-fs-content h3 { font-size: 16px; font-weight: 800; margin: 12px 0 6px; }
   .nh-fs-content h4 { font-size: 15px; font-weight: 700; margin: 10px 0 6px; }
-  .nh-fs-content p { margin: 8px 0; line-height: 1.85; }
+  .nh-fs-content p,.nh-fs-content li,.nh-fs-content blockquote { margin: 8px 0; line-height: 1.85; text-align: left; }
   .nh-fs-content ul,.nh-fs-content ol { padding-left: 22px; margin: 6px 0; line-height: 1.8; }
   .nh-fs-content code { background: var(--pri-pale); padding: 2px 6px; border-radius: 4px; font-size: 13px; }
   .nh-fs-content pre { background: var(--bg); padding: 14px; border-radius: 12px; overflow-x: auto; font-size: 13px; margin: 10px 0; box-shadow: var(--neu-pressed); }
@@ -666,7 +666,7 @@
   .be-read-block h1 { font-size: 22px; font-weight: 800; margin: 16px 0 8px; text-align: center; }
   .be-read-block h2 { font-size: 18px; font-weight: 800; margin: 12px 0 6px; text-align: left; }
   .be-read-block h3 { font-size: 16px; font-weight: 800; margin: 10px 0 6px; text-align: left; }
-  .be-read-block p { margin: 6px 0; }
+  .be-read-block p,.be-read-block li,.be-read-block blockquote { margin: 6px 0; text-align: left; }
   .be-read-block ul,.be-read-block ol { padding-left: 22px; margin: 4px 0; }
   .be-read-block code { background: var(--pri-pale); padding: 2px 6px; border-radius: 4px; font-size: 13px; }
   .be-read-block pre { background: var(--bg); padding: 12px; border-radius: 10px; overflow-x: auto; font-size: 13px; }
@@ -947,22 +947,26 @@
       <div style="text-align:center;padding:60px 0;color:var(--text3);">内容加载中...</div>
     </div>
     <div class="nh-fs-bottombar" id="nh-fs-bottombar">
-      <div style="width:100%;display:flex;gap:6px;align-items:center;margin-bottom:6px;">
-        <input class="input" id="nh-refine-input" placeholder="输入自然语言修改指令，如：用更学术化的语言重写第一段..." style="flex:1;font-size:13px;padding:10px 14px;border-radius:18px;"
-          onkeydown="if(event.key==='Enter'){refineNote(this.value);this.value='';}">
-        <button class="btn btn-primary" style="font-size:12px;padding:8px 16px;border-radius:14px;flex-shrink:0;" onclick="const inp=document.getElementById('nh-refine-input');if(inp.value.trim()){refineNote(inp.value);inp.value='';}">发送</button>
+      <!-- Row 1: Style preferences + Quick action buttons -->
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;width:100%;">
+        <button class="btn btn-neu" style="font-size:11px;padding:5px 10px;border-radius:10px;flex-shrink:0;white-space:nowrap;" onclick="toggleNHStylePrefs()" id="nh-style-toggle">🎨 风格</button>
+        <div style="display:flex;gap:6px;overflow-x:auto;flex:1;">
+        <button class="quick-btn" onclick="refineNote('请把内容写得更详细，补充更多解释和背景。')">📝 更详细</button>
+        <button class="quick-btn" onclick="refineNote('请把内容精简，只保留最核心的知识点。')">📋 更简洁</button>
+        <button class="quick-btn" onclick="refineNote('请用表格形式整理关键概念的对比。')">📊 表格对比</button>
+        <button class="quick-btn" onclick="refineNote('请为重要概念添加具体的例子帮助理解。')">💡 举例子</button>
+        <button class="quick-btn" onclick="refineNote('请突出标记重点内容和易错点。')">⭐ 突出重点</button>
+        </div>
       </div>
-      <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;width:100%;">
-      <button class="quick-btn" onclick="refineNote('请把内容写得更详细，补充更多解释和背景。')">📝 更详细</button>
-      <button class="quick-btn" onclick="refineNote('请把内容精简，只保留最核心的知识点。')">📋 更简洁</button>
-      <button class="quick-btn" onclick="refineNote('请用表格形式整理关键概念的对比。')">📊 表格对比</button>
-      <button class="quick-btn" onclick="refineNote('请为重要概念添加具体的例子帮助理解。')">💡 举例子</button>
-      <button class="quick-btn" onclick="refineNote('请突出标记重点内容和易错点。')">⭐ 突出重点</button>
+      <!-- Row 2: Natural language custom input -->
+      <div style="width:100%;display:flex;gap:6px;align-items:center;">
+        <input class="input" id="nh-refine-input" placeholder="或输入自定义修改指令，如：用更学术化的语言重写..." style="flex:1;font-size:12px;padding:9px 14px;border-radius:16px;"
+          onkeydown="if(event.key==='Enter'){refineNote(this.value);this.value='';}">
+        <button class="btn btn-primary" style="font-size:11px;padding:7px 14px;border-radius:14px;flex-shrink:0;" onclick="const inp=document.getElementById('nh-refine-input');if(inp.value.trim()){refineNote(inp.value);inp.value='';}">发送</button>
       </div>
     </div>
-    <!-- Style Preferences -->
+    <!-- Style Preferences Panel -->
     <div style="padding:8px 16px;border-top:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;gap:6px;" id="nh-style-bar">
-      <button class="btn btn-neu" style="font-size:11px;padding:4px 10px;border-radius:10px;flex-shrink:0;" onclick="toggleNHStylePrefs()" id="nh-style-toggle">🎨 笔记风格</button>
       <div style="font-size:11px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" id="nh-style-preview">未设置风格偏好</div>
     </div>
     <div style="display:none;padding:6px 16px 10px;border-top:1px solid var(--border);flex-shrink:0;" id="nh-style-panel">
@@ -1129,7 +1133,11 @@ async function loadControlCenter() {
           <span class="li-date">${fmtDate(r.created_at)}</span>
           <button class="btn-icon" style="width:26px;height:26px;font-size:12px;flex-shrink:0;margin-left:6px;box-shadow:none;" onclick="event.stopPropagation();moveFromList(${i})" title="移动到其他文件夹">📁</button>
         </div></div>`;
-    });h+='</div>';document.getElementById('ctrl-records').innerHTML=h;
+    });
+    if (records.length > 12) {
+      h += '<div style="text-align:center;padding:12px 0 4px;"><button class="btn btn-neu" style="font-size:13px;padding:8px 24px;border-radius:16px;" onclick="loadMoreRecords()">查看更多记录 →</button></div>';
+    }
+    h+='</div>';document.getElementById('ctrl-records').innerHTML=h;
   }catch(e){
     document.getElementById('ctrl-stats').innerHTML='<div class="stat-card" style="grid-column:1/-1;"><div class="label" style="color:var(--primary);">后端连接失败</div><div class="label" style="font-size:10px;margin-top:4px;">请确认 localhost:9091 已启动</div></div>';
     document.getElementById('ctrl-records').innerHTML='<div class="empty-state"><div class="empty-icon">🔌</div><div class="empty-title">无法连接后端</div><div class="empty-desc">请启动后端服务 (端口 9091)，然后点击下方按钮刷新</div><button class="btn btn-primary" onclick="refreshCurrentTab()" style="margin-top:12px;">🔄 重新加载</button></div>';
@@ -2229,13 +2237,20 @@ function toggleNHSourceFormat() {
   const el = document.getElementById('nh-sb-preview-content');
   const btn = document.getElementById('nh-sb-fmt-toggle');
   const raw = window._nhSourceRawContent || '';
+
+  if (!el) {
+    // PDF iframe mode — no toggle available, show as text
+    if (btn) btn.textContent = '📋 PDF模式';
+    return;
+  }
+
   if (_nhSourceFormatRendered) {
     el.innerHTML = simpleMarkdown(raw.substring(0, 8000)) + (raw.length > 8000 ? '<div style="text-align:center;color:var(--text3);padding:10px;">... 内容已截断</div>' : '');
-    btn.textContent = '📋 原格式';
+    if (btn) btn.textContent = '📋 原格式';
     try { renderMathInElement(el); } catch(e) {}
   } else {
-    el.innerHTML = '<pre style="white-space:pre-wrap;font-family:inherit;font-size:14px;line-height:1.8;margin:0;">' + esc(raw.substring(0, 8000)) + '</pre>' + (raw.length > 8000 ? '<div style="text-align:center;color:var(--text3);padding:10px;">... 原内容已截断</div>' : '');
-    btn.textContent = '✨ 渲染';
+    el.innerHTML = '<pre style="white-space:pre-wrap;font-family:inherit;font-size:14px;line-height:1.8;margin:0;text-align:left;max-height:70vh;overflow-y:auto;">' + esc(raw.substring(0, 8000)) + '</pre>' + (raw.length > 8000 ? '<div style="text-align:center;color:var(--text3);padding:10px;">... 原内容已截断</div>' : '');
+    if (btn) btn.textContent = '✨ 渲染';
   }
 }
 
@@ -2246,45 +2261,74 @@ async function loadNHSourceFile(idx) {
   body.innerHTML = '<div style="text-align:center;padding:40px;"><div class="spinner"></div></div>';
 
   try {
-    let content = '';
+    let content = '', fileType = '', viewUrl = '';
     if (sf.type === 'study_note') {
       const res = await safeFetch(API + '/study-notes/' + sf.id);
       if (res.ok) {
         const json = await res.json();
         const note = json.data || json;
+        fileType = 'study_note';
         if (note.blocks && note.blocks.length) {
           content = note.blocks.filter(b => b.type === 'text').map(b => b.content).join('\n\n');
         } else {
           content = note.content || '';
         }
-      }
+      } else throw new Error('HTTP ' + res.status);
     } else {
-      const res = await safeFetch(API + '/materials/' + sf.id + '/file-content');
-      if (res.ok) {
-        const json = await res.json();
-        const data = json.data || json;
-        if (data.pages && data.pages.length) {
-          content = data.pages.join('\n\n');
-        } else if (data.content) {
-          content = data.content;
-        }
+      // For materials, get file-content first
+      const fcRes = await safeFetch(API + '/materials/' + sf.id + '/file-content');
+      if (!fcRes.ok) throw new Error('HTTP ' + fcRes.status);
+      const fcJson = await fcRes.json();
+      const fcData = fcJson.data || fcJson;
+      fileType = (fcData.fileType || 'UNKNOWN').toUpperCase();
+      viewUrl = fcData.viewUrl || '';
+
+      // Extract text content
+      if (fcData.pages && fcData.pages.length) {
+        content = fcData.pages.join('\n\n');
+      } else if (fcData.content) {
+        content = fcData.content;
+      } else if (!content && !viewUrl) {
+        content = '(此文件暂无提取的文本内容)';
       }
     }
 
     // Store raw content for toggle
     window._nhSourceRawContent = content;
-    body.innerHTML = '<div class="nh-sb-file-preview">' +
-      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">' +
-      '<div style="flex:1;font-size:16px;font-weight:800;color:var(--text);">' + esc(sf.title || '源文件') + '</div>' +
-      '<button class="btn btn-neu" style="font-size:11px;padding:5px 12px;border-radius:10px;flex-shrink:0;" id="nh-sb-fmt-toggle" onclick="toggleNHSourceFormat()">📋 原格式</button>' +
+    window._nhSourceFileType = fileType;
+    window._nhSourceViewUrl = viewUrl;
+
+    // Build preview header
+    let headerHtml = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">' +
+      '<div style="flex:1;min-width:0;">' +
+      '<div style="font-size:16px;font-weight:800;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(sf.title || '源文件') + '</div>' +
+      '<div style="font-size:11px;color:var(--text3);margin-top:2px;">' + esc(fileType) + ' · ' + esc(sf.type === 'study_note' ? '学习纪要' : '学习资料') + '</div>' +
       '</div>' +
-      '<div style="line-height:1.85;color:var(--text);max-height:70vh;overflow-y:auto;" id="nh-sb-preview-content">' +
-      simpleMarkdown(content.substring(0, 8000)) +
-      (content.length > 8000 ? '<div style="text-align:center;color:var(--text3);padding:10px;">... 内容已截断</div>' : '') +
-      '</div></div>';
+      '<button class="btn btn-neu" style="font-size:11px;padding:5px 10px;border-radius:10px;flex-shrink:0;" id="nh-sb-fmt-toggle" onclick="toggleNHSourceFormat()">📋 原格式</button>' +
+      '</div>';
+
+    // Build content area based on file type
+    let contentHtml = '';
+    if (fileType === 'PDF' && viewUrl) {
+      const fullUrl = viewUrl.startsWith('http') ? viewUrl : 'http://localhost:9091' + viewUrl;
+      contentHtml = '<div style="flex:1;display:flex;flex-direction:column;min-height:300px;">' +
+        '<iframe src="' + esc(fullUrl) + '#toolbar=0&navpanes=0" style="flex:1;min-height:350px;border:none;border-radius:12px;"></iframe>' +
+        '<div style="text-align:center;padding:6px;"><a href="' + esc(fullUrl) + '" target="_blank" class="btn btn-neu" style="font-size:11px;text-decoration:none;display:inline-block;">在新窗口打开 PDF</a></div>' +
+        '</div>';
+    } else if (content) {
+      contentHtml = '<div style="line-height:1.85;color:var(--text);max-height:70vh;overflow-y:auto;" id="nh-sb-preview-content">' +
+        simpleMarkdown(content.substring(0, 8000)) +
+        (content.length > 8000 ? '<div style="text-align:center;color:var(--text3);padding:10px;">... 内容已截断</div>' : '') +
+        '</div>';
+    } else {
+      contentHtml = '<div style="text-align:center;padding:40px;color:var(--text3);">暂无可预览内容</div>';
+    }
+
+    body.innerHTML = '<div class="nh-sb-file-preview" style="display:flex;flex-direction:column;flex:1;">' + headerHtml + contentHtml + '</div>';
+
     try { renderMathInElement(body); } catch(e) {}
   } catch (e) {
-    body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text2);">加载失败: ' + esc(e.message) + '</div>';
+    body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text2);">加载失败: ' + esc(e.message) + '<br/><button class="btn btn-neu" style="margin-top:10px;font-size:12px;" onclick="loadNHSourceFile(' + idx + ')">重试</button></div>';
   }
 }
 
