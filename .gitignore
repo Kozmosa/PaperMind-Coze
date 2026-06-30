@@ -99,3 +99,4 @@ expo/expo-env.d.ts
 expo-env.d.ts
 *.tsbuildinfo
 node-compile-cache/
+server/nohup.out
