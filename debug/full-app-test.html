@@ -561,9 +561,81 @@
   }
   .citation-mark:active { background: var(--primary); color: #FFF; }
   .nh-fs-bottombar {
-    display: flex; gap: 8px; padding: 10px 16px; flex-shrink: 0;
+    display: flex; flex-direction: column; gap: 0; padding: 0; flex-shrink: 0;
     border-top: 1px solid var(--border); background: var(--bg);
+  }
+  /* Style preference card */
+  .nh-style-card {
+    display: flex; flex-direction: column; gap: 0;
+    padding: 12px 16px; border-bottom: 1px solid var(--border);
+    background: linear-gradient(135deg, var(--pri-pale) 0%, var(--bg) 60%);
+    cursor: default;
+  }
+  .nh-style-card .nh-style-header {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .nh-style-card .nh-style-icon {
+    width: 40px; height: 40px; border-radius: 12px;
+    background: var(--primary); color: #FFF; display: flex;
+    align-items: center; justify-content: center; font-size: 18px;
+    flex-shrink: 0;
+  }
+  .nh-style-card .nh-style-info { flex: 1; min-width: 0; }
+  .nh-style-card .nh-style-info .nh-style-label {
+    font-size: 13px; font-weight: 700; color: var(--text);
+  }
+  .nh-style-card .nh-style-info .nh-style-desc {
+    font-size: 11px; color: var(--text3); overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap; margin-top: 1px;
+  }
+  .nh-style-card .nh-style-editor {
+    overflow: hidden; max-height: 0; opacity: 0;
+    transition: max-height 0.3s ease, opacity 0.25s ease, margin-top 0.3s ease;
+    margin-top: 0;
+  }
+  .nh-style-card .nh-style-editor.open {
+    max-height: 200px; opacity: 1; margin-top: 10px;
+  }
+  .nh-style-card .nh-style-editor textarea {
+    width: 100%; padding: 10px 14px; border: none; outline: none;
+    border-radius: 12px; font-size: 13px; font-family: inherit;
+    background: var(--bg); color: var(--text); resize: vertical;
+    min-height: 80px; box-shadow: var(--neu-pressed);
+  }
+  .nh-style-card .nh-style-editor textarea:focus {
+    box-shadow: 0 0 0 3px var(--pri-pale), var(--neu-pressed);
+  }
+  /* Quick action chips row */
+  .nh-quick-row {
+    display: flex; gap: 6px; padding: 10px 16px;
     overflow-x: auto; -webkit-overflow-scrolling: touch;
+    border-bottom: 1px solid var(--border);
+    scrollbar-width: none;
+  }
+  .nh-quick-row::-webkit-scrollbar { display: none; }
+  .quick-chip {
+    padding: 7px 14px; border-radius: 16px; border: none;
+    background: var(--bg); color: var(--text2); font-size: 12px; font-weight: 600;
+    cursor: pointer; font-family: inherit; white-space: nowrap; flex-shrink: 0;
+    box-shadow: var(--neu-raised-sm); transition: all 0.15s;
+  }
+  .quick-chip:active { box-shadow: var(--neu-pressed); background: var(--primary); color: #FFF; transform: scale(0.95); }
+  /* NL input row */
+  .nh-input-row {
+    display: flex; gap: 8px; padding: 10px 16px; align-items: center;
+  }
+  .nh-input-row input {
+    flex: 1; font-size: 13px; padding: 10px 16px; border-radius: 20px;
+    border: none; outline: none; font-family: inherit;
+    background: var(--bg); color: var(--text);
+    box-shadow: var(--neu-pressed); transition: box-shadow 0.2s;
+  }
+  .nh-input-row input:focus {
+    box-shadow: 0 0 0 3px var(--pri-pale), var(--neu-pressed);
+  }
+  .nh-input-row .nh-send-btn {
+    font-size: 13px; padding: 10px 18px; border-radius: 20px; flex-shrink: 0;
+    font-weight: 700;
   }
   .quick-btn {
     padding: 8px 16px; border-radius: 18px; border: none;
@@ -874,8 +946,11 @@
   <div class="nh-panel-mask" id="nh-panel-mask" onclick="closeNoteHelperPanel(event)">
     <div class="nh-panel" id="nh-panel" onclick="event.stopPropagation()">
       <div class="nh-panel-header">
-        <div style="font-size:17px;font-weight:800;color:var(--text);">⚡ AI 笔记助手</div>
-        <button style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text2);" onclick="closeNoteHelperPanel()">✕</button>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:17px;font-weight:800;color:var(--text);">⚡ AI 笔记助手</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;" id="nh-panel-style-preview" onclick="openNHStyleFromPanel()" title="点击编辑风格偏好">未设置风格偏好</div>
+        </div>
+        <button style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text2);flex-shrink:0;" onclick="closeNoteHelperPanel()">✕</button>
       </div>
       <div class="nh-panel-body" id="nh-panel-body">
         <div style="text-align:center;padding:20px 0;" id="nh-panel-loading"><div class="spinner"></div><div class="meta-text" style="margin-top:8px;">正在生成笔记...</div></div>
@@ -947,33 +1022,44 @@
       <div style="text-align:center;padding:60px 0;color:var(--text3);">内容加载中...</div>
     </div>
     <div class="nh-fs-bottombar" id="nh-fs-bottombar">
-      <!-- Row 1: Style preferences + Quick action buttons -->
-      <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;width:100%;">
-        <button class="btn btn-neu" style="font-size:11px;padding:5px 10px;border-radius:10px;flex-shrink:0;white-space:nowrap;" onclick="toggleNHStylePrefs()" id="nh-style-toggle">🎨 风格</button>
-        <div style="display:flex;gap:6px;overflow-x:auto;flex:1;">
-        <button class="quick-btn" onclick="refineNote('请把内容写得更详细，补充更多解释和背景。')">📝 更详细</button>
-        <button class="quick-btn" onclick="refineNote('请把内容精简，只保留最核心的知识点。')">📋 更简洁</button>
-        <button class="quick-btn" onclick="refineNote('请用表格形式整理关键概念的对比。')">📊 表格对比</button>
-        <button class="quick-btn" onclick="refineNote('请为重要概念添加具体的例子帮助理解。')">💡 举例子</button>
-        <button class="quick-btn" onclick="refineNote('请突出标记重点内容和易错点。')">⭐ 突出重点</button>
+      <!-- Row 1: Style preference card -->
+      <div class="nh-style-card" id="nh-style-card">
+        <div class="nh-style-header">
+          <div class="nh-style-icon">🎨</div>
+          <div class="nh-style-info">
+            <div class="nh-style-label">学习风格偏好</div>
+            <div class="nh-style-desc" id="nh-style-preview">未设置 · AI 将使用默认风格生成笔记</div>
+          </div>
+          <button class="btn btn-neu" style="font-size:11px;padding:5px 12px;border-radius:10px;flex-shrink:0;" onclick="toggleNHStylePrefs()" id="nh-style-toggle">✏️ 编辑</button>
+        </div>
+        <div class="nh-style-editor" id="nh-style-editor">
+          <textarea id="nh-style-input" placeholder="描述你希望 AI 生成笔记时的风格偏好，AI 将始终遵循这些偏好...
+
+例如：
+• 侦探式纠错与溯源，不盲从原文内容
+• 定理使用需要条件审查与主动验证
+• 按数学逻辑流重组知识点，而非页码流
+• 强调反例与边界情况的警示
+• 使用学术化语言，保持严谨简洁"></textarea>
+          <div style="display:flex;gap:6px;margin-top:8px;justify-content:flex-end;">
+            <button class="btn btn-neu" style="font-size:11px;padding:5px 12px;border-radius:10px;" onclick="clearNHStylePrefs()">清除</button>
+            <button class="btn btn-primary" style="font-size:11px;padding:5px 16px;border-radius:10px;" onclick="saveNHStylePrefs()">保存并应用到 AI</button>
+          </div>
         </div>
       </div>
-      <!-- Row 2: Natural language custom input -->
-      <div style="width:100%;display:flex;gap:6px;align-items:center;">
-        <input class="input" id="nh-refine-input" placeholder="或输入自定义修改指令，如：用更学术化的语言重写..." style="flex:1;font-size:12px;padding:9px 14px;border-radius:16px;"
-          onkeydown="if(event.key==='Enter'){refineNote(this.value);this.value='';}">
-        <button class="btn btn-primary" style="font-size:11px;padding:7px 14px;border-radius:14px;flex-shrink:0;" onclick="const inp=document.getElementById('nh-refine-input');if(inp.value.trim()){refineNote(inp.value);inp.value='';}">发送</button>
+      <!-- Row 2: Quick action chips -->
+      <div class="nh-quick-row">
+        <button class="quick-chip" onclick="refineNote('请把内容写得更详细，补充更多解释和背景。')">📝 更详细</button>
+        <button class="quick-chip" onclick="refineNote('请把内容精简，只保留最核心的知识点。')">📋 更简洁</button>
+        <button class="quick-chip" onclick="refineNote('请用表格形式整理关键概念的对比。')">📊 表格对比</button>
+        <button class="quick-chip" onclick="refineNote('请为重要概念添加具体的例子帮助理解。')">💡 举例子</button>
+        <button class="quick-chip" onclick="refineNote('请突出标记重点内容和易错点。')">⭐ 突出重点</button>
       </div>
-    </div>
-    <!-- Style Preferences Panel -->
-    <div style="padding:8px 16px;border-top:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;gap:6px;" id="nh-style-bar">
-      <div style="font-size:11px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" id="nh-style-preview">未设置风格偏好</div>
-    </div>
-    <div style="display:none;padding:6px 16px 10px;border-top:1px solid var(--border);flex-shrink:0;" id="nh-style-panel">
-      <textarea class="form-textarea" id="nh-style-input" placeholder="设置笔记风格偏好，AI 将按此风格生成笔记...&#10;&#10;例如：&#10;• 侦探式纠错与溯源，不盲从原文&#10;• 定理使用需条件审查与主动验证&#10;• 按数学逻辑流重组而非页码流&#10;• 强调反例与边界情况警示" style="min-height:80px;font-size:12px;"></textarea>
-      <div style="display:flex;gap:6px;margin-top:6px;justify-content:flex-end;">
-        <button class="btn btn-neu" style="font-size:11px;padding:4px 12px;border-radius:10px;" onclick="clearNHStylePrefs()">清除</button>
-        <button class="btn btn-primary" style="font-size:11px;padding:4px 12px;border-radius:10px;" onclick="saveNHStylePrefs()">保存偏好</button>
+      <!-- Row 3: Natural language custom input -->
+      <div class="nh-input-row">
+        <input id="nh-refine-input" placeholder="✏️ 输入自定义修改指令，如：用更学术化的语言重写第一段..."
+          onkeydown="if(event.key==='Enter'){refineNote(this.value);this.value='';}">
+        <button class="btn btn-primary nh-send-btn" onclick="const inp=document.getElementById('nh-refine-input');if(inp.value.trim()){refineNote(inp.value);inp.value='';}">➤ 发送</button>
       </div>
     </div>
     <!-- Source File Sidebar -->
@@ -1663,6 +1749,11 @@ function openNoteHelperPanel() {
   document.getElementById('nh-panel-loading').style.display = 'block';
   document.getElementById('nh-panel-result').style.display = 'none';
   document.getElementById('nh-panel-actions').innerHTML = '';
+  // Update style preview in panel
+  const preview = document.getElementById('nh-panel-style-preview');
+  if (preview) {
+    preview.textContent = _nhStylePrefs ? '已设置: ' + _nhStylePrefs.substring(0, 30) + '...' : '未设置风格偏好';
+  }
   generateNoteStream();
 }
 
@@ -1670,6 +1761,26 @@ function closeNoteHelperPanel(e) {
   if (e && e.target !== document.getElementById('nh-panel-mask')) return;
   document.getElementById('nh-panel-mask').classList.remove('show');
   if (_nhGenAbort) { _nhGenAbort.abort(); _nhGenAbort = null; }
+}
+
+function openNHStyleFromPanel() {
+  // Close NH panel, open fullscreen, and expand style editor
+  closeNoteHelperPanel();
+  if (_panelContent) {
+    setTimeout(() => {
+      openNHFullscreen(_panelContent, _panelCitations, window._nhSourceFilesForPanel || []);
+      setTimeout(() => {
+        const editor = document.getElementById('nh-style-editor');
+        if (editor && !editor.classList.contains('open')) {
+          toggleNHStylePrefs();
+        }
+      }, 400);
+    }, 350);
+  } else {
+    // No content yet, directly toggle the style editor in the NH fullscreen
+    // Wait a bit and trigger, but we need NH fullscreen to be open
+    // Just scroll to the style section
+  }
 }
 
 async function generateNoteStream() {
@@ -2115,31 +2226,49 @@ let _nhSidebarVisible = false;
 let _nhStylePrefs = localStorage.getItem('papermind_note_style') || '';
 
 function toggleNHStylePrefs() {
-  const panel = document.getElementById('nh-style-panel');
+  const editor = document.getElementById('nh-style-editor');
   const toggle = document.getElementById('nh-style-toggle');
-  if (panel.style.display === 'none') {
-    panel.style.display = 'block';
-    toggle.textContent = '🎨 收起';
-    document.getElementById('nh-style-input').value = _nhStylePrefs;
+  const isOpen = editor.classList.contains('open');
+  if (isOpen) {
+    editor.classList.remove('open');
+    toggle.textContent = '✏️ 编辑';
   } else {
-    panel.style.display = 'none';
-    toggle.textContent = '🎨 笔记风格';
+    editor.classList.add('open');
+    toggle.textContent = '▲ 收起';
+    document.getElementById('nh-style-input').value = _nhStylePrefs;
+    setTimeout(() => document.getElementById('nh-style-input').focus(), 100);
   }
 }
 
 function saveNHStylePrefs() {
   _nhStylePrefs = document.getElementById('nh-style-input').value.trim();
   localStorage.setItem('papermind_note_style', _nhStylePrefs);
-  document.getElementById('nh-style-panel').style.display = 'none';
-  document.getElementById('nh-style-toggle').textContent = '🎨 笔记风格';
-  document.getElementById('nh-style-preview').textContent = _nhStylePrefs ? '已设置: ' + _nhStylePrefs.substring(0, 40) + '...' : '未设置风格偏好';
+  document.getElementById('nh-style-editor').classList.remove('open');
+  document.getElementById('nh-style-toggle').textContent = '✏️ 编辑';
+  updateStylePreview();
+  // Also update the NH panel preview if visible
+  const nhPreview = document.getElementById('nh-panel-style-preview');
+  if (nhPreview) nhPreview.textContent = _nhStylePrefs ? '已设置: ' + _nhStylePrefs.substring(0, 30) + '...' : '未设置风格偏好';
 }
 
 function clearNHStylePrefs() {
   _nhStylePrefs = '';
   localStorage.removeItem('papermind_note_style');
   document.getElementById('nh-style-input').value = '';
-  document.getElementById('nh-style-preview').textContent = '未设置风格偏好';
+  updateStylePreview();
+  const nhPreview = document.getElementById('nh-panel-style-preview');
+  if (nhPreview) nhPreview.textContent = '未设置风格偏好';
+}
+
+function updateStylePreview() {
+  const preview = document.getElementById('nh-style-preview');
+  if (!preview) return;
+  if (_nhStylePrefs) {
+    const firstLine = _nhStylePrefs.split(/[\n。，]/)[0].substring(0, 45);
+    preview.textContent = '已设置 · ' + firstLine + (_nhStylePrefs.length > 45 ? '...' : '');
+  } else {
+    preview.textContent = '未设置 · AI 将使用默认风格生成笔记';
+  }
 }
 
 // Load saved prefs on init
@@ -2147,8 +2276,7 @@ function clearNHStylePrefs() {
   const saved = localStorage.getItem('papermind_note_style');
   if (saved) {
     _nhStylePrefs = saved;
-    const preview = document.getElementById('nh-style-preview');
-    if (preview) preview.textContent = '已设置: ' + saved.substring(0, 40) + '...';
+    updateStylePreview();
   }
 })();
 
