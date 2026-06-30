@@ -1074,7 +1074,7 @@
           <div class="upload-dropzone-text">点击选择文件</div>
           <div class="upload-dropzone-hint">支持 PDF · PPTX · PPT · DOCX · MD · TXT · CSV · 图片</div>
         </div>
-        <input type="file" id="um-file" accept=".pdf,.pptx,.ppt,.docx,.md,.txt,.csv,.xlsx,.jpg,.png" style="display:none;" onchange="onFileSelected(this)">
+        <input type="file" id="um-file" accept=".pdf,.pptx,.ppt,.docx,.md,.txt,.csv,.xlsx,.jpg,.png" style="position:absolute;opacity:0;width:0;height:0;overflow:hidden;" onchange="onFileSelected(this)">
         <div class="upload-file-info" id="um-file-info"></div>
       </div>
       <div class="form-group"><label class="form-label">标题（可选，默认用文件名）</label><input class="form-input" id="um-title" placeholder="输入标题..."></div>
@@ -1092,7 +1092,7 @@
       <div id="um-progress" style="display:none;margin-bottom:12px;"><div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden;"><div id="um-progress-bar" style="height:100%;background:var(--primary);width:0%;transition:width 0.3s;"></div></div><div class="meta-text" style="margin-top:4px;text-align:center;" id="um-progress-text">上传中...</div></div>
       <div style="display:flex;gap:10px;justify-content:flex-end;">
         <button class="btn btn-neu" onclick="closeUploadMaterial()">取消</button>
-        <button class="btn btn-primary" id="um-submit-btn" onclick="submitUploadMaterial()">上传</button>
+        <button type="button" class="btn btn-primary" id="um-submit-btn" onclick="submitUploadMaterial()">上传</button>
       </div>
     </div>
   </div>
