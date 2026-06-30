@@ -2304,30 +2304,41 @@ async function submitUploadMaterial() {
     const formData = new FormData();
     formData.append('file', _selectedFile);
 
-    const uploadRes = await fetch(API + '/upload', { method: 'POST', body: formData });
-    if (!uploadRes.ok) throw new Error('上传失败 HTTP ' + uploadRes.status);
+    // Step 1: Upload file to server
+    const uploadRes = await safeFetch(API + '/upload', { method: 'POST', body: formData });
+    if (!uploadRes.ok) {
+      const errText = await uploadRes.text().catch(() => '');
+      throw new Error('文件上传失败 HTTP ' + uploadRes.status + (errText ? ' — ' + errText.slice(0, 120) : ''));
+    }
     const uploadJson = await uploadRes.json();
     const { fileUrl, fileName, mimeType } = uploadJson.data || uploadJson;
+    if (!fileUrl) throw new Error('上传成功但未返回文件路径');
 
     document.getElementById('um-progress-bar').style.width = '60%';
     document.getElementById('um-progress-text').textContent = '创建记录...';
 
+    // Step 2: Create material record
     const title = document.getElementById('um-title').value.trim() || _selectedFile.name;
-    const path = document.getElementById('um-path').value.trim();
+    const selPath = document.getElementById('um-path').value.trim();
 
     const body = { title, name: fileName, file_url: fileUrl, file_name: fileName, mime_type: mimeType };
-    if (path) body.logical_path = JSON.stringify([path.endsWith('/') ? path : path + '/']);
+    if (selPath) body.logical_path = JSON.stringify([selPath.endsWith('/') ? selPath : selPath + '/']);
 
     const matRes = await safeFetch(API + '/materials', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
     });
-    if (!matRes.ok) throw new Error('创建材料失败 HTTP ' + matRes.status);
+    if (!matRes.ok) {
+      const errText = await matRes.text().catch(() => '');
+      throw new Error('创建材料记录失败 HTTP ' + matRes.status + (errText ? ' — ' + errText.slice(0, 120) : ''));
+    }
     const matJson = await matRes.json();
     const matId = matJson.data?.id || matJson.id;
+    if (!matId) throw new Error('创建成功但未返回记录ID');
 
     document.getElementById('um-progress-bar').style.width = '100%';
-    document.getElementById('um-progress-text').textContent = '上传成功！';
+    document.getElementById('um-progress-text').textContent = '上传成功，正在分类...';
 
+    // Step 3: Trigger knowledge classification (fire-and-forget)
     if (matId) {
       safeFetch(API + '/knowledge-builder/process-content', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'material', id: matId })
@@ -2336,8 +2347,10 @@ async function submitUploadMaterial() {
 
     setTimeout(() => { closeUploadMaterial(); refreshCurrentTab(); }, 800);
   } catch (e) {
-    alert('上传失败: ' + e.message);
-    document.getElementById('um-progress').style.display = 'none';
+    console.error('[upload]', e);
+    document.getElementById('um-progress-text').textContent = '失败: ' + e.message;
+    document.getElementById('um-progress-bar').style.background = 'var(--danger,#e74c3c)';
+    setTimeout(() => { alert('上传失败: ' + e.message); }, 200);
   } finally { btn.disabled = false; btn.textContent = '上传'; }
 }
 
