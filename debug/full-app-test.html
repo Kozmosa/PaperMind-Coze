@@ -826,7 +826,8 @@
       </div>
 
       <div style="display:flex;gap:8px;padding:14px 18px;overflow-x:auto;flex-shrink:0;" id="chat-agents">
-        <button class="btn btn-primary" style="font-size:13px;padding:8px 18px;border-radius:18px;" onclick="selectAgent('tutor',this)">🤖 智能导师</button>
+       <button class="btn btn-primary" style="font-size:13px;padding:8px 18px;border-radius:18px;" onclick="selectAgent('tutor',this)">🤖 智能导师</button>
+        <button class="btn btn-neu" style="font-size:13px;padding:8px 18px;border-radius:18px;" onclick="selectAgent('reflection_mind',this)">💡 反思助手</button>
       </div>
 
       <div class="scroll" style="flex:1;padding:14px 18px;" id="chat-messages">
@@ -837,8 +838,16 @@
         </div>
       </div>
 
-      <div style="display:flex;gap:10px;padding:12px 18px;flex-shrink:0;">
-        <button class="btn-icon" onclick="showAppModal('<h3>📎 选择文件</h3><div style=\\'text-align:center;padding:20px;color:var(--text3);\\'>在完整 App 中，此处会打开文件选择器。<br/>（演示模式）</div><div style=\\'display:flex;gap:10px;justify-content:flex-end;margin-top:16px;\\'><button class=\\'btn btn-primary\\' onclick=\\'closeAppModal()\\'>确定</button></div>')" style="flex-shrink:0;">📎</button>
+      <div id="chat-file-preview" style="display:none;padding:0 18px 8px;flex-shrink:0;">
+        <div style="display:flex;align-items:center;gap:8px;background:var(--pri-pale);border-radius:12px;padding:6px 12px;font-size:12px;color:var(--text);">
+          <span id="chat-file-icon">📄</span>
+          <span id="chat-file-name" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+          <button style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;" onclick="clearChatFile()">✕</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;padding:0 18px 12px;flex-shrink:0;">
+        <input type="file" id="chat-file-input" accept="image/*,.pdf,.doc,.docx,.txt,.md,.pptx,.xlsx" style="display:none;" onchange="handleFileSelected(event)">
+        <button class="btn-icon" onclick="triggerFileInput()" style="flex-shrink:0;" id="chat-attach-btn">📎</button>
         <input class="input" id="chat-input" placeholder="输入你的问题..."
           onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChatMessage();}">
         <button class="btn btn-primary" style="border-radius:50%;width:42px;height:42px;padding:0;flex-shrink:0;"
@@ -1133,6 +1142,11 @@ let kLegendVisible = false;
 let kViewMode = 'graph';
 let comSubTab = 'public';
 let _ctrlRecords = [];
+let _currentAgent = 'tutor';
+let _chatLoading = false;
+let _reflGenActive = false;
+let _reflGenAbort = null;
+let _chatUploadFile = null;
 
 let gvx = 0, gvy = 0, gvw = 500, gvh = 650;
 let gDragging = false, gDragSX = 0, gDragSY = 0, gDragVX = 0, gDragVY = 0;
@@ -1394,18 +1408,120 @@ function renderFolderTree(folders,depth=0){
 function countFolderDocs(node){let c=node.docs.length;node.subs.forEach(s=>c+=countFolderDocs(s));return c;}
 
 // ── TAB 3: AI CHAT ──
+function getAgentWelcome(agent){
+  if(agent==='reflection_mind'){
+    return `<div class="empty-state"><div class="empty-icon">💡</div><div class="empty-title">你好，我是反思助手</div>
+      <div class="empty-desc">我可以分析你的学习行为、问题解决记录和知识节点活动，生成个性化的学习反思报告。</div>
+      <button class="btn btn-primary" onclick="startReflectionChat()" style="margin-top:16px;">📊 生成学习反思报告</button></div>`;
+  }
+  return `<div class="empty-state"><div class="empty-icon">🤖</div><div class="empty-title">你好，我是 PaperMind 智能导师</div>
+    <div class="empty-desc">可以向我提问任何学习相关的问题，我会基于你的知识库为你解答。</div></div>`;
+}
 function selectAgent(agent,btn){
+  _currentAgent=agent;
   document.querySelectorAll('#chat-agents button').forEach(b=>{b.className='btn btn-neu';b.style.cssText='font-size:13px;padding:8px 18px;border-radius:18px;';});
   btn.className='btn btn-primary';btn.style.cssText='font-size:13px;padding:8px 18px;border-radius:18px;';
+  document.getElementById('chat-messages').innerHTML=getAgentWelcome(agent);
+  var subtitles={tutor:'智能导师 · 知识问答与学习辅导',reflection_mind:'反思助手 · 学习分析报告生成'};
+  document.querySelector('#page-chat .meta-text').textContent=subtitles[agent]||'智能导师 · 知识问答与学习辅导';
+  var inputContainer=document.querySelector('#page-chat .scroll');
+  if(inputContainer)inputContainer.style.height=agent==='reflection_mind'?'calc(100% - 90px)':'';
+  var inputArea=inputContainer?inputContainer.nextElementSibling:null;
+  if(inputArea)inputArea.style.display=agent==='reflection_mind'?'none':'flex';
 }
-function sendChatMessage(){
-  const input=document.getElementById('chat-input'),msg=input.value.trim();if(!msg)return;input.value='';
-  const msgs=document.getElementById('chat-messages'),empty=msgs.querySelector('.empty-state');if(empty)empty.remove();
-  msgs.innerHTML+=`<div style="display:flex;justify-content:flex-end;margin-bottom:14px;"><div class="chat-msg-user">${esc(msg)}</div></div>`;
+function triggerFileInput(){
+  document.getElementById('chat-file-input').click();
+}
+function handleFileSelected(e){
+  const f=e.target.files[0];if(!f)return;
+  e.target.value='';
+  _chatUploadFile={file:f,name:f.name,type:f.type};
+  document.getElementById('chat-file-name').textContent=f.name;
+  document.getElementById('chat-file-icon').textContent=f.type.startsWith('image/')?'🖼️':'📄';
+  document.getElementById('chat-file-preview').style.display='flex';
+}
+function clearChatFile(){
+  _chatUploadFile=null;
+  document.getElementById('chat-file-preview').style.display='none';
+}
+async function sendChatMessage(){
+  const input=document.getElementById('chat-input'),msg=input.value.trim();
+  if((!msg&&!_chatUploadFile)||_chatLoading)return;
+  input.value='';
+  const file=_chatUploadFile;_chatUploadFile=null;clearChatFile();
+  const msgs=document.getElementById('chat-messages'),empty=msgs.querySelector('.empty-state');
+  if(empty)empty.remove();
+  let userContent=msg||'(上传文件)';
+  let imgHtml='';
+  if(file&&file.type.startsWith('image/')&&file.file instanceof File){
+    imgHtml='<div style="margin-bottom:6px;"><img src="'+URL.createObjectURL(file.file)+'" style="max-width:160px;max-height:160px;border-radius:8px;"></div>';
+  }
+  msgs.innerHTML+=`<div style="display:flex;justify-content:flex-end;margin-bottom:14px;"><div class="chat-msg-user">${imgHtml}${esc(userContent)}</div></div>`;
   const botId='bot-'+Date.now();
   msgs.innerHTML+=`<div class="chat-msg-row" id="${botId}"><div class="avatar" style="width:34px;height:34px;background:var(--primary);font-size:16px;">🤖</div><div class="chat-msg-bot"><div class="spinner" style="width:16px;height:16px;border-width:2px;margin:4px 0;"></div></div></div>`;
   msgs.scrollTop=msgs.scrollHeight;
-  setTimeout(()=>{const bot=document.getElementById(botId);if(!bot)return;const replies=['这是一个很好的问题！基于你的知识库，我可以为你提供以下解答。','让我帮你分析一下这个问题——根据你之前的学习记录，这个知识点与以下几个方面相关。','我理解你的疑问。在 PaperMind 中，你可以通过知识图谱来探索相关的概念和联系。','很好的思考！建议你查看知识库中的相关标签来深入了解这个话题。'];bot.querySelector('.avatar').nextElementSibling.innerHTML=`<div style="line-height:1.7;">${replies[Math.floor(Math.random()*replies.length)]}</div><div style="margin-top:10px;display:flex;gap:8px;"><button class="btn btn-neu" style="font-size:12px;padding:6px 14px;border-radius:14px;" onclick="switchTab(1)">📊 查看知识图谱</button><button class="btn btn-neu" style="font-size:12px;padding:6px 14px;border-radius:14px;">👍 有帮助</button></div>`;},1200+Math.random()*1000);
+  _chatLoading=true;
+  const sendBtn=document.querySelector('#page-chat .btn-primary[onclick*="sendChatMessage"]');
+  if(sendBtn)sendBtn.style.opacity='0.5';
+  try{
+    let endpoint=API+'/ai/chat';
+    let body={agent:_currentAgent,message:msg||'(请分析上传的文件)'};
+    if(file){
+      if(file.type.startsWith('image/')){
+        endpoint=API+'/ai/tutor';
+        const reader=new FileReader();
+        const base64=await new Promise((res,rej)=>{reader.onload=()=>{const r=reader.result;res(r.split(',')[1]);};reader.onerror=rej;reader.readAsDataURL(file.file);});
+        body.context={imageBase64:base64,mediaType:file.type,imageFileName:file.name};
+      }else{
+        const fd=new FormData();
+        fd.append('file',file.file,file.name);
+        const upRes=await fetch(API+'/upload',{method:'POST',body:fd});
+        const upJson=await upRes.json();
+        if(upJson.draftId)body.context={draftId:upJson.draftId};
+      }
+    }
+    const resp=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const readerBody=resp.body.getReader();const decoder=new TextDecoder();let buf='',full='';
+    while(true){
+      const{done,value}=await readerBody.read();if(done)break;
+      buf+=decoder.decode(value,{stream:true});
+      const parts=buf.split('\n');buf=parts.pop()||'';
+      for(const line of parts){
+        if(!line.startsWith('data: '))continue;
+        const data=line.substring(6);
+        if(data==='[DONE]'){_chatLoading=false;if(sendBtn)sendBtn.style.opacity='1';break;}
+        try{const p=JSON.parse(data);if(p.content){full+=p.content;const bot=document.getElementById(botId);if(bot&&bot.querySelector('.avatar').nextElementSibling)bot.querySelector('.avatar').nextElementSibling.innerHTML=`<div style="line-height:1.7;">${simpleMarkdown(full)}</div>`;msgs.scrollTop=msgs.scrollHeight;}}catch(e){}
+      }
+    }
+  }catch(e){
+    const bot=document.getElementById(botId);
+    if(bot)bot.querySelector('.avatar').nextElementSibling.innerHTML='<div style="line-height:1.7;color:var(--accent);">抱歉，AI 回复出错，请重试。</div>';
+  }finally{_chatLoading=false;if(sendBtn)sendBtn.style.opacity='1';}
+}
+async function startReflectionChat(){
+  const msgs=document.getElementById('chat-messages'),empty=msgs.querySelector('.empty-state');if(empty)empty.remove();
+  const botId='refl-'+Date.now();
+  msgs.innerHTML+=`<div class="chat-msg-row" id="${botId}"><div class="avatar" style="width:34px;height:34px;background:#D97706;font-size:16px;">💡</div><div class="chat-msg-bot"><div class="spinner" style="width:16px;height:16px;border-width:2px;margin:4px 0;"></div></div></div>`;
+  msgs.scrollTop=msgs.scrollHeight;_reflGenActive=true;
+  const sendBtn=document.querySelector('#page-chat .btn-primary[onclick*="sendChatMessage"]');
+  try{
+    const resp=await fetch(API+'/ai/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent:'reflection_mind',message:'请根据我的学习数据，生成本周的学习反思报告。'})});
+    const reader=resp.body.getReader();const decoder=new TextDecoder();let buf='',full='';
+    while(true){
+      const{done,value}=await reader.read();if(done)break;
+      buf+=decoder.decode(value,{stream:true});
+      const parts=buf.split('\n');buf=parts.pop()||'';
+      for(const line of parts){
+        if(!line.startsWith('data: '))continue;
+        const data=line.substring(6);
+        if(data==='[DONE]')break;
+        try{const p=JSON.parse(data);if(p.content){full+=p.content;const bot=document.getElementById(botId);if(bot&&bot.querySelector('.avatar').nextElementSibling)bot.querySelector('.avatar').nextElementSibling.innerHTML=`<div style="line-height:1.7;">${simpleMarkdown(full)}</div>`;msgs.scrollTop=msgs.scrollHeight;}}catch(e){}
+      }
+    }
+  }catch(e){
+    const bot=document.getElementById(botId);
+    if(bot)bot.querySelector('.avatar').nextElementSibling.innerHTML='<div style="line-height:1.7;color:var(--accent);">抱歉，反思报告生成出错，请重试。</div>';
+  }finally{_reflGenActive=false;}
 }
 
 // ── TAB 4: COMMUNITY ──
@@ -1489,41 +1605,81 @@ async function loadProfile(){
   }catch(e){document.getElementById('profile-stats').innerHTML='<div class="stat-card" style="grid-column:1/-1;"><div class="label">加载失败</div></div>';}
 }
 
+let _reflPeriod = '7days';
 function showReflectionsModal(){
   let h=`<h3>📊 学习反思助手</h3>
     <div class="meta-text" style="margin-bottom:14px;">选择时间段，自动生成学习反思报告</div>
     <div class="segmented" style="margin-bottom:14px;" id="refl-period">
-      <button class="seg-item active" onclick="selectReflPeriod('week',this)">本周</button>
-      <button class="seg-item" onclick="selectReflPeriod('month',this)">本月</button>
-      <button class="seg-item" onclick="selectReflPeriod('semester',this)">本学期</button>
+      <button class="seg-item" onclick="selectReflPeriod('3days',this)">近三天</button>
+      <button class="seg-item active" onclick="selectReflPeriod('7days',this)">近一周</button>
+      <button class="seg-item" onclick="selectReflPeriod('30days',this)">近一个月</button>
     </div>
-    <div style="display:flex;align-items:center;justify-content:space-between;background:var(--card);border-radius:16px;padding:14px 18px;margin-bottom:14px;box-shadow:var(--neu-raised-sm);">
-      <div><div style="font-size:14px;font-weight:700;color:var(--text);">启用反思助手</div><div class="meta-text">自动分析学习记录并生成报告</div></div>
-      <label style="width:48px;height:28px;background:var(--border);border-radius:14px;cursor:pointer;position:relative;transition:background 0.2s;box-shadow:var(--neu-pressed);" id="refl-toggle-label">
-        <input type="checkbox" style="display:none;" id="refl-toggle" onchange="toggleReflAssistant(this)">
-        <span style="position:absolute;top:2px;left:2px;width:24px;height:24px;border-radius:12px;background:white;transition:left 0.2s;box-shadow:var(--neu-raised-sm);" id="refl-toggle-knob"></span>
-      </label>
-    </div>
+    <button class="btn btn-primary" style="width:100%;margin-bottom:14px;" onclick="generateReflectionFromModal()">🤖 生成反思报告</button>
+    <div id="refl-stream-area" style="display:none;background:var(--surface);border-radius:14px;border:1px solid var(--border);margin-bottom:14px;max-height:300px;overflow-y:auto;padding:14px;font-size:13px;line-height:1.7;color:var(--text);"></div>
     <div class="section-title">已有反思报告</div>`;
-  if(!_profileReflectionsData.length)h+='<div style="text-align:center;padding:16px;color:var(--text3);font-size:13px;">暂无反思报告 — 开启助手后自动生成</div>';
+  if(!_profileReflectionsData.length)h+='<div style="text-align:center;padding:16px;color:var(--text3);font-size:13px;">暂无反思报告</div>';
   else _profileReflectionsData.forEach(r=>{
-    h+=`<div style="background:var(--bg);border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:var(--neu-raised-sm);">
+    h+=`<div style="background:var(--bg);border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:var(--neu-raised-sm);cursor:pointer;" onclick="viewReflectionDetail(${r.id})">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
         <div style="font-size:14px;font-weight:700;color:var(--text);">${esc(r.period_label||'反思报告')}</div>
-        <span class="tag" style="background:var(--pri-pale);color:var(--primary);">${esc(r.period_type||'weekly')}</span>
+        <span class="tag" style="background:var(--pri-pale);color:var(--primary);">${esc(r.period||'weekly')}</span>
       </div>
-      <div style="font-size:13px;color:var(--text2);line-height:1.7;max-height:100px;overflow-y:auto;">${simpleMarkdown((r.content||r.papercore||'').substring(0,300))}</div>
-      <div class="meta-text" style="margin-top:8px;">${fmtDate(r.created_at)}</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.7;max-height:80px;overflow:hidden;">${simpleMarkdown((r.learning_behavior||r.papercore||'').substring(0,200))}</div>
+      <div class="meta-text" style="margin-top:6px;">${fmtDate(r.created_at)}</div>
     </div>`;
   });
   showAppModal(h);
-  // Load assistant state
-  safeFetch(API+'/papernote-style').then(r=>r.ok?r.json():{data:{}}).then(j=>{
-    const style=j.data||{};const enabled=style.reflection_enabled;
-    const tog=document.getElementById('refl-toggle');if(tog)tog.checked=enabled;
-    const l=document.getElementById('refl-toggle-label');if(l&&enabled)l.style.background='var(--primary)';
-    const k=document.getElementById('refl-toggle-knob');if(k&&enabled)k.style.left='22px';
-  }).catch(()=>{});
+}
+function selectReflPeriod(period,btn){
+  _reflPeriod=period;
+  document.querySelectorAll('#refl-period button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+async function generateReflectionFromModal(){
+  if(_reflGenActive)return;
+  _reflGenActive=true;
+  const streamArea=document.getElementById('refl-stream-area');
+  streamArea.style.display='block';streamArea.innerHTML='<div style="color:var(--text3);font-style:italic;">正在连接 AI 服务...</div>';
+  const genBtn=document.querySelector('#app-modal .btn-primary[onclick*="generateReflection"]');
+  if(genBtn){genBtn.style.opacity='0.5';genBtn.textContent='⏳ 生成中...';}
+  try{
+    const resp=await fetch(API+'/ai/generate-reflection',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({period:_reflPeriod})});
+    if(!resp.ok)throw new Error('HTTP '+resp.status);
+    const reader=resp.body.getReader();const decoder=new TextDecoder();let buf='',full='';
+    streamArea.innerHTML='';
+    while(true){
+      const{done,value}=await reader.read();if(done)break;
+      buf+=decoder.decode(value,{stream:true});
+      const parts=buf.split('\n');buf=parts.pop()||'';
+      for(const line of parts){
+        if(!line.startsWith('data: '))continue;
+        const data=line.substring(6);
+        if(data==='[DONE]')continue;
+        try{
+          const p=JSON.parse(data);
+          if(p.content){full+=p.content;streamArea.innerHTML=simpleMarkdown(full);streamArea.scrollTop=streamArea.scrollHeight;}
+          if(p.done&&p.reflection){
+            streamArea.innerHTML+='<div style="margin-top:16px;padding:12px;background:var(--success);color:white;border-radius:12px;text-align:center;">✓ 反思报告已保存！</div>';
+            setTimeout(()=>{closeAppModal();loadProfile();},1500);
+          }
+        }catch(e){}
+      }
+    }
+  }catch(e){
+    streamArea.innerHTML='<div style="color:var(--accent);">生成失败: '+esc(e.message)+'</div>';
+  }finally{
+    _reflGenActive=false;
+    if(genBtn){genBtn.style.opacity='1';genBtn.textContent='🤖 生成反思报告';}
+  }
+}
+function viewReflectionDetail(id){
+  safeFetch(API+'/reflections/'+id).then(r=>r.ok?r.json():Promise.reject()).then(json=>{
+    const r=json.data||json;
+    showAppModal(`<h3>📊 反思报告</h3>
+      <div style="margin-bottom:12px;"><span class="tag" style="background:var(--pri-pale);color:var(--primary);">${esc(r.period||'')}</span><span class="tag" style="margin-left:6px;background:var(--bg);color:var(--text3);">${fmtDate(r.created_at)}</span></div>
+      <div class="body-text" style="background:var(--surface);border-radius:14px;padding:14px;max-height:400px;overflow-y:auto;line-height:1.8;">${simpleMarkdown(r.learning_behavior||'')}</div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;"><button class="btn btn-neu" onclick="closeAppModal()">关闭</button></div>`);
+  }).catch(()=>showAppModal('<h3>📊 反思报告</h3><div style="text-align:center;padding:20px;color:var(--text3);">加载失败</div>'));
 }
 function selectReflPeriod(period,btn){
   document.querySelectorAll('#refl-period button').forEach(b=>b.classList.remove('active'));
