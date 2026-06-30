@@ -2562,7 +2562,7 @@ generateNoteStream = async function() {
     const res = await fetch(API + '/ai/generate-note', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sourceIds })
+      body: JSON.stringify({ sourceIds, stylePreferences: _nhStylePrefs || undefined })
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
 
@@ -2600,6 +2600,7 @@ generateNoteStream = async function() {
     resultEl.innerHTML = simpleMarkdown(fullContent);
     _panelContent = fullContent;
     _panelCitations = citations;
+    window._nhGeneratedContent = fullContent;
 
     // Build source files list
     const sfs = [];
