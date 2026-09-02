@@ -173,7 +173,7 @@ export default function ChatScreen() {
         if (isImage) {
           try {
             const base64 = await FileSystem.readAsStringAsync(uploadFile.uri, {
-              encoding: FileSystem.EncodingType.Base64,
+              encoding: 'base64',
             });
             const ext = (uploadFile.name.split('.').pop() || 'jpeg').toLowerCase();
             const mimeMap: Record<string, string> = {

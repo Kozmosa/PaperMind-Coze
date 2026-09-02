@@ -36,7 +36,7 @@ export default function ProfileScreen() {
 
   const loadData = useCallback(async () => {
     try {
-      const [styleRes, reflectRes, draftRes, problemRes] = await Promise.all([
+      const [styleRes, reflectRes, draftRes] = await Promise.all([
         api.getPapernoteStyle(),
         api.getReflections(),
         api.getDrafts(),

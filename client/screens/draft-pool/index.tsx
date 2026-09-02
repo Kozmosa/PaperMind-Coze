@@ -30,7 +30,7 @@ export default function DraftPoolScreen() {
 
   const [uploading, setUploading] = useState(false);
 
-  const uploadFile = async (file: { uri: string; name: string; mimeType: string }) => {
+  const uploadFile = async (file: { uri: string; name: string; mimeType?: string }) => {
     setUploading(true);
     try {
       const formData = new FormData();

@@ -77,7 +77,7 @@ export default function MaterialViewScreen() {
     setLoadError('');
     try {
       const [fileRes, matRes] = await Promise.all([
-        api.getMaterialFileContent(id!).catch((e: any) => {
+        api.getMaterialFileContent(id!).catch((e: any): any => {
           console.warn('[material-edit] getMaterialFileContent failed:', e?.message || e);
           const status = e?.message?.match?.(/\d+/)?.[0] || '';
           const detail = e?.message?.replace?.(/^API Error: \d+ - /, '') || '';

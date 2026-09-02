@@ -119,7 +119,7 @@ export default function ProblemSolvingLogsScreen() {
                       color: (opacity = 1) => `rgba(108, 99, 255, ${opacity})`,
                       labelColor: (opacity = 1) => `rgba(178, 190, 195, ${opacity})`,
                       strokeWidth: 2,
-                      decimalCount: 0,
+                      decimalPlaces: 0,
                       propsForBackgroundLines: {
                         stroke: '#E8EAF0',
                         strokeDasharray: '4 4',
