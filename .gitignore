@@ -103,3 +103,6 @@ server/nohup.out
 
 # debug 调试产物（API 响应抓包）
 debug/*.json
+
+# 用户上传的运行时文件(server 启动时自动重建目录)
+server/uploads/

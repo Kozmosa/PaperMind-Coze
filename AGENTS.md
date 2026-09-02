@@ -5,29 +5,37 @@
 当前仓库是一个 monorepo（基于 pnpm 的 workspace）
 
 - Expo 代码在 client 目录，Express.js 代码在 server 目录
-- 本模板默认无 Tab Bar，可按需改造
+- 底部导航采用 Tab Bar（对应下文「方案二」，已有 `(tabs)` 路由组）
 
-├── client/ # React Native 前端代码
-│ ├── app/ # Expo Router 路由目录（仅路由配置）
-│ │ ├── _layout.tsx # 根布局文件（必需，务必阅读）
-│ │ └── index.tsx # 首页
-│ ├── screens/ # 页面实现目录（与 app/ 路由对应）
-│ │ └── demo/ # 示例页面
-│ │ └── index.tsx
-│ ├── components/ # 可复用组件
-│ │ └── Screen.tsx # 页面容器组件（必用）
-│ ├── hooks/ # 自定义 Hooks
-│ ├── contexts/ # React Context 代码
-│ ├── utils/ # 工具函数
-│ ├── assets/ # 静态资源
-| └── package.json # Expo 应用 package.json
-├── server/ # 服务端代码根目录 (Express.js)
-| ├── src/
-│ │ └── index.ts # 服务端入口文件
-| └── package.json # 服务端 package.json
-├── package.json
-├── .cozeproj # 预置脚手架脚本（禁止修改）
-└── .coze # 配置文件（禁止修改）
+```text
+├── client/                     # React Native / Expo 前端
+│   ├── app/                    # expo-router 路由目录（仅路由 re-export，实现见 screens/）
+│   │   ├── _layout.tsx         # 根布局（Stack + AuthGuard，改动前务必阅读）
+│   │   ├── (tabs)/             # 底部 Tab：index(chat) / knowledge / community / control-center / profile
+│   │   └── *.tsx               # Stack 页面：ai-chat、reflection、knowledge-builder 等
+│   ├── screens/                # 页面实现目录（与 app/ 路由一一对应）
+│   ├── components/             # 可复用组件（Screen 页面容器等）
+│   ├── hooks/                  # 自定义 Hooks
+│   ├── contexts/               # React Context 代码
+│   ├── utils/                  # 工具函数
+│   ├── assets/                 # 静态资源
+│   └── global.css              # 主题 design tokens（tailwindcss 入口）
+├── server/                     # Express.js 后端
+│   ├── src/
+│   │   ├── index.ts            # 服务端入口（默认端口 9091）
+│   │   ├── routes/             # ai、knowledge-*、materials 等 REST 路由
+│   │   ├── middleware/         # Supabase Auth 鉴权
+│   │   ├── storage/database/   # schema 定义 + Supabase 客户端
+│   │   └── utils/              # 文本提取、向量索引
+│   ├── scripts/                # 数据脚本（seed-mvp1、reprocess-materials）
+│   └── package.json
+├── debug/                      # 浏览器调试页（后端静态挂载于 /debug/*）
+├── docs/                       # 架构文档
+├── test_data/                  # 本地测试数据（种子脚本读取）
+├── .cozeproj  .coze            # 扣子平台脚手架与配置（禁止修改）
+├── patches/                    # expo@54.0.33 HMR 补丁
+└── package.json
+```
 
 ## 样式方案
 
@@ -76,6 +84,8 @@ pnpm -w format:check
 当前项目的**设计系统**基于 tailwindcss 实现，核心入口文件为 `client/global.css`，如果需要定制主题，应该**阅读并修改 `client/global.css` 文件**
 
 ## 路由及 Tab Bar 实现规范
+
+> 当前项目采用**方案二（Tabs）**。方案一仅作参考，除非明确要移除底部导航，否则不要新增 Stack-only 路由结构。
 
 ### 方案一：无 Tab Bar（Stack 导航）
 
@@ -269,4 +279,8 @@ import { Screen } from '../../../components/Screen';
 
 ## 本地开发
 
-`coze dev`：用来首次启动前后端服务，也可以用来重启前后端服务（该命令会先尝试杀掉占用端口的进程，再启动服务）
+`pnpm dev`：首次启动或重启前后端服务（等价于扣子平台的 `coze dev`，两者执行同一份 `.cozeproj/scripts/dev_run.sh`，会先尝试杀掉占用端口的进程再启动）。
+
+- Expo Web：<http://localhost:5001>；后端：<http://localhost:9091>（健康检查 `GET /api/v1/health`）
+- 日志输出到 `logs/client.log` 与 `logs/server.log`
+- 种子 / 重处理脚本：`npx tsx server/scripts/seed-mvp1.ts`、`npx tsx server/scripts/reprocess-materials.ts`（需服务已启动）
