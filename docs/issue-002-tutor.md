@@ -1,0 +1,77 @@
+# 对照架构规格盘点 Tutor 智能导师实现缺口
+
+> 状态：已创建为 GitHub issue #5（https://github.com/Kozmosa/PaperMind-Coze/issues/5），2026-09-02。
+> 盘点日期：2026-09-02。依据：`docs/PaperMind-Architecture.md`「一、Tutor（智能导师）工作流」1.1-1.6（索引预热 → 三层检索 → Prompt 组装 → 流式引用 → 5 色卡片 → 学习闭环）。
+
+## 背景
+
+Tutor 是 PaperMind 的核心问答智能体：4 表统一向量索引（knowledge_nodes / study_notes / materials / file_contents）+ 标签分层加成 + 三层检索降级 + SSE 流式 + 结构化 Citations + 「我明白了」学习闭环。经逐文件核查（后端 `server/src/routes/ai.ts`、`server/src/utils/{unified-vector-index,vector-store,knowledge-vector-index,embedding}.ts`、`server/src/index.ts`；前端 `client/screens/chat/index.tsx`、`client/screens/problem-solving-logs/index.tsx`、`client/components/markdown/MarkdownRenderer.tsx`），**主链路已全部落地且真实可用**（真实 Tutor 页是 `client/screens/chat/index.tsx`，注册为底部「AI 助手」主 Tab：`client/app/(tabs)/index.tsx:1`）。缺口集中在：**1.4 优先级 4（上下文 fileContents 引用）是死路径、索引/标签库无增量刷新、旧版 `/ai-chat` 降级入口仍在线上、单页文件页码缺失、Layer 3 降级引用洪泛**等。
+
+## 一、实现现状表（对照规格 1.1-1.6）
+
+| # | 规格条目 | 状态 | 证据（文件:行号） |
+|---|---|---|---|
+| 1.1a | 启动 2 秒后预热 | ✅ | `server/src/index.ts:67-85`（setTimeout 2000 → tagVectorStore.buildFromDatabase + unifiedVectorIndex.buildIndex） |
+| 1.1b | TagVectorStore.buildFromDatabase（3 表 tags、按位置推断 L1/L2/L3、BGE 嵌入） | ✅ | `server/src/utils/vector-store.ts:55-120`（位置推断 :67-68；3 表并行取数 :78-82；embedBatch :98） |
+| 1.1c | UnifiedVectorIndex.buildIndex 4 表筛选与向量化 | ✅（含 1 处小偏差） | `server/src/utils/unified-vector-index.ts:82-204`：knowledge_nodes papercore 非空 :90-92；study_notes ai_processed+papercore 非空 :108-112；materials 同 :135-140；file_contents ≤500 条、前 300 字 :163-189。偏差：额外跳过 <20 字的片段（:187，规格未要求） |
+| 1.1d | 嵌入模型 Xenova/bge-small-zh-v1.5 | ✅ | `server/src/utils/embedding.ts:11`（`MODEL_NAME = 'Xenova/bge-small-zh-v1.5'`，512 维，归一化余弦） |
+| 1.2a | Layer 1 用户指定节点精确查库，命中即跳过 Layer 2/3 | ✅ | `server/src/routes/ai.ts:623-653`（nodeIds → knowledge_nodes 精确查库 + attached_draft_ids → loadFileContents 原文）；跳过逻辑 `:656`（`if (!knowledgeContext && userMessage)`） |
+| 1.2b | Layer 2 向量检索 topK=10 | ✅ | `ai.ts:657`（`unifiedVectorIndex.search(userMessage, 10, 0.3)`）；相似度计算 `unified-vector-index.ts:262-272` |
+| 1.2c | 标签加成：语义 L1 阈值 0.25 / L2 0.20 + 字面包含匹配，+10%/tag 最高 +30% | ✅ | `unified-vector-index.ts:279-280`（searchL1(0.25)/searchL2(0.20)）、`:289-293`（`query.includes(tag)` 字面匹配）、`:44-45` + `:301-309`（+0.10/tag、上限 0.30） |
+| 1.2d | score ≥ 0.3 过滤、降序、top-10、4 类型混排 | ✅ | `unified-vector-index.ts:318-321`；默认 minScore=0.3 `:246` |
+| 1.2e | Layer 3 降级加载 kn 100 + sn 50 + m 50 | ✅ | `ai.ts:754-811`（kn :759-777；sn ai_processed :781-793；m ai_processed :795-808） |
+| 1.3a | 按 sourceType 分组回源查库取完整字段 | ✅ | `ai.ts`：knowledge_nodes（papercore/tags/short_name/attached_draft_ids + 关联原文）`:668-696`；study_notes（+content 前 200 字）`:698-712`；materials（+name/file_path）`:714-728`；file_contents（索引 snippet 300 字 + fileName + pageNumber）`:730-750` |
+| 1.3b | Prompt 引用格式要求（【来源：{名称}】/【来源：{文件名}，第N页】/「原文...」） | ✅ | `ai.ts:840-849`（另含引用来源汇总要求 `:849`） |
+| 1.3c | 图片分析指令（上传图片时） | ✅ | `ai.ts:813-820`（imageInstruction：先描述图片、区域标注、【区域：…】格式、与知识库关联） |
+| 1.4a | `/tutor` SSE 流式 + 图片 multipart content blocks | ✅ | `ai.ts:79-145`（SSE 头 :89-91；image base64 block :97-108；流式 :113-125） |
+| 1.4b | 流结束后 extractCitations 按 5 级优先级 | ✅ | `ai.ts:128`（流后调用）、`:164-275`：1 image `:172-182` → 2 检索结果 `:185-203` → 3 指定节点 `:206-221` → 4 上下文 fileContents `:224-242` → 5 上传 draftId `:245-272` |
+| 1.4c | Citation 字段（type/sourceId/title/papercore/tags/pageNumber/snippet/fileName） | ✅ | `ai.ts:148-161`（interface Citation）、`:187-200`（检索结果逐字段填充，pageNumber `:194`） |
+| 1.4d | **pageNumber 真实填充**（特别核查项） | ⚠️ 部分 | 链路本身已填：索引记录带 pageNumber（`unified-vector-index.ts:197`）→ Citation 透传（`ai.ts:194`）、上下文 fileContents 透传（`ai.ts:236`）、Prompt 标注（`ai.ts:733`、`880`）。**但数据源头只对多页文件写页码**：`server/src/routes/upload.ts:102-116`（pageCount>1 才写 page_number=i+1，单页文件 page_number=null）→ 单页文件的 file_content 引用无页码 badge。与 Note Helper（完全没填）不同，Tutor 主链路有页码 |
+| 1.4e | 图片 + 知识库联合推理 | ✅ | 服务端：`/tutor` 同时走三层检索 + image multipart + imageInstruction（`ai.ts:94-108`、`813-820`）；客户端：相册选图 → base64（`client/screens/chat/index.tsx:168-188`） |
+| 1.5a | Markdown 渲染（KaTeX 公式 + 代码块） | ✅ | `client/components/markdown/MarkdownRenderer.tsx`（web 版 CDN KaTeX+marked :87-116、公式占位替换 :137-159；native WebView 内嵌 KaTeX :226-320）；Tutor 页挂载 `chat/index.tsx:627` |
+| 1.5b | 5 色引用卡片（image 黄 / node 紫 / note 绿 / material 橙 / file_content 灰+蓝页码 badge） | ✅ | `chat/index.tsx:353-496`：image 黄 `:355-368`、knowledge_node 紫 `:372-396`、study_note 绿 `:400-428`、material 橙 `:431-459`、file_content 灰 + 蓝色页码 badge `:462-486`（`第{pageNum}页` :471-474） |
+| 1.6a | 「我明白了！记录到问题日志」→ problem_solving_logs | ✅ | `chat/index.tsx:653-660`（按钮）、`:301-327`（handleUnderstood → api.createProblemSolvingLog 带 question/answer/citation_snippets）；后端写入 `server/src/routes/problem-solving-logs.ts:25-49`；表 `server/migrations/000_init.sql:125-134`（citation_snippets JSONB） |
+| 1.6b | 会话历史 chat_sessions / chat_messages | ✅ | 后端 `server/src/routes/chat-sessions.ts:28-46`（建会话）、`:70-95`（存消息含 citations）；前端流后落库 `chat/index.tsx:273-287`；表 `000_init.sql:199-222` |
+| 1.6c | 问题日志聚合页（总数、活跃天数、每日趋势折线图） | ✅ | `client/screens/problem-solving-logs/index.tsx`：总数 `:59/:87-90`、活跃天数 `:93-97`、LineChart 折线 `:104-143`；统计接口 `problem-solving-logs.ts:52-79` |
+
+## 二、缺口清单（按优先级，每条可独立验收）
+
+### P1 — 规格条目未生效 / 影响核心闭环
+
+1. **1.4 优先级 4「上下文 fileContents → file_content 引用」是死路径**。`buildTutorPrompt` 内部收集的 `allFileContents`（Layer 1 指定节点关联的文件原文 `ai.ts:620/650/886-891`、Layer 2 知识节点关联文件 `ai.ts:744-750`）是局部变量，**从未随返回值交给 extractCitations**（函数只返回 `{systemPrompt, searchResults}`，`ai.ts:822-851`）；而 extractCitations 的优先级 4 读的是请求体的 `context.fileContents`（`ai.ts:224`），客户端 `chat/index.tsx:164-199` 和 debug 页均不发送该字段。后果：用户指定节点后，节点关联的 PDF 原文只进 Prompt、**永远不产生 file_content 引用卡片**（只剩 knowledge_node 引用）。验收：指定带 attached_draft_ids 的节点提问，回答后应出现该文件的 file_content 引用卡片（带页码）。
+2. **索引/标签库无增量刷新，新知识节点对 Layer 2 检索不可见**。`unifiedVectorIndex.buildIndex` 仅在服务器启动（`index.ts:79`）、索引未就绪时的懒构建（`unified-vector-index.ts:248-255`）和手动 `POST /api/v1/ai/refresh-index`（`ai.ts:1481-1495`）三处触发；knowledge-builder 创建/更新节点后没有任何重建调用（grep 无命中），且 `/refresh-index` 在客户端零调用。用户新建知识节点后，向量检索和标签加成都不会包含它，直到重启服务器。验收：新建节点后提问相关概念，检索结果应包含新节点（无需重启）。
+3. **TagVectorStore 与 UnifiedVectorIndex 构建存在竞态，且标签库只在启动时构建一次**。`index.ts:69-82` 中标签库构建是嵌套 import 后 fire-and-forget（未 await），与统一索引构建并发；搜索发生时若标签未就绪，`tagVectorStore.isReady` 为 false → 标签加成被静默跳过（`unified-vector-index.ts:277`）。另外 `unified-vector-index.ts:65` 注释声称 buildIndex 会触发 buildFromDatabase，实际没有调用；`/refresh-index` 也只重建统一索引不重建标签库（`ai.ts:1486`）→ 新增标签（含新增节点带的标签）在重启前不参与加成。验收：启动后立刻提问（2-3 秒内）与标签就绪后提问，标签命中加成应一致；重建索引接口应同时重建标签库。
+4. **旧版 `/ai-chat` 降级入口仍在线上且与问题日志页互链**。`client/screens/ai-chat/index.tsx`（路由 `client/app/ai-chat.tsx`）仍提供 tutor agent 选项，但走 `/api/v1/ai/chat` 通用接口：纯文本渲染（无 Markdown/KaTeX，`:116`）、无 citations、无 5 色卡片、无图片上传、无「我明白了」按钮；且 `problem-solving-logs/index.tsx:166` 点击日志后 `router.push('/ai-chat')` 进入该降级页。用户从问题日志回跳后所有 1.4/1.5/1.6 能力消失。验收：问题日志页点击记录应回到 `/`（AI 助手主 Tab，即 chat 页），或 `/ai-chat` 的 tutor 分支与 chat 页能力对齐。
+
+### P2 — 影响体验与数据质量
+
+5. **单页文件 page_number 缺失 → file_content 引用无页码**。`upload.ts:102-116` 仅在 `pageCount > 1` 时写 `page_number`，单页 PDF/图片/文本全部为 null；索引与 Citation 链路虽正确透传（见 1.4d），但这类文件永远没有蓝色页码 badge。建议单页文件统一写 `page_number: 1`（或前端 `pageNumber ?? 1` 兜底）。验收：上传单页 PDF 提问，其 file_content 引用卡片显示「第1页」。
+6. **Layer 3 降级时引用洪泛**。无检索结果时，Layer 3 把全部 100 个 knowledge_nodes 塞进 `searchResults`（`ai.ts:771-777`），客户端会把最多 100 张知识节点引用卡片渲染出来（`chat/index.tsx:632-637`），淹没回答正文。建议 Layer 3 结果仅作 Prompt 上下文、不进入 citations（或仅取前 N 个）。验收：空知识库/无匹配提问时，引用卡片数量可控（0 或少量）。
+7. **citations 全会话累积、渲染到每条 AI 消息下**。`chat/index.tsx:632-637` 用 `citationsRef.current`（会话级累积）渲染在**每一条** assistant 消息下方，而不是消息自带的 `msg.citations`（保存时有按消息存，`:231/:282`）；第 2 轮问答后，第 1 轮的消息下方也会出现第 2 轮的引用卡片。验收：历史消息的引用卡片只显示该轮自己的引用。
+8. **extractCitations 不校验回答正文**。`extractCitations(answer, ...)` 的 `answer` 参数未被使用（`ai.ts:164-275`），引用完全由上下文推导：检索到但模型实际未引用的来源也会出卡片，反之模型自由发挥的「【来源：X】」无法溯源。建议按正文中的引用标记（`【来源：…】`/`「原文…」`）过滤上下文引用。验收：回答未提及的检索结果不出现引用卡片；回答中出现的来源名称总能对应到卡片。
+9. **问题日志页统计口径不一致**。总数用全量 `logs.length`（`problem-solving-logs/index.tsx:59`），活跃天数用 stats 接口近 30 天窗口（`problem-solving-logs.ts:52-79`，默认 days=30）；两个数字口径不同，长期使用后「活跃天数」与「总数」的对应关系失真。验收：统计卡片与折线图使用同一时间窗口（或明确标注窗口）。
+10. **图片/draftId 引用信息单薄**。优先级 1 的 image 引用无 pageNumber（合理），但优先级 5 的 draftId 引用只有 fileName + 固定文案「用户当前上传的参考文件」（`ai.ts:257-267`），无 snippet/pageNumber；用户上传的参考文件在引用卡片里看不到任何原文。验收：上传文件提问后，draftId 引用卡片显示文件原文 snippet（可复用 file_contents 数据）。
+11. **杂项**：`client/screens/chat/index.tsx:33-38` 的本地 `Citation` 类型是旧结构（file_url/file_name/snippet/page），与实际后端 Citation 字段不符（渲染用的是后端字段，仅类型误导）；`client/components/common/ReferenceCard.tsx` 的 5 色样式只被 note-helper-fullscreen 使用，Tutor 页是自绘卡片（`chat/index.tsx:353-496`），两套引用卡片实现并存可考虑统一；`server/src/utils/knowledge-vector-index.ts` 已完全被 UnifiedVectorIndex 取代、全仓库无引用，可删除；旧版 `ai-chat` 的 SSE 客户端用 react-native-sse，Tutor 页用手写 XHR（`chat/index.tsx:206-270`），两套并存（issue-001 已提过）。
+
+## 三、建议拆分的子任务
+
+- [ ] **Task 1：打通优先级 4 引用（fileContents 上下文）** — `buildTutorPrompt` 返回值增加 `allFileContents`，`/tutor` 路由把它注入 `extractCitations` 的 context（或直接作为第 4 优先级参数）；保证 Layer 1/Layer 2 中经 attached_draft_ids 加载的文件原文能生成带页码的 file_content 引用。涉及：`server/src/routes/ai.ts`（:613-851、:94、:128）。
+- [ ] **Task 2：索引增量刷新** — knowledge-builder 创建/更新节点、study-notes/materials ai_processed 变更后触发 `unifiedVectorIndex.buildIndex()`（可节流/队列化）；控制中心增加「重建索引」按钮调用 `/refresh-index`。涉及：`server/src/routes/knowledge-builder.ts`、`server/src/routes/knowledge-nodes.ts`、`server/src/routes/ai.ts`、`client/screens/control-center/index.tsx`。
+- [ ] **Task 3：标签库同步与构建顺序** — `index.ts` 改为先 await 标签库构建再构建统一索引；`/refresh-index` 与 unifiedIndex.buildIndex 一并重建 `tagVectorStore.buildFromDatabase()`；修正 `unified-vector-index.ts:65` 注释或补上调用。涉及：`server/src/index.ts`、`server/src/routes/ai.ts`、`server/src/utils/unified-vector-index.ts`。
+- [ ] **Task 4：消除 `/ai-chat` 降级入口** — 问题日志页回跳改为 `/`（主 Tab）；或删除 `/ai-chat` 的 tutor 分支并加跳转提示。涉及：`client/screens/problem-solving-logs/index.tsx`、`client/screens/ai-chat/index.tsx`。
+- [ ] **Task 5：单页文件页码兜底** — upload 时单页写 `page_number: 1`；前端 file_content 卡片 `pageNumber ?? 1` 兜底。涉及：`server/src/routes/upload.ts`、`client/screens/chat/index.tsx`。
+- [ ] **Task 6：Layer 3 引用洪泛治理** — Layer 3 结果仅进 Prompt 不进 citations（或截取前 5）；`extractCitations` 增加对 `answer` 正文引用标记的校验过滤。涉及：`server/src/routes/ai.ts`。
+- [ ] **Task 7：引用按消息隔离 + 统计口径统一** — 渲染改用 `msg.citations`（按消息），新消息开始前重置累积；问题日志页总数/活跃天数统一窗口。涉及：`client/screens/chat/index.tsx`、`client/screens/problem-solving-logs/index.tsx`、`server/src/routes/problem-solving-logs.ts`。
+- [ ] **Task 8：draftId 引用补 snippet** — 优先级 5 查 draft_pool 时联查 file_contents 取原文前 200 字 + 页码填入 Citation。涉及：`server/src/routes/ai.ts:245-272`。
+
+## 四、验收标准（对齐架构规格 1.1-1.6）
+
+- 服务器启动 2 秒后索引与标签库就绪，且标签库先于/同步于统一索引（Task 3）；启动 3 秒内提问即可命中标签加成（Task 3）。
+- 新建知识节点后不重启服务器，Layer 2 检索即可命中新节点及其标签（Task 2）。
+- 指定知识节点提问时，节点关联文件原文出现在回答的 file_content 引用卡片中，且带正确页码（Task 1+5）。
+- 上传单页 PDF 提问，file_content 引用卡片显示蓝色「第1页」badge（Task 5）。
+- 无匹配提问（Layer 3 降级）时引用卡片数量可控，不出现上百张卡片（Task 6）。
+- 每轮问答的引用卡片只归属于该轮消息，历史消息不被后续引用污染（Task 7）。
+- 问题日志页「总数」与「活跃天数」口径一致（Task 7）。
+- 从问题日志页回跳进入的是完整 Tutor 对话页（有 5 色卡片与「我明白了」按钮）（Task 4）。
+- 既有能力回归通过：三层检索、标签加成阈值（L1=0.25/L2=0.20、+10%/tag 上限 +30%）、SSE 流式、图片联合推理、Markdown/KaTeX 渲染、5 色引用卡片、「我明白了」→ problem_solving_logs、chat_sessions/chat_messages 落库。
