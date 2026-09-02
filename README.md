@@ -1,261 +1,110 @@
-# Expo App + Express.js
+# PaperMind
 
-## 目录结构规范（严格遵循）
+AI 驱动的个人知识管理学习应用 —— 一间"第二大脑书房"：上传学习资料，自动提取文本并构建知识图谱，基于 RAG 的智能导师随问随答（带来源引用），再配以学习笔记、反思报告与社区交流，让知识被梳理、连接、生长。
 
-当前仓库是一个 monorepo（基于 pnpm 的 workspace）
+> 项目处于 MVP 阶段（`main` 已合并 Mvp2：真实 AI 对话、反思报告生成、文件上传均已接入）。
 
-- Expo 代码在 client 目录，Express.js 代码在 server 目录
-- 本模板默认无 Tab Bar，可按需改造
+## 核心功能
 
-├── client/                     # React Native 前端代码
-│   ├── app/                    # Expo Router 路由目录（仅路由配置）
-│   │   ├── _layout.tsx         # 根布局文件（必需，务必阅读）
-│   │   └── index.tsx           # 首页
-│   ├── screens/                # 页面实现目录（与 app/ 路由对应）
-│   │   └── demo/               # 示例页面
-│   │       └── index.tsx
-│   ├── components/             # 可复用组件
-│   │   └── Screen.tsx          # 页面容器组件（必用）
-│   ├── hooks/                  # 自定义 Hooks
-│   ├── contexts/               # React Context 代码
-│   ├── utils/                  # 工具函数
-│   ├── assets/                 # 静态资源
-|   └── package.json            # Expo 应用 package.json
-├── server/                     # 服务端代码根目录 (Express.js)
-|   ├── src/
-│   │   └── index.ts            # 服务端入口文件
-|   └── package.json            # 服务端 package.json
-├── package.json
-├── .cozeproj                   # 预置脚手架脚本（禁止修改）
-└── .coze                       # 配置文件（禁止修改）
+| 模块 | 说明 |
+|------|------|
+| AI 助手（Tutor） | 基于 RAG 的流式问答。三层检索：指定知识节点 → 统一向量索引（BGE 中文嵌入 + 标签加成）→ 降级加载；回答带 `【来源：…】` 引用，支持图片上传 |
+| 知识库 | 知识图谱可视化、知识节点管理（papercore / 标签体系） |
+| 知识构建器 | 资料 → 知识节点的加工与归类流程 |
+| 资料管理 | PDF / Word / PPT 上传、文本提取、文件夹层级选择、自动 / 强制分类 |
+| 学习笔记 | 笔记编辑器 + NoteHelper AI 辅助（全屏块编辑、LaTeX、风格偏好） |
+| 反思报告（Reflection Mind） | AI 生成学习反思报告与图表 |
+| 问题解决日志 | 学习过程中的 QA 日志 |
+| 草稿池 | 待处理资料托盘 |
+| 社区 | 便利贴瀑布流、论坛讨论 |
+| 控制中心 / 登录 | 快捷入口聚合 / Supabase Auth |
 
-## 样式方案
+检索与引用的完整工作流见 [docs/PaperMind-Architecture.md](docs/PaperMind-Architecture.md)，视觉规范见 [DESIGN.md](DESIGN.md)。
 
-基于 tailwindcss 进行样式开发（底层基于 Uniwind）
+## 技术栈
 
-写法示例：
+- **前端（`client/`）**：Expo 54 · React Native 0.81 · React 19 · expo-router（Tabs + Stack）· Tailwind CSS（uniwind 运行时）· Supabase Auth
+- **后端（`server/`）**：Express 4 · TypeScript（tsx watch 热重载）· Drizzle ORM + Supabase（PostgreSQL）
+- **AI**：Anthropic 兼容网关流式生成（SSE），本地嵌入模型 `Xenova/bge-small-zh-v1.5`（@huggingface/transformers，无需外部嵌入 API）
+- **文本提取**：pdf-parse（PDF）· mammoth（Word）· adm-zip / xml2js（PPT）
 
-```tsx
-<View className="flex-1 bg-white dark:bg-gray-900 p-4"></View>
+## 项目结构
+
+```text
+├── client/                     # React Native / Expo 前端
+│   ├── app/                    # expo-router 路由（仅路由配置）
+│   │   ├── _layout.tsx         # 根布局（Stack）
+│   │   ├── (tabs)/             # 底部 Tab：控制中心 / 知识库 / AI 助手 / 社区 / 我的
+│   │   └── *.tsx               # Stack 页面：ai-chat、reflection、knowledge-builder 等
+│   ├── screens/                # 页面实现（与 app/ 路由一一对应）
+│   ├── components/             # 可复用组件（Screen 容器等）
+│   ├── contexts/  hooks/  utils/
+│   └── global.css              # 主题 design tokens（tailwindcss 入口）
+├── server/                     # Express.js 后端
+│   └── src/
+│       ├── index.ts            # 入口（默认端口 9091）
+│       ├── config/ai.ts        # AI 网关与模型配置
+│       ├── routes/             # ai、knowledge-*、materials、upload、reflections 等 16 组 REST 路由
+│       ├── middleware/         # Supabase Auth 鉴权
+│       ├── storage/database/   # schema 定义 + Supabase 客户端
+│       └── utils/              # 文本提取、向量索引（UnifiedVectorIndex / TagVectorStore）
+├── debug/                      # 浏览器调试页（full-app-test.html 等全流程联调页）
+├── docs/                       # 架构文档
+├── DESIGN.md                   # 视觉设计规范
+├── AGENTS.md                   # 开发规范（目录 / 路由 / 样式约定，改代码前必读）
+├── .cozeproj/  .coze           # 扣子平台脚手架脚本与配置（禁止修改）
+└── patches/                    # expo@54.0.33 HMR 补丁（仅云端预览环境生效）
 ```
 
-```tsx
-<Text
-  className="text-lg font-bold text-gray-900 dark:text-white"
-  selectionColorClassName="accent-blue-500"
->
-  Hello World
-</Text>
-```
+## 快速开始
 
-Uniwind 官方文档：https://docs.uniwind.dev/llms.txt
-
-## 如何进行静态校验（TSC + ESLint）
+环境要求：Node ≥ 20、pnpm ≥ 9（本仓库锁定 `pnpm@9.0.0`，禁止使用 npm / yarn 安装依赖）。
 
 ```bash
-# 对 client 和 server 目录同时进行校验
-pnpm -w lint:all
+# 1. 安装依赖（根目录执行，会同时安装 client 与 server）
+pnpm install
 
-# 对 client 目录进行校验
-pnpm -w lint:client
+# 2. 配置环境变量
+cp .env.example .env
+#    至少填写 COZE_SUPABASE_URL 与 COZE_SUPABASE_ANON_KEY，否则 server 无法启动
 
-# 对 server 目录进行校验
-pnpm -w lint:server
+# 3. 启动前后端（等价于扣子云端的 coze dev）
+pnpm dev
 ```
 
-## 如何修改主题模式（跟随系统、固定暗色、固定亮色）
+启动后：
 
-默认为跟随系统，如果用户明确指定为“暗色”或“亮色”，需要修改 `client/components/ColorSchemeUpdater.tsx` 的 `DEFAULT_THEME` 变量为合适的值
+- **前端（Expo Web）**：<http://localhost:5001>
+- **后端（Express）**：<http://localhost:9091>，健康检查 `GET /api/v1/health`
+- 日志输出到 `logs/client.log` 与 `logs/server.log`
 
-## 如何定制主题 design tokens
+> 本项目源自扣子编程平台导出，本地开发**不需要** Coze CLI 或扣子账号；`pnpm dev` 与 `coze dev` 执行的是同一份启动脚本（`.cozeproj/scripts/dev_run.sh`）。
 
-当前项目的**设计系统**基于 tailwindcss 实现，核心入口文件为 `client/global.css`，如果需要定制主题，应该**阅读并修改 `client/global.css` 文件**
+## 环境变量
 
-## 路由及 Tab Bar 实现规范
+| 变量 | 必填 | 说明 |
+|------|:----:|------|
+| `COZE_SUPABASE_URL` / `COZE_SUPABASE_ANON_KEY` | ✅ | Supabase 项目地址与 anon key（server 启动硬依赖） |
+| `COZE_SUPABASE_SERVICE_ROLE_KEY` | 建议 | server 端完整读写权限 |
+| `SUPABASE_URL` / `SUPABASE_ANON_KEY` | 可选 | 部分模块使用的等价变量 |
+| `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY` | 建议 | 前端直连 Supabase（登录鉴权） |
+| `EXPO_PUBLIC_BACKEND_BASE_URL` | 可选 | 后端地址，`pnpm dev` 自动注入 `http://localhost:9091` |
+| `PORT` | 可选 | server 端口，默认 9091 |
+| `COZE_PROJECT_ID` 等 | 可选 | 扣子云端注入的平台变量，本地留空 |
 
-### 方案一：无 Tab Bar（Stack 导航）
+AI 网关（Anthropic 兼容接口）通过环境变量配置（`ANTHROPIC_API_KEY` 必填、`ANTHROPIC_BASE_URL` 可选），默认模型 `kimi-for-coding`，见 `.env.example`。
 
-适用于线性流程应用，采用简化的目录结构：
-
-```
-client/app/
-├── _layout.tsx         # 根布局（Stack 导航配置）
-├── index.tsx           # 应用入口
-├── detail.tsx          # 详情页（通过 params 传递数据）
-└── +not-found.tsx      # 404 页面
-```
-
-**根布局配置** `client/app/_layout.tsx`：
-
-以下仅为代码片段供写法参考
-
-```tsx
-<Stack screenOptions={{ headerShown: false }}>
-  <Stack.Screen name="index" />
-  <Stack.Screen name="detail" />
-</Stack>
-```
-
-**应用入口** `client/app/index.tsx`：
-```tsx
-export { default } from "@/screens/home";
-```
-> **禁止事项**：无 Tab Bar 场景下，不得创建 `(tabs)` 目录。
-
-### 方案二：有 Tab Bar（Tabs 导航）
-
-采用路由分组实现底部导航栏：
-```
-client/app/
-├── _layout.tsx              # 根布局
-├── (tabs)/
-│   ├── _layout.tsx          # Tab 导航配置
-│   ├── index.tsx            # 默认 Tab（必须存在）
-│   ├── discover.tsx         # 发现页
-│   └── profile.tsx          # 个人中心
-├── detail.tsx               # Tab 外的独立页面（通过 params 传递数据）
-└── +not-found.tsx
-```
-> **⚠️ [CRITICAL]**： `app/index.tsx` 优先级高于 `(tabs)/index.tsx`，会导致首页无 Tab Bar。**当有(tabs)/index.tsx时必须删除 `app/index.tsx`**。
-
-**根布局配置** `client/app/_layout.tsx`：
-
-以下仅为代码片段供写法参考
-
-```tsx
-<Stack screenOptions={{ headerShown: false }}>
-  <Stack.Screen name="(tabs)" />
-  <Stack.Screen name="detail" />
-</Stack>
-```
-
-**应用入口** `client/app/(tabs)/index.tsx`：
-```tsx
-export { default } from "@/screens/home";
-```
-
-**Tab 布局配置** `client/app/(tabs)/_layout.tsx`：
-
-```tsx
-import { Tabs } from 'expo-router';
-import { Platform } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { FontAwesome6 } from '@expo/vector-icons';
-import { useCSSVariable } from 'uniwind';
-
-export default function TabLayout() {
-  const insets = useSafeAreaInsets();
-  const [background, muted, accent, border] = useCSSVariable([
-    '--color-background',
-    '--color-muted',
-    '--color-accent',
-    '--color-border',
-  ]) as string[];
-
-  let tabBarStyle = {
-    backgroundColor: background,
-    borderTopWidth: 1,
-    borderTopColor: border,
-  };
-
-  // 用于修复 Web 上高度异常的问题（这个 if 逻辑必须添加）
-  if (Platform.OS === 'web') {
-    tabBarStyle = {
-      ...tabBarStyle,
-      height: 'auto',
-    }
-  }
-
-  return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle,
-        tabBarActiveTintColor: accent,
-        tabBarInactiveTintColor: muted,
-      }}
-    >
-      {/* name 必须与文件名完全一致 */}
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: '首页',
-          tabBarIcon: ({ color }) => (
-            <FontAwesome6 name="house" size={20} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="discover"
-        options={{
-          title: '发现',
-          tabBarIcon: ({ color }) => (
-            <FontAwesome6 name="compass" size={20} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: '我的',
-          tabBarIcon: ({ color }) => (
-            <FontAwesome6 name="user" size={20} color={color} />
-          ),
-        }}
-      />
-    </Tabs>
-  );
-}
-```
-
-**Tab 页面文件** `client/app/(tabs)/index.tsx`：
-```tsx
-export { default } from "@/screens/home";
-```
-
-### 注意事项
-
-在改动 `client/app/_layout.tsx` 前，必须先阅读该文件，再进行修改操作
-
-以下是需要保留的重要逻辑
-
-- 保留 global.css 引入（tailwindcss 生效的关键）
-- 保留 Provider 的使用
-
-## 依赖管理与模块导入规范
-
-### 依赖安装
-**禁止**使用 `npm` 或 `yarn`，按目录区分安装命令：
-
-| 目录 | 安装命令 | 说明 |
-|------|----------|------|
-| `client/` | `npx expo install <package>` | Expo 会自动选择与 SDK 兼容的版本 |
-| `server/` | `pnpm add <package>` | 使用 pnpm 管理后端依赖 |
+## 常用命令
 
 ```bash
-# client 目录（Expo 项目）
-cd client && npx expo install expo-camera expo-image-picker
-
-# server 目录（Express 项目）
-cd server && pnpm add axios cors
+pnpm dev          # 启动开发环境（自动清理端口占用并重启前后端）
+pnpm build        # 生产构建
+pnpm start        # 生产模式运行
+pnpm -w lint:client   # client 静态校验（TSC + ESLint）
+pnpm -w lint:server   # server 静态校验（TSC）
+pnpm -w lint:all      # 两者同时校验
 ```
 
-**网络问题处理**：`npx expo install` 可能因网络原因失败，失败时重试 2 次，仍失败则改用 `pnpm add` 安装
+## 调试工具
 
-## Expo 开发规范
-
-### 路径别名
-
-Expo 配置了 `@/` 路径别名指向 `client/` 目录：
-
-```tsx
-// 正确
-import { Screen } from '@/components/Screen';
-
-// 避免相对路径
-import { Screen } from '../../../components/Screen';
-```
-
-## 本地开发
-
-`coze dev`：用来首次启动前后端服务，也可以用来重启前后端服务（该命令会先尝试杀掉占用端口的进程，再启动服务）
+`debug/` 下提供免构建的浏览器联调页：`full-app-test.html` 覆盖 AI 对话、反思报告生成、文件上传的全流程接口调试；另有知识图谱（`knowledge-graph-test.html`）与标签树（`tag-tree.html`）可视化测试页。
