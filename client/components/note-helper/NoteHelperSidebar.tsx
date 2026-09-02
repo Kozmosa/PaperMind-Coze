@@ -246,7 +246,7 @@ export default function NoteHelperSidebar({
             })}
             {sourceFiles.length === 0 && (
               <View style={styles.emptyState}>
-                <Feather name="folder-open" size={40} color="#B2BEC3" />
+                <Feather name="folder" size={40} color="#B2BEC3" />
                 <Text style={styles.emptyText}>暂无源文件</Text>
               </View>
             )}

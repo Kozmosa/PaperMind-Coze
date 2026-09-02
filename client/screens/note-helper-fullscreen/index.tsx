@@ -33,7 +33,7 @@ const QUICK_ACTIONS = [
   { label: '更详细', icon: 'align-left' as const, prompt: '请把内容写得更详细，补充更多解释和背景。' },
   { label: '更简洁', icon: 'minimize-2' as const, prompt: '请把内容精简，只保留最核心的知识点。' },
   { label: '表格对比', icon: 'grid' as const, prompt: '请用表格形式整理关键概念的对比。' },
-  { label: '举例子', icon: 'lightbulb' as const, prompt: '请为重要概念添加具体的例子帮助理解。' },
+  { label: '举例子', icon: 'zap' as const, prompt: '请为重要概念添加具体的例子帮助理解。' },
   { label: '突出重点', icon: 'star' as const, prompt: '请突出标记重点内容和易错点。' },
 ];
 

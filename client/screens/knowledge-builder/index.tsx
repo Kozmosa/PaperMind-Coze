@@ -106,7 +106,7 @@ export default function KnowledgeBuilderScreen() {
         // Encode to base64
         try {
           const base64 = await FileSystem.readAsStringAsync(asset.uri, {
-            encoding: FileSystem.EncodingType.Base64,
+            encoding: 'base64',
           });
           setImageBase64(base64);
           const ext = (asset.fileName || asset.uri).split('.').pop()?.toLowerCase() || 'jpeg';
@@ -374,7 +374,7 @@ export default function KnowledgeBuilderScreen() {
 
         {/* Step indicator */}
         <View style={styles.steps}>
-          {(['upload', 'edit', 'relations'] as Step[]).map((s, i) => {
+          {(['upload', 'edit', 'relations'] as const).map((s, i) => {
             const active = step === s || (s === 'edit' && (step === 'analyzing' || step === 'saving')) ||
                            (s === 'relations' && step === 'saving');
             const done = (i === 0 && (step !== 'upload')) ||
