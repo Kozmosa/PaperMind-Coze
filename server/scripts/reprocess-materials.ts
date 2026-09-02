@@ -1,6 +1,8 @@
 /**
  * 重新处理所有 material 的 AI 摘要
  * 从本地 test_data 重新读取文件内容，调用 process-content API
+ *
+ * 用法: npx tsx server/scripts/reprocess-materials.ts
  */
 import * as fs from 'fs';
 import * as path from 'path';
@@ -10,7 +12,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const BACKEND = 'http://localhost:9091';
-const TEST_DATA_DIR = path.resolve(__dirname, '..', 'test_data', '学习资料');
+const TEST_DATA_DIR = path.resolve(__dirname, '..', '..', 'test_data', '学习资料');
 const USER_ID = 'debug_user_001';
 
 // ========== 文件提取函数（与 knowledge-builder.ts 保持一致） ==========

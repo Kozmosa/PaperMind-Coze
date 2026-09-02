@@ -2,17 +2,21 @@
  * PaperMind MVP1 数据导入脚本 (v2)
  * 修复: 文件内容读取 / BOM清理 / frontmatter跳过 / 前置数据清理
  *
- * 用法: npx tsx scripts/seed-mvp1.ts
+ * 用法: npx tsx server/scripts/seed-mvp1.ts
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
 import * as http from 'http';
 import * as https from 'https';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const BASE_URL = 'http://localhost:9091';
 const API_PREFIX = '/api/v1';
-const ROOT_DIR = path.resolve(__dirname, '..');
+const ROOT_DIR = path.resolve(__dirname, '..', '..');
 const TEST_USER_ID = '11111111-1111-1111-1111-111111111111';
 
 // ========== 工具函数 ==========
@@ -20,17 +24,18 @@ const TEST_USER_ID = '11111111-1111-1111-1111-111111111111';
 function apiFetch(method: string, urlPath: string, body?: any): Promise<any> {
   return new Promise((resolve, reject) => {
     const url = new URL(`${API_PREFIX}${urlPath}`, BASE_URL);
-    const lib = url.protocol === 'https:' ? https : http;
+    const lib: typeof http = url.protocol === 'https:' ? (https as unknown as typeof http) : http;
     const bodyStr = body ? JSON.stringify(body) : undefined;
 
+    const headers: http.OutgoingHttpHeaders = { 'Content-Type': 'application/json' };
+    if (bodyStr) headers['Content-Length'] = Buffer.byteLength(bodyStr).toString();
     const options: http.RequestOptions = {
       method,
       hostname: url.hostname,
       port: url.port,
       path: url.pathname,
-      headers: { 'Content-Type': 'application/json' },
+      headers,
     };
-    if (bodyStr) options.headers!['Content-Length'] = Buffer.byteLength(bodyStr).toString();
 
     const req = lib.request(options, (res) => {
       let data = '';

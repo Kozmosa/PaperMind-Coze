@@ -12,13 +12,6 @@
     "lint:all": "npm run lint --prefix ./client; npm run lint --prefix ./server",
     "validate": "pnpm run --parallel '/^(lint:client|lint:server)$/'"
   },
-  "devDependencies": {
-    "@supabase/supabase-js": "2.95.3",
-    "@types/adm-zip": "^0.5.8",
-    "@types/xml2js": "^0.4.14",
-    "dotenv": "^17.2.3",
-    "pdf-parse": "^2.4.5"
-  },
   "packageManager": "pnpm@9.0.0",
   "engines": {
     "pnpm": ">=9.0.0"
@@ -30,9 +23,5 @@
     "patchedDependencies": {
       "expo@54.0.33": "patches/expo@54.0.33.patch"
     }
-  },
-  "dependencies": {
-    "adm-zip": "^0.5.17",
-    "xml2js": "^0.6.2"
   }
 }

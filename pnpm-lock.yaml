@@ -14,30 +14,7 @@ patchedDependencies:
 
 importers:
 
-  .:
-    dependencies:
-      adm-zip:
-        specifier: ^0.5.17
-        version: 0.5.17
-      xml2js:
-        specifier: ^0.6.2
-        version: 0.6.2
-    devDependencies:
-      '@supabase/supabase-js':
-        specifier: 2.95.3
-        version: 2.95.3
-      '@types/adm-zip':
-        specifier: ^0.5.8
-        version: 0.5.8
-      '@types/xml2js':
-        specifier: ^0.4.14
-        version: 0.4.14
-      dotenv:
-        specifier: ^17.2.3
-        version: 17.2.4
-      pdf-parse:
-        specifier: ^2.4.5
-        version: 2.4.5
+  .: {}
 
   client:
     dependencies:
@@ -348,10 +325,16 @@ importers:
       pg:
         specifier: ^8.16.3
         version: 8.17.2
+      xml2js:
+        specifier: ^0.6.2
+        version: 0.6.2
       zod:
         specifier: ^4.2.1
         version: 4.3.6
     devDependencies:
+      '@types/adm-zip':
+        specifier: ^0.5.8
+        version: 0.5.8
       '@types/cors':
         specifier: ^2.8.19
         version: 2.8.19
@@ -364,6 +347,9 @@ importers:
       '@types/pg':
         specifier: ^8.16.0
         version: 8.16.0
+      '@types/xml2js':
+        specifier: ^0.4.14
+        version: 0.4.14
       drizzle-kit:
         specifier: ^0.31.8
         version: 0.31.8

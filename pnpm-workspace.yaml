@@ -1,6 +1,10 @@
 packages:
   - client
   - server
+overrides:
+  esbuild: 0.27.2
+patchedDependencies:
+  expo@54.0.33: patches/expo@54.0.33.patch
 allowBuilds:
   esbuild: set this to true or false
   onnxruntime-node: set this to true or false
