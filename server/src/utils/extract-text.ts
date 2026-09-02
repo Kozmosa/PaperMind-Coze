@@ -24,7 +24,7 @@ async function getPdfParser() {
 export async function extractText(
   filePath: string,
   mimeType: string,
-  fileName: string
+  fileName: string,
 ): Promise<ExtractedContent> {
   try {
     // 图片文件暂不支持 OCR
@@ -111,12 +111,19 @@ async function extractDocx(filePath: string): Promise<ExtractedContent> {
 async function extractPptx(filePath: string): Promise<ExtractedContent> {
   try {
     const zip = new AdmZip(filePath);
-    const slides = zip.getEntries().filter((e: any) => e.entryName.startsWith('ppt/slides/slide') && e.entryName.endsWith('.xml'));
+    const slides = zip
+      .getEntries()
+      .filter(
+        (e: any) => e.entryName.startsWith('ppt/slides/slide') && e.entryName.endsWith('.xml'),
+      );
     const texts: string[] = [];
     for (const slide of slides) {
       const content = slide.getData().toString('utf-8');
       const matches = content.match(/<a:t>([^<]*)<\/a:t>/g) || [];
-      const slideText = matches.map((m: string) => m.replace(/<\/?a:t>/g, '')).join(' ').trim();
+      const slideText = matches
+        .map((m: string) => m.replace(/<\/?a:t>/g, ''))
+        .join(' ')
+        .trim();
       if (slideText) texts.push(slideText);
     }
     return { text: texts.join('\n\n'), pageCount: slides.length };
@@ -129,12 +136,19 @@ async function extractPptx(filePath: string): Promise<ExtractedContent> {
 async function extractXlsx(filePath: string): Promise<ExtractedContent> {
   try {
     const zip = new AdmZip(filePath);
-    const sheets = zip.getEntries().filter((e: any) => e.entryName.startsWith('xl/worksheets/sheet') && e.entryName.endsWith('.xml'));
+    const sheets = zip
+      .getEntries()
+      .filter(
+        (e: any) => e.entryName.startsWith('xl/worksheets/sheet') && e.entryName.endsWith('.xml'),
+      );
     const texts: string[] = [];
     for (const sheet of sheets) {
       const content = sheet.getData().toString('utf-8');
       const matches = content.match(/<c[^>]*r="([A-Z]+\d+)"[^>]*>.*?<v>([^<]*)<\/v>/g) || [];
-      const sheetText = matches.map((m: string) => m.replace(/<[^>]*>/g, '')).join(' ').trim();
+      const sheetText = matches
+        .map((m: string) => m.replace(/<[^>]*>/g, ''))
+        .join(' ')
+        .trim();
       if (sheetText) texts.push(sheetText);
     }
     return { text: texts.join('\n'), pageCount: sheets.length };

@@ -1,1 +1,1 @@
-export { default } from "@/screens/material-edit";
+export { default } from '@/screens/material-edit';

@@ -121,20 +121,10 @@ export default function NoteHelperPanel({
   const sourceCount = sourceFiles.length;
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent
-      onRequestClose={onClose}
-    >
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
         <TouchableOpacity style={styles.backdrop} onPress={onClose} activeOpacity={1} />
-        <View
-          style={[
-            styles.panel,
-            { paddingBottom: insets.bottom + 16 },
-          ]}
-        >
+        <View style={[styles.panel, { paddingBottom: insets.bottom + 16 }]}>
           {/* Handle bar */}
           <View style={styles.handleBar}>
             <View style={styles.handle} />
@@ -152,10 +142,10 @@ export default function NoteHelperPanel({
                 {status === 'generating'
                   ? `正在生成笔记... (${sourceCount} 个文件)`
                   : status === 'done'
-                  ? `已生成 (${sourceCount} 个文件)`
-                  : status === 'error'
-                  ? '生成失败'
-                  : `准备生成 (${sourceCount} 个文件)`}
+                    ? `已生成 (${sourceCount} 个文件)`
+                    : status === 'error'
+                      ? '生成失败'
+                      : `准备生成 (${sourceCount} 个文件)`}
               </Text>
             </View>
             <View style={styles.headerRight}>
@@ -186,7 +176,7 @@ export default function NoteHelperPanel({
                 <ActivityIndicator size="large" color="#6C63FF" />
                 <Text style={styles.generatingText}>AI 正在分析源文件...</Text>
                 <Text style={styles.generatingSubtext}>
-                  正在读取 {sourceFiles.map(f => f.title).join('、')}
+                  正在读取 {sourceFiles.map((f) => f.title).join('、')}
                 </Text>
               </View>
             )}
@@ -231,10 +221,7 @@ export default function NoteHelperPanel({
           {/* Bottom bar */}
           {status === 'done' && (
             <View style={styles.bottomBar}>
-              <TouchableOpacity
-                style={styles.fullscreenLargeBtn}
-                onPress={handleFullscreen}
-              >
+              <TouchableOpacity style={styles.fullscreenLargeBtn} onPress={handleFullscreen}>
                 <Feather name="maximize-2" size={18} color="#FFF" />
                 <Text style={styles.fullscreenLargeText}>全屏编辑</Text>
               </TouchableOpacity>

@@ -9,10 +9,7 @@ const client = getSupabaseClient();
 router.get('/', async (req: Request, res: Response) => {
   try {
     const { visibility } = req.query;
-    let query = client
-      .from('stickynotes')
-      .select('*')
-      .order('created_at', { ascending: false });
+    let query = client.from('stickynotes').select('*').order('created_at', { ascending: false });
 
     if (visibility) {
       query = query.eq('visibility', visibility);

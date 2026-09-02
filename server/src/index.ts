@@ -1,6 +1,6 @@
-import express from "express";
-import cors from "cors";
-import * as path from "path";
+import express from 'express';
+import cors from 'cors';
+import * as path from 'path';
 import { authMiddleware } from './middleware/auth.js';
 
 import knowledgeNodesRouter from './routes/knowledge-nodes.js';
@@ -66,20 +66,22 @@ app.listen(port, () => {
 // Warm-start knowledge vector index in background (lazy dynamic import to avoid blocking startup)
 setTimeout(() => {
   // Warm-start unified vector index + tag vector store
-  import('./utils/unified-vector-index.js').then(async (indexMod) => {
-    // 先构建标签库（统一索引的标签加成依赖它），再构建统一索引
-    try {
-      await import('./utils/vector-store.js').then((tagMod) =>
-        tagMod.tagVectorStore.buildFromDatabase()
-      );
-    } catch (err: any) {
-      console.warn('[Index] TagVectorStore build failed:', err?.message);
-    }
+  import('./utils/unified-vector-index.js')
+    .then(async (indexMod) => {
+      // 先构建标签库（统一索引的标签加成依赖它），再构建统一索引
+      try {
+        await import('./utils/vector-store.js').then((tagMod) =>
+          tagMod.tagVectorStore.buildFromDatabase(),
+        );
+      } catch (err: any) {
+        console.warn('[Index] TagVectorStore build failed:', err?.message);
+      }
 
-    await indexMod.unifiedVectorIndex.buildIndex().catch(err => {
-      console.warn('[Index] UnifiedVectorIndex build failed:', err.message);
+      await indexMod.unifiedVectorIndex.buildIndex().catch((err) => {
+        console.warn('[Index] UnifiedVectorIndex build failed:', err.message);
+      });
+    })
+    .catch(() => {
+      // embedding deps not available — safe to skip warm-start
     });
-  }).catch(() => {
-    // embedding deps not available — safe to skip warm-start
-  });
 }, 2000);

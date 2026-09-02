@@ -59,9 +59,7 @@ function PDFViewer({ url }: { url: string }) {
       />
     );
   } catch {
-    return (
-      <Text style={styles.contentText}>PDF 预览需要 WebView 支持</Text>
-    );
+    return <Text style={styles.contentText}>PDF 预览需要 WebView 支持</Text>;
   }
 }
 
@@ -89,7 +87,10 @@ export default function ReferenceCard({ citation, visible, onClose }: ReferenceC
     setError('');
     setViewUrl('');
     try {
-      const res: any = await api.getSourceFileContent(citation.sourceId, citation.sourceType as any);
+      const res: any = await api.getSourceFileContent(
+        citation.sourceId,
+        citation.sourceType as any,
+      );
       const data = res.data;
       if (data) {
         if (citation.sourceType === 'study_note') {
@@ -112,7 +113,8 @@ export default function ReferenceCard({ citation, visible, onClose }: ReferenceC
             if (node) {
               const parts: string[] = [];
               if (node.papercore) parts.push(`📝 Papercore:\n${node.papercore}`);
-              if (node.tags?.length) parts.push(`🏷️ 标签: ${node.tags.map((t: string) => `#${t}`).join(' ')}`);
+              if (node.tags?.length)
+                parts.push(`🏷️ 标签: ${node.tags.map((t: string) => `#${t}`).join(' ')}`);
               if (node.relations && Object.keys(node.relations).length > 0) {
                 parts.push(`🔗 关联: ${JSON.stringify(node.relations)}`);
               }
@@ -129,7 +131,12 @@ export default function ReferenceCard({ citation, visible, onClose }: ReferenceC
             setViewUrl(data.viewUrl);
             setFileType(data.fileType || '');
           } else if (data.pages && Array.isArray(data.pages)) {
-            setContent(data.pages.map((p: any) => p.text || '').join('\n\n').substring(0, 2000));
+            setContent(
+              data.pages
+                .map((p: any) => p.text || '')
+                .join('\n\n')
+                .substring(0, 2000),
+            );
           } else {
             setContent('(文件不可用)');
           }
@@ -148,25 +155,36 @@ export default function ReferenceCard({ citation, visible, onClose }: ReferenceC
 
   // Pick icon based on sourceType
   const sourceIcon =
-    citation.sourceType === 'knowledge_node' ? 'book-open' :
-    citation.sourceType === 'study_note' ? 'edit-3' :
-    citation.sourceType === 'material' ? 'file-text' :
-    citation.sourceType === 'file_content' ? 'file-text' :
-    'file-text';
+    citation.sourceType === 'knowledge_node'
+      ? 'book-open'
+      : citation.sourceType === 'study_note'
+        ? 'edit-3'
+        : citation.sourceType === 'material'
+          ? 'file-text'
+          : citation.sourceType === 'file_content'
+            ? 'file-text'
+            : 'file-text';
 
   const sourceColor =
-    citation.sourceType === 'knowledge_node' ? '#6C63FF' :
-    citation.sourceType === 'study_note' ? '#00B894' :
-    citation.sourceType === 'material' ? '#FF9F43' :
-    '#636E72';
+    citation.sourceType === 'knowledge_node'
+      ? '#6C63FF'
+      : citation.sourceType === 'study_note'
+        ? '#00B894'
+        : citation.sourceType === 'material'
+          ? '#FF9F43'
+          : '#636E72';
 
   const sourceLabel =
-    citation.sourceType === 'knowledge_node' ? '知识节点' :
-    citation.sourceType === 'study_note' ? '学习纪要' :
-    citation.sourceType === 'material' ? '学习资料' :
-    '文件';
+    citation.sourceType === 'knowledge_node'
+      ? '知识节点'
+      : citation.sourceType === 'study_note'
+        ? '学习纪要'
+        : citation.sourceType === 'material'
+          ? '学习资料'
+          : '文件';
 
-  const isMaterialPDF = (citation.sourceType === 'material' || citation.sourceType === 'file_content') && viewUrl;
+  const isMaterialPDF =
+    (citation.sourceType === 'material' || citation.sourceType === 'file_content') && viewUrl;
 
   return (
     <View style={styles.overlay}>
@@ -179,12 +197,31 @@ export default function ReferenceCard({ citation, visible, onClose }: ReferenceC
             <Text style={styles.headerTitle} numberOfLines={1}>
               来自：{citation.fileName}
             </Text>
-            <View style={{ backgroundColor: `${sourceColor}20`, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
-              <Text style={{ color: sourceColor, fontSize: 10, fontWeight: '600' }}>{sourceLabel}</Text>
+            <View
+              style={{
+                backgroundColor: `${sourceColor}20`,
+                borderRadius: 6,
+                paddingHorizontal: 6,
+                paddingVertical: 2,
+              }}
+            >
+              <Text style={{ color: sourceColor, fontSize: 10, fontWeight: '600' }}>
+                {sourceLabel}
+              </Text>
             </View>
             {citation.pageNumber ? (
-              <View style={{ backgroundColor: '#0984E320', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, marginLeft: 4 }}>
-                <Text style={{ color: '#0984E3', fontSize: 10, fontWeight: '600' }}>第{citation.pageNumber}页</Text>
+              <View
+                style={{
+                  backgroundColor: '#0984E320',
+                  borderRadius: 6,
+                  paddingHorizontal: 6,
+                  paddingVertical: 2,
+                  marginLeft: 4,
+                }}
+              >
+                <Text style={{ color: '#0984E3', fontSize: 10, fontWeight: '600' }}>
+                  第{citation.pageNumber}页
+                </Text>
               </View>
             ) : null}
           </View>
@@ -201,7 +238,9 @@ export default function ReferenceCard({ citation, visible, onClose }: ReferenceC
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
                   <Text style={styles.highlightLabel}>引用内容：</Text>
                   {citation.pageNumber ? (
-                    <Text style={{ fontSize: 11, color: '#0984E3', fontWeight: '600', marginLeft: 4 }}>
+                    <Text
+                      style={{ fontSize: 11, color: '#0984E3', fontWeight: '600', marginLeft: 4 }}
+                    >
                       第{citation.pageNumber}页
                     </Text>
                   ) : null}
@@ -226,7 +265,14 @@ export default function ReferenceCard({ citation, visible, onClose }: ReferenceC
                     <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
                       <Text style={styles.highlightLabel}>引用内容：</Text>
                       {citation.pageNumber ? (
-                        <Text style={{ fontSize: 11, color: '#0984E3', fontWeight: '600', marginLeft: 4 }}>
+                        <Text
+                          style={{
+                            fontSize: 11,
+                            color: '#0984E3',
+                            fontWeight: '600',
+                            marginLeft: 4,
+                          }}
+                        >
                           第{citation.pageNumber}页
                         </Text>
                       ) : null}

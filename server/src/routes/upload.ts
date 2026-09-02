@@ -28,7 +28,11 @@ const storage = multer.diskStorage({
   filename: (_req, file, cb) => {
     const decoded = decodeOriginalName(file.originalname || '');
     const ext = path.extname(decoded);
-    const base = path.basename(decoded, ext).replace(/[^\w\-一-鿿]/g, '_').slice(0, 40) || 'file';
+    const base =
+      path
+        .basename(decoded, ext)
+        .replace(/[^\w\-一-鿿]/g, '_')
+        .slice(0, 40) || 'file';
     const stamp = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     cb(null, `${stamp}__${base}${ext}`);
   },
@@ -54,7 +58,22 @@ const upload = multer({
       'image/webp',
     ];
     const ext = path.extname(file.originalname).toLowerCase();
-    const allowedExts = ['.md', '.docx', '.doc', '.pptx', '.ppt', '.pdf', '.txt', '.csv', '.xlsx', '.jpg', '.jpeg', '.png', '.gif', '.webp'];
+    const allowedExts = [
+      '.md',
+      '.docx',
+      '.doc',
+      '.pptx',
+      '.ppt',
+      '.pdf',
+      '.txt',
+      '.csv',
+      '.xlsx',
+      '.jpg',
+      '.jpeg',
+      '.png',
+      '.gif',
+      '.webp',
+    ];
     if (allowedExts.includes(ext) || allowedMimes.includes(file.mimetype.toLowerCase())) {
       cb(null, true);
     } else {
@@ -159,8 +178,14 @@ router.post('/', async (req: Request, res: Response) => {
         let clsResult: any = null;
         let clsError: any = null;
         const fakeRes: any = {
-          json: (v: any) => { clsResult = v; return fakeRes; },
-          status: (code: number) => { fakeRes._status = code; return fakeRes; },
+          json: (v: any) => {
+            clsResult = v;
+            return fakeRes;
+          },
+          status: (code: number) => {
+            fakeRes._status = code;
+            return fakeRes;
+          },
           _status: 200,
         };
         try {
@@ -178,7 +203,10 @@ router.post('/', async (req: Request, res: Response) => {
         // 标记失败：保持 ai_processed=false，批次接口/重新分析可重试（issue #7 Task 2）
         if (materialId) {
           try {
-            await client.from('materials').update({ process_status: 'failed' }).eq('id', materialId);
+            await client
+              .from('materials')
+              .update({ process_status: 'failed' })
+              .eq('id', materialId);
           } catch {}
         }
       }

@@ -11,7 +11,7 @@ async function main() {
     const res = await client.query(
       `INSERT INTO public.problem_solving_logs (user_id, question, answer, steps, related_knowledge_node_ids, related_draft_ids, citation_snippets)
        VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
-      ['migration-test-user', '测试问题', '测试回答', '["s1"]', '[]', '[]', '[]']
+      ['migration-test-user', '测试问题', '测试回答', '["s1"]', '[]', '[]', '[]'],
     );
     console.log('写入成功，id =', res.rows[0].id);
   } finally {
@@ -20,4 +20,7 @@ async function main() {
   }
   await client.end();
 }
-main().catch((e) => { console.error('失败:', e.message); process.exit(1); });
+main().catch((e) => {
+  console.error('失败:', e.message);
+  process.exit(1);
+});

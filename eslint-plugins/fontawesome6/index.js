@@ -1,4 +1,4 @@
-const validName = require('./rule')
+const validName = require('./rule');
 
 const plugin = {
   rules: {
@@ -6,4 +6,4 @@ const plugin = {
   },
 };
 
-module.exports = plugin
+module.exports = plugin;

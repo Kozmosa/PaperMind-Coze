@@ -45,7 +45,9 @@ class TagVectorStore {
     }
 
     this.initialized = true;
-    console.log(`[vector-store] Indexed ${this.tags.length} tags (L1:${hierarchy.L1.length}, L2:${hierarchy.L2.length}, L3:${hierarchy.L3.length})`);
+    console.log(
+      `[vector-store] Indexed ${this.tags.length} tags (L1:${hierarchy.L1.length}, L2:${hierarchy.L2.length}, L3:${hierarchy.L3.length})`,
+    );
   }
 
   /**
@@ -108,11 +110,13 @@ class TagVectorStore {
         };
       });
 
-      const l1Count = this.tags.filter(t => t.level === 'L1').length;
-      const l2Count = this.tags.filter(t => t.level === 'L2').length;
-      const l3Count = this.tags.filter(t => t.level === 'L3').length;
+      const l1Count = this.tags.filter((t) => t.level === 'L1').length;
+      const l2Count = this.tags.filter((t) => t.level === 'L2').length;
+      const l3Count = this.tags.filter((t) => t.level === 'L3').length;
       this.initialized = true;
-      console.log(`[vector-store] Indexed ${this.tags.length} tags from DB (L1:${l1Count}, L2:${l2Count}, L3:${l3Count})`);
+      console.log(
+        `[vector-store] Indexed ${this.tags.length} tags from DB (L1:${l1Count}, L2:${l2Count}, L3:${l3Count})`,
+      );
     } catch (err) {
       console.error('[vector-store] buildFromDatabase failed:', err);
       this.initialized = false;
@@ -122,7 +126,7 @@ class TagVectorStore {
     for (const tag of tags) {
       if (!tag.name) continue;
       // Skip if already exists
-      if (this.tags.some(t => t.id === `${tag.level}_${tag.name}`)) continue;
+      if (this.tags.some((t) => t.id === `${tag.level}_${tag.name}`)) continue;
       const vec = await embed(tag.name);
       this.tags.push({ id: `${tag.level}_${tag.name}`, name: tag.name, level: tag.level, vec });
     }
@@ -132,31 +136,40 @@ class TagVectorStore {
    * Search for the most similar L1 tags to a document embedding
    */
   searchL1(docVec: number[], topK = 3, minScore = 0.4): { name: string; score: number }[] {
-    const candidates = this.tags.filter(t => t.level === 'L1');
-    return findTopK(docVec, candidates, topK, minScore).map(c => ({ name: c.name, score: c.score }));
+    const candidates = this.tags.filter((t) => t.level === 'L1');
+    return findTopK(docVec, candidates, topK, minScore).map((c) => ({
+      name: c.name,
+      score: c.score,
+    }));
   }
 
   /**
    * Search for the most similar L2 tags to a document embedding
    */
   searchL2(docVec: number[], topK = 5, minScore = 0.4): { name: string; score: number }[] {
-    const candidates = this.tags.filter(t => t.level === 'L2');
-    return findTopK(docVec, candidates, topK, minScore).map(c => ({ name: c.name, score: c.score }));
+    const candidates = this.tags.filter((t) => t.level === 'L2');
+    return findTopK(docVec, candidates, topK, minScore).map((c) => ({
+      name: c.name,
+      score: c.score,
+    }));
   }
 
   /**
    * Search for the most similar L3 tags to a document embedding
    */
   searchL3(docVec: number[], topK = 10, minScore = 0.4): { name: string; score: number }[] {
-    const candidates = this.tags.filter(t => t.level === 'L3');
-    return findTopK(docVec, candidates, topK, minScore).map(c => ({ name: c.name, score: c.score }));
+    const candidates = this.tags.filter((t) => t.level === 'L3');
+    return findTopK(docVec, candidates, topK, minScore).map((c) => ({
+      name: c.name,
+      score: c.score,
+    }));
   }
 
   /**
    * Return all tag names as a flat string array (for literal matching).
    */
   getAllTags(): string[] {
-    return this.tags.map(t => t.name);
+    return this.tags.map((t) => t.name);
   }
 
   /**

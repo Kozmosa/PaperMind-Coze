@@ -31,9 +31,7 @@ export const anthropic: Anthropic = AI_API_KEY
     })
   : new Proxy({} as Anthropic, {
       get() {
-        throw new Error(
-          'ANTHROPIC_API_KEY is not set — 请在 .env 中配置后再调用 AI 接口'
-        );
+        throw new Error('ANTHROPIC_API_KEY is not set — 请在 .env 中配置后再调用 AI 接口');
       },
     });
 

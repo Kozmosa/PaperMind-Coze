@@ -1,1 +1,1 @@
-export { default } from "@/screens/ai-chat";
+export { default } from '@/screens/ai-chat';

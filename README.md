@@ -6,18 +6,18 @@ AI 驱动的个人知识管理学习应用 —— 一间"第二大脑书房"：�
 
 ## 核心功能
 
-| 模块 | 说明 |
-|------|------|
-| AI 助手（Tutor） | 基于 RAG 的流式问答。三层检索：指定知识节点 → 统一向量索引（BGE 中文嵌入 + 标签加成）→ 降级加载；回答带 `【来源：…】` 引用，支持图片上传 |
-| 知识库 | 知识图谱可视化、知识节点管理（papercore / 标签体系） |
-| 知识构建器 | 资料 → 知识节点的加工与归类流程 |
-| 资料管理 | PDF / Word / PPT 上传、文本提取、文件夹层级选择、自动 / 强制分类 |
-| 学习笔记 | 笔记编辑器 + NoteHelper AI 辅助（全屏块编辑、LaTeX、风格偏好） |
-| 反思报告（Reflection Mind） | AI 生成学习反思报告与图表 |
-| 问题解决日志 | 学习过程中的 QA 日志 |
-| 草稿池 | 待处理资料托盘 |
-| 社区 | 便利贴瀑布流、论坛讨论 |
-| 控制中心 / 登录 | 快捷入口聚合 / Supabase Auth |
+| 模块                        | 说明                                                                                                                                     |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| AI 助手（Tutor）            | 基于 RAG 的流式问答。三层检索：指定知识节点 → 统一向量索引（BGE 中文嵌入 + 标签加成）→ 降级加载；回答带 `【来源：…】` 引用，支持图片上传 |
+| 知识库                      | 知识图谱可视化、知识节点管理（papercore / 标签体系）                                                                                     |
+| 知识构建器                  | 资料 → 知识节点的加工与归类流程                                                                                                          |
+| 资料管理                    | PDF / Word / PPT 上传、文本提取、文件夹层级选择、自动 / 强制分类                                                                         |
+| 学习笔记                    | 笔记编辑器 + NoteHelper AI 辅助（全屏块编辑、LaTeX、风格偏好）                                                                           |
+| 反思报告（Reflection Mind） | AI 生成学习反思报告与图表                                                                                                                |
+| 问题解决日志                | 学习过程中的 QA 日志                                                                                                                     |
+| 草稿池                      | 待处理资料托盘                                                                                                                           |
+| 社区                        | 便利贴瀑布流、论坛讨论                                                                                                                   |
+| 控制中心 / 登录             | 快捷入口聚合 / Supabase Auth                                                                                                             |
 
 检索与引用的完整工作流见 [docs/PaperMind-Architecture.md](docs/PaperMind-Architecture.md)，视觉规范见 [DESIGN.md](DESIGN.md)。
 
@@ -82,15 +82,15 @@ pnpm dev
 
 ## 环境变量
 
-| 变量 | 必填 | 说明 |
-|------|:----:|------|
-| `COZE_SUPABASE_URL` / `COZE_SUPABASE_ANON_KEY` | ✅ | Supabase 项目地址与 anon key（server 启动硬依赖） |
-| `COZE_SUPABASE_SERVICE_ROLE_KEY` | 建议 | server 端完整读写权限 |
-| `SUPABASE_URL` / `SUPABASE_ANON_KEY` | 可选 | 部分模块使用的等价变量 |
-| `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY` | 建议 | 前端直连 Supabase（登录鉴权） |
-| `EXPO_PUBLIC_BACKEND_BASE_URL` | 可选 | 后端地址，`pnpm dev` 自动注入 `http://localhost:9091` |
-| `PORT` | 可选 | server 端口，默认 9091 |
-| `COZE_PROJECT_ID` 等 | 可选 | 扣子云端注入的平台变量，本地留空 |
+| 变量                                                         | 必填 | 说明                                                  |
+| ------------------------------------------------------------ | :--: | ----------------------------------------------------- |
+| `COZE_SUPABASE_URL` / `COZE_SUPABASE_ANON_KEY`               |  ✅  | Supabase 项目地址与 anon key（server 启动硬依赖）     |
+| `COZE_SUPABASE_SERVICE_ROLE_KEY`                             | 建议 | server 端完整读写权限                                 |
+| `SUPABASE_URL` / `SUPABASE_ANON_KEY`                         | 可选 | 部分模块使用的等价变量                                |
+| `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY` | 建议 | 前端直连 Supabase（登录鉴权）                         |
+| `EXPO_PUBLIC_BACKEND_BASE_URL`                               | 可选 | 后端地址，`pnpm dev` 自动注入 `http://localhost:9091` |
+| `PORT`                                                       | 可选 | server 端口，默认 9091                                |
+| `COZE_PROJECT_ID` 等                                         | 可选 | 扣子云端注入的平台变量，本地留空                      |
 
 AI 网关（Anthropic 兼容接口）通过环境变量配置（`ANTHROPIC_API_KEY` 必填、`ANTHROPIC_BASE_URL` 可选），默认模型 `kimi-for-coding`，见 `.env.example`。
 

@@ -45,11 +45,7 @@ router.post('/', async (req: Request, res: Response) => {
     if (file_url) insertData.file_path = file_url;
     if (mime_type) insertData.file_type = mime_type;
 
-    const { data, error } = await client
-      .from('materials')
-      .insert(insertData)
-      .select()
-      .single();
+    const { data, error } = await client.from('materials').insert(insertData).select().single();
 
     if (error) throw new Error(error.message);
     res.json({ data });
@@ -62,7 +58,16 @@ router.post('/', async (req: Request, res: Response) => {
 router.put('/:id', async (req: Request, res: Response) => {
   try {
     const userId = (req as any).userId || 'guest';
-    const { title, name, tags, processed, papercore, logical_path, ai_processed, viewed_after_process } = req.body;
+    const {
+      title,
+      name,
+      tags,
+      processed,
+      papercore,
+      logical_path,
+      ai_processed,
+      viewed_after_process,
+    } = req.body;
 
     const cleanTags = (tags || []).map((t: string) => t.replace(/^#/, '').trim()).filter(Boolean);
 
@@ -139,7 +144,7 @@ router.get('/:id/file-content', async (req: Request, res: Response) => {
       const searchName = material.name;
       try {
         const files = fs.readdirSync(testDataDir);
-        const match = files.find(f => f.includes(searchName) || searchName.includes(f));
+        const match = files.find((f) => f.includes(searchName) || searchName.includes(f));
         if (match) {
           filePath = path.join(testDataDir, match);
         }
@@ -168,7 +173,7 @@ router.get('/:id/file-content', async (req: Request, res: Response) => {
     let pages: { page_number: number; text: string }[] = [];
 
     if (fullText.includes('\f')) {
-      const splits = fullText.split('\f').filter(t => t.trim().length > 0);
+      const splits = fullText.split('\f').filter((t) => t.trim().length > 0);
       pages = splits.map((text, i) => ({ page_number: i + 1, text: text.trim() }));
     } else if (extracted.pageCount && extracted.pageCount > 1) {
       // 按页数大致均分

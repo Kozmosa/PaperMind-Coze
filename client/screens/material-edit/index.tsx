@@ -1,11 +1,4 @@
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  Alert,
-  ActivityIndicator,
-  Platform,
-} from 'react-native';
+import { View, Text, TouchableOpacity, Alert, ActivityIndicator, Platform } from 'react-native';
 import { useCallback, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -49,13 +42,19 @@ export default function MaterialViewScreen() {
   const [noteHelperVisible, setNoteHelperVisible] = useState(false);
 
   const handleNoteHelperGenerate = async (signal: { aborted: boolean }) => {
-    const sourceFiles = id ? [{ id, type: 'material' as const, title: fileName || '资料', logicalPath }] : [];
+    const sourceFiles = id
+      ? [{ id, type: 'material' as const, title: fileName || '资料', logicalPath }]
+      : [];
     let fullContent = '';
     let extractedCitations: Citation[] = [];
     await api.generateNoteStream(
       sourceFiles,
-      (chunk) => { fullContent += chunk; },
-      (cits) => { extractedCitations = cits; },
+      (chunk) => {
+        fullContent += chunk;
+      },
+      (cits) => {
+        extractedCitations = cits;
+      },
       undefined,
       signal,
     );
@@ -69,7 +68,7 @@ export default function MaterialViewScreen() {
     useCallback(() => {
       if (id) loadAll();
       else setLoading(false);
-    }, [id])
+    }, [id]),
   );
 
   const loadAll = async () => {
@@ -81,7 +80,10 @@ export default function MaterialViewScreen() {
           console.warn('[material-edit] getMaterialFileContent failed:', e?.message || e);
           const status = e?.message?.match?.(/\d+/)?.[0] || '';
           const detail = e?.message?.replace?.(/^API Error: \d+ - /, '') || '';
-          return { error: true, message: status === '404' ? '文件不存在于磁盘' : (detail || e?.message || '请求失败') };
+          return {
+            error: true,
+            message: status === '404' ? '文件不存在于磁盘' : detail || e?.message || '请求失败',
+          };
         }),
         api.getMaterials().catch(() => ({ data: [] })),
       ]);
@@ -150,7 +152,9 @@ export default function MaterialViewScreen() {
       <Screen backgroundColor={C.bg}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 }}>
           <Feather name="alert-circle" size={48} color={C.placeholder} />
-          <Text style={{ fontSize: 16, color: C.textSecondary, marginTop: 16, textAlign: 'center' }}>
+          <Text
+            style={{ fontSize: 16, color: C.textSecondary, marginTop: 16, textAlign: 'center' }}
+          >
             无法加载资料
           </Text>
         </View>
@@ -160,206 +164,229 @@ export default function MaterialViewScreen() {
 
   return (
     <>
-    <Screen backgroundColor={C.bg} safeAreaEdges={['left', 'right', 'bottom']}>
-      <View style={{ flex: 1, backgroundColor: C.bg }}>
-        {/* ======== Header ======== */}
-        <View style={{
-          paddingTop: insets.top + 8,
-          paddingHorizontal: 16,
-          paddingBottom: 10,
-          borderBottomWidth: 1,
-          borderBottomColor: C.border,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}>
-          <TouchableOpacity onPress={() => router.back()} style={{ padding: 6 }}>
-            <Feather name="arrow-left" size={22} color={C.text} />
-          </TouchableOpacity>
-
-          <View style={{ flex: 1, marginHorizontal: 12 }}>
-            <Text style={{ fontSize: 15, fontWeight: '600', color: C.text }} numberOfLines={1}>
-              {fileName || '资料'}
-            </Text>
-            {fileType ? (
-              <Text style={{ fontSize: 11, color: C.textSecondary }}>{fileType} 文件</Text>
-            ) : null}
-          </View>
-
-          <TouchableOpacity
-            onPress={handleReprocess}
-            disabled={reprocessing}
+      <Screen backgroundColor={C.bg} safeAreaEdges={['left', 'right', 'bottom']}>
+        <View style={{ flex: 1, backgroundColor: C.bg }}>
+          {/* ======== Header ======== */}
+          <View
             style={{
+              paddingTop: insets.top + 8,
+              paddingHorizontal: 16,
+              paddingBottom: 10,
+              borderBottomWidth: 1,
+              borderBottomColor: C.border,
               flexDirection: 'row',
               alignItems: 'center',
-              gap: 4,
-              paddingHorizontal: 10,
-              paddingVertical: 6,
-              borderRadius: 14,
-              backgroundColor: C.chipBg,
-              borderWidth: 1,
-              borderColor: C.primary,
+              justifyContent: 'space-between',
             }}
           >
-            {reprocessing ? (
-              <ActivityIndicator size="small" color={C.primary} />
-            ) : (
-              <Feather name="refresh-cw" size={12} color={C.primary} />
-            )}
-            <Text style={{ fontSize: 11, fontWeight: '600', color: C.primary }}>
-              {reprocessing ? '分析中' : '重新分析'}
-            </Text>
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity onPress={() => router.back()} style={{ padding: 6 }}>
+              <Feather name="arrow-left" size={22} color={C.text} />
+            </TouchableOpacity>
 
-        {/* ======== PDF Viewer / Unsupported notice ======== */}
-        <View style={{ flex: 1 }}>
-          {isPDF && viewUrl ? (
-            <PDFViewer url={viewUrl} />
-          ) : (
-            <View style={{
-              flex: 1,
-              justifyContent: 'center',
-              alignItems: 'center',
-              padding: 40,
-            }}>
-              <Feather name="file-text" size={48} color={C.placeholder} />
-              <Text style={{ fontSize: 14, color: C.textSecondary, marginTop: 12, textAlign: 'center' }}>
-                {viewUrl
-                  ? `${fileType} 文件暂不支持在线预览`
-                  : loadError || '文件未找到，无法预览'}
+            <View style={{ flex: 1, marginHorizontal: 12 }}>
+              <Text style={{ fontSize: 15, fontWeight: '600', color: C.text }} numberOfLines={1}>
+                {fileName || '资料'}
               </Text>
-              <Text style={{ fontSize: 12, color: C.placeholder, marginTop: 4, textAlign: 'center' }}>
-                {viewUrl
-                  ? '该文件格式需要下载后在本地应用中查看'
-                  : (loadError ? '请确认文件已正确上传，或点击重试' : '请确认文件已正确上传')}
-              </Text>
-              {!viewUrl && loadError ? (
-                <TouchableOpacity
-                  onPress={loadAll}
-                  style={{
-                    marginTop: 20,
-                    paddingHorizontal: 24,
-                    paddingVertical: 10,
-                    borderRadius: 10,
-                    backgroundColor: C.primary,
-                  }}
-                >
-                  <Text style={{ color: '#FFF', fontWeight: '600', fontSize: 14 }}>重试</Text>
-                </TouchableOpacity>
+              {fileType ? (
+                <Text style={{ fontSize: 11, color: C.textSecondary }}>{fileType} 文件</Text>
               ) : null}
             </View>
-          )}
-        </View>
 
-        {/* ======== Fixed Bottom Bar ======== */}
-        <View style={{
-          borderTopWidth: 1,
-          borderTopColor: C.border,
-          backgroundColor: C.bg,
-          paddingBottom: insets.bottom + 8,
-          maxHeight: '45%',
-        }}>
-          {papercore ? (
-            <View>
-              <TouchableOpacity
-                onPress={() => setShowPapercore(!showPapercore)}
+            <TouchableOpacity
+              onPress={handleReprocess}
+              disabled={reprocessing}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 4,
+                paddingHorizontal: 10,
+                paddingVertical: 6,
+                borderRadius: 14,
+                backgroundColor: C.chipBg,
+                borderWidth: 1,
+                borderColor: C.primary,
+              }}
+            >
+              {reprocessing ? (
+                <ActivityIndicator size="small" color={C.primary} />
+              ) : (
+                <Feather name="refresh-cw" size={12} color={C.primary} />
+              )}
+              <Text style={{ fontSize: 11, fontWeight: '600', color: C.primary }}>
+                {reprocessing ? '分析中' : '重新分析'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* ======== PDF Viewer / Unsupported notice ======== */}
+          <View style={{ flex: 1 }}>
+            {isPDF && viewUrl ? (
+              <PDFViewer url={viewUrl} />
+            ) : (
+              <View
+                style={{
+                  flex: 1,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  padding: 40,
+                }}
+              >
+                <Feather name="file-text" size={48} color={C.placeholder} />
+                <Text
+                  style={{
+                    fontSize: 14,
+                    color: C.textSecondary,
+                    marginTop: 12,
+                    textAlign: 'center',
+                  }}
+                >
+                  {viewUrl
+                    ? `${fileType} 文件暂不支持在线预览`
+                    : loadError || '文件未找到，无法预览'}
+                </Text>
+                <Text
+                  style={{ fontSize: 12, color: C.placeholder, marginTop: 4, textAlign: 'center' }}
+                >
+                  {viewUrl
+                    ? '该文件格式需要下载后在本地应用中查看'
+                    : loadError
+                      ? '请确认文件已正确上传，或点击重试'
+                      : '请确认文件已正确上传'}
+                </Text>
+                {!viewUrl && loadError ? (
+                  <TouchableOpacity
+                    onPress={loadAll}
+                    style={{
+                      marginTop: 20,
+                      paddingHorizontal: 24,
+                      paddingVertical: 10,
+                      borderRadius: 10,
+                      backgroundColor: C.primary,
+                    }}
+                  >
+                    <Text style={{ color: '#FFF', fontWeight: '600', fontSize: 14 }}>重试</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            )}
+          </View>
+
+          {/* ======== Fixed Bottom Bar ======== */}
+          <View
+            style={{
+              borderTopWidth: 1,
+              borderTopColor: C.border,
+              backgroundColor: C.bg,
+              paddingBottom: insets.bottom + 8,
+              maxHeight: '45%',
+            }}
+          >
+            {papercore ? (
+              <View>
+                <TouchableOpacity
+                  onPress={() => setShowPapercore(!showPapercore)}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    paddingHorizontal: 20,
+                    paddingVertical: 10,
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <View
+                      style={{ width: 3, height: 16, borderRadius: 2, backgroundColor: C.accent }}
+                    />
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: C.accent }}>
+                      Papercore 摘要
+                    </Text>
+                  </View>
+                  <Feather
+                    name={showPapercore ? 'chevron-down' : 'chevron-up'}
+                    size={16}
+                    color={C.accent}
+                  />
+                </TouchableOpacity>
+
+                {showPapercore && (
+                  <View style={{ paddingHorizontal: 20, paddingBottom: 8 }}>
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        color: C.text,
+                        lineHeight: 20,
+                        backgroundColor: C.accentBg,
+                        borderRadius: 8,
+                        padding: 12,
+                        overflow: 'hidden',
+                      }}
+                    >
+                      {papercore}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            ) : (
+              <View style={{ paddingHorizontal: 20, paddingVertical: 8 }}>
+                <Text style={{ fontSize: 12, color: C.placeholder, fontStyle: 'italic' }}>
+                  暂无 AI 摘要，点击右上角"重新分析"生成
+                </Text>
+              </View>
+            )}
+
+            {/* Tags */}
+            {tags.length > 0 && (
+              <View style={{ paddingHorizontal: 20, paddingBottom: 8 }}>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                  {tags.map((tag, i) => {
+                    const levelColors = [
+                      { bg: '#6C63FF', fg: '#FFF' },
+                      { bg: 'rgba(108,99,255,0.15)', fg: '#6C63FF' },
+                      { bg: 'rgba(108,99,255,0.06)', fg: '#8B83FF' },
+                    ];
+                    const lc = levelColors[Math.min(i, 2)];
+                    return (
+                      <View
+                        key={i}
+                        style={{
+                          backgroundColor: lc.bg,
+                          paddingHorizontal: 12,
+                          paddingVertical: 6,
+                          borderRadius: 8,
+                        }}
+                      >
+                        <Text style={{ fontSize: 12, fontWeight: '600', color: lc.fg }}>
+                          {['📐 ', '📂 ', '📌 '][Math.min(i, 2)]}
+                          {tag}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+
+            {/* Logical path */}
+            {logicalPath ? (
+              <View
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',
-                  justifyContent: 'space-between',
                   paddingHorizontal: 20,
-                  paddingVertical: 10,
+                  paddingBottom: 4,
+                  gap: 6,
                 }}
               >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <View style={{ width: 3, height: 16, borderRadius: 2, backgroundColor: C.accent }} />
-                  <Text style={{ fontSize: 13, fontWeight: '700', color: C.accent }}>
-                    Papercore 摘要
-                  </Text>
-                </View>
-                <Feather
-                  name={showPapercore ? 'chevron-down' : 'chevron-up'}
-                  size={16}
-                  color={C.accent}
-                />
-              </TouchableOpacity>
-
-              {showPapercore && (
-                <View style={{ paddingHorizontal: 20, paddingBottom: 8 }}>
-                  <Text style={{
-                    fontSize: 13,
-                    color: C.text,
-                    lineHeight: 20,
-                    backgroundColor: C.accentBg,
-                    borderRadius: 8,
-                    padding: 12,
-                    overflow: 'hidden',
-                  }}>
-                    {papercore}
-                  </Text>
-                </View>
-              )}
-            </View>
-          ) : (
-            <View style={{ paddingHorizontal: 20, paddingVertical: 8 }}>
-              <Text style={{ fontSize: 12, color: C.placeholder, fontStyle: 'italic' }}>
-                暂无 AI 摘要，点击右上角"重新分析"生成
-              </Text>
-            </View>
-          )}
-
-          {/* Tags */}
-          {tags.length > 0 && (
-            <View style={{ paddingHorizontal: 20, paddingBottom: 8 }}>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                {tags.map((tag, i) => {
-                  const levelColors = [
-                    { bg: '#6C63FF', fg: '#FFF' },
-                    { bg: 'rgba(108,99,255,0.15)', fg: '#6C63FF' },
-                    { bg: 'rgba(108,99,255,0.06)', fg: '#8B83FF' },
-                  ];
-                  const lc = levelColors[Math.min(i, 2)];
-                  return (
-                    <View key={i} style={{
-                      backgroundColor: lc.bg,
-                      paddingHorizontal: 12,
-                      paddingVertical: 6,
-                      borderRadius: 8,
-                    }}>
-                      <Text style={{ fontSize: 12, fontWeight: '600', color: lc.fg }}>
-                        {['📐 ', '📂 ', '📌 '][Math.min(i, 2)]}{tag}
-                      </Text>
-                    </View>
-                  );
-                })}
+                <Feather name="folder" size={12} color={C.accent} />
+                <Text style={{ fontSize: 11, color: C.accent }}>{logicalPath}</Text>
               </View>
-            </View>
-          )}
-
-          {/* Logical path */}
-          {logicalPath ? (
-            <View style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              paddingHorizontal: 20,
-              paddingBottom: 4,
-              gap: 6,
-            }}>
-              <Feather name="folder" size={12} color={C.accent} />
-              <Text style={{ fontSize: 11, color: C.accent }}>{logicalPath}</Text>
-            </View>
-          ) : null}
+            ) : null}
+          </View>
         </View>
-      </View>
-
       </Screen>
 
       {/* Note Helper FAB - outside Screen for true floating */}
-      <NoteHelperFab
-        onPress={() => setNoteHelperVisible(true)}
-        selected={!!id}
-      />
+      <NoteHelperFab onPress={() => setNoteHelperVisible(true)} selected={!!id} />
 
       <NoteHelperPanel
         visible={noteHelperVisible}
@@ -416,12 +443,12 @@ function PDFViewer({ url }: { url: string }) {
         renderError={(errorName: string) => (
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 }}>
             <Feather name="alert-triangle" size={48} color={C.placeholder} />
-            <Text style={{ fontSize: 14, color: C.textSecondary, marginTop: 12, textAlign: 'center' }}>
+            <Text
+              style={{ fontSize: 14, color: C.textSecondary, marginTop: 12, textAlign: 'center' }}
+            >
               PDF 加载失败
             </Text>
-            <Text style={{ fontSize: 12, color: C.placeholder, marginTop: 4 }}>
-              {errorName}
-            </Text>
+            <Text style={{ fontSize: 12, color: C.placeholder, marginTop: 4 }}>{errorName}</Text>
             <TouchableOpacity
               onPress={() => setLoadError(true)}
               style={{

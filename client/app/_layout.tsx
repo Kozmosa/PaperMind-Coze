@@ -10,9 +10,7 @@ import { useEffect } from 'react';
 
 import '../global.css';
 
-LogBox.ignoreLogs([
-  "TurboModuleRegistry.getEnforcing(...): 'RNMapsAirModule' could not be found",
-]);
+LogBox.ignoreLogs(["TurboModuleRegistry.getEnforcing(...): 'RNMapsAirModule' could not be found"]);
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const rootState = useRootNavigationState();

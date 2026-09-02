@@ -134,7 +134,7 @@ export default function NoteHelperSidebar({
 
   // Count citations per source
   const getCitationCount = (fileId: string) => {
-    return citations.filter(c => c.sourceId === fileId).length;
+    return citations.filter((c) => c.sourceId === fileId).length;
   };
 
   if (!visible) return null;
@@ -150,7 +150,12 @@ export default function NoteHelperSidebar({
         <View style={styles.header}>
           {selectedFile ? (
             <View style={styles.headerRow}>
-              <TouchableOpacity onPress={() => { setSelectedFile(null); setFileContent(''); }}>
+              <TouchableOpacity
+                onPress={() => {
+                  setSelectedFile(null);
+                  setFileContent('');
+                }}
+              >
                 <Feather name="arrow-left" size={22} color="#2D3436" />
               </TouchableOpacity>
               <Text style={styles.headerTitle} numberOfLines={1}>
@@ -178,40 +183,40 @@ export default function NoteHelperSidebar({
           fileViewUrl ? (
             <SidebarPDFViewer url={fileViewUrl} />
           ) : (
-          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-            {loadingContent ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color="#6C63FF" />
-                <Text style={styles.loadingText}>加载中...</Text>
-              </View>
-            ) : (
-              <>
-                {/* File meta info */}
-                <View style={styles.fileMeta}>
-                  <View style={styles.fileMetaRow}>
-                    <Feather
-                      name={selectedFile.type === 'study_note' ? 'edit-3' : 'file-text'}
-                      size={14}
-                      color={selectedFile.type === 'study_note' ? '#00B894' : '#FF9F43'}
-                    />
-                    <Text style={styles.fileMetaText}>
-                      {selectedFile.type === 'study_note' ? '学习纪要' : '资料'}
-                    </Text>
-                    {selectedFile.date && (
-                      <Text style={styles.fileMetaText}> · {selectedFile.date}</Text>
-                    )}
-                  </View>
+            <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+              {loadingContent ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color="#6C63FF" />
+                  <Text style={styles.loadingText}>加载中...</Text>
                 </View>
-                {/* Content */}
-                {fileContent.length > 500 ? (
-                  <MarkdownRenderer content={fileContent} maxWidth={SIDEBAR_WIDTH - 40} />
-                ) : (
-                  <Text style={styles.fileContentText}>{fileContent}</Text>
-                )}
-                <View style={{ height: 40 }} />
-              </>
-            )}
-          </ScrollView>
+              ) : (
+                <>
+                  {/* File meta info */}
+                  <View style={styles.fileMeta}>
+                    <View style={styles.fileMetaRow}>
+                      <Feather
+                        name={selectedFile.type === 'study_note' ? 'edit-3' : 'file-text'}
+                        size={14}
+                        color={selectedFile.type === 'study_note' ? '#00B894' : '#FF9F43'}
+                      />
+                      <Text style={styles.fileMetaText}>
+                        {selectedFile.type === 'study_note' ? '学习纪要' : '资料'}
+                      </Text>
+                      {selectedFile.date && (
+                        <Text style={styles.fileMetaText}> · {selectedFile.date}</Text>
+                      )}
+                    </View>
+                  </View>
+                  {/* Content */}
+                  {fileContent.length > 500 ? (
+                    <MarkdownRenderer content={fileContent} maxWidth={SIDEBAR_WIDTH - 40} />
+                  ) : (
+                    <Text style={styles.fileContentText}>{fileContent}</Text>
+                  )}
+                  <View style={{ height: 40 }} />
+                </>
+              )}
+            </ScrollView>
           )
         ) : (
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>

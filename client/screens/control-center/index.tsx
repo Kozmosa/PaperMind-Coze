@@ -79,7 +79,9 @@ export default function ControlCenterScreen() {
 
   // Note Helper state
   const [noteHelperVisible, setNoteHelperVisible] = useState(false);
-  const [noteHelperSourceFiles, setNoteHelperSourceFiles] = useState<Array<{ id: string; type: 'study_note' | 'material'; title: string; logicalPath?: string }>>([]);
+  const [noteHelperSourceFiles, setNoteHelperSourceFiles] = useState<
+    Array<{ id: string; type: 'study_note' | 'material'; title: string; logicalPath?: string }>
+  >([]);
 
   const enterSelectMode = (record: RecentRecord) => {
     setSelectMode(true);
@@ -88,7 +90,7 @@ export default function ControlCenterScreen() {
 
   const toggleSelect = (record: RecentRecord) => {
     const key = `${record.record_type}_${record.id}`;
-    setSelectedIds(prev => {
+    setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(key)) {
         next.delete(key);
@@ -102,11 +104,15 @@ export default function ControlCenterScreen() {
 
   const handleGenerateNote = () => {
     const sourceFiles = allRecords
-      .filter(r => selectedIds.has(`${r.record_type}_${r.id}`))
-      .map(r => ({
+      .filter((r) => selectedIds.has(`${r.record_type}_${r.id}`))
+      .map((r) => ({
         id: r.id,
         type: r.record_type,
-        title: r.title || (r as any).name || r.file_name || (r.record_type === 'study_note' ? '学习纪要' : '资料'),
+        title:
+          r.title ||
+          (r as any).name ||
+          r.file_name ||
+          (r.record_type === 'study_note' ? '学习纪要' : '资料'),
         logicalPath: r.logical_path,
       }));
     setNoteHelperSourceFiles(sourceFiles);
@@ -118,8 +124,12 @@ export default function ControlCenterScreen() {
     let extractedCitations: Citation[] = [];
     await api.generateNoteStream(
       noteHelperSourceFiles,
-      (chunk) => { fullContent += chunk; },
-      (cits) => { extractedCitations = cits; },
+      (chunk) => {
+        fullContent += chunk;
+      },
+      (cits) => {
+        extractedCitations = cits;
+      },
       undefined,
       signal,
     );
@@ -135,9 +145,9 @@ export default function ControlCenterScreen() {
       setAllRecords(records);
       setRecentRecords(records.slice(0, 10));
 
-      const notes = records.filter(r => r.record_type === 'study_note');
-      const materials = records.filter(r => r.record_type === 'material');
-      const unviewed = records.filter(r => r.ai_processed && !r.viewed_after_process);
+      const notes = records.filter((r) => r.record_type === 'study_note');
+      const materials = records.filter((r) => r.record_type === 'material');
+      const unviewed = records.filter((r) => r.ai_processed && !r.viewed_after_process);
 
       setStats({
         notes: notes.length,
@@ -148,14 +158,17 @@ export default function ControlCenterScreen() {
       console.error('Failed to load records', e);
       // Fallback: load separately
       try {
-        const [noteRes, matRes] = await Promise.all([
-          api.getStudyNotes(),
-          api.getMaterials(),
-        ]);
-        const notes = (noteRes.data || []).map((n: any) => ({ ...n, record_type: 'study_note' as const }));
-        const mats = (matRes.data || []).map((m: any) => ({ ...m, record_type: 'material' as const }));
+        const [noteRes, matRes] = await Promise.all([api.getStudyNotes(), api.getMaterials()]);
+        const notes = (noteRes.data || []).map((n: any) => ({
+          ...n,
+          record_type: 'study_note' as const,
+        }));
+        const mats = (matRes.data || []).map((m: any) => ({
+          ...m,
+          record_type: 'material' as const,
+        }));
         const combined = [...notes, ...mats].sort(
-          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
         );
         setAllRecords(combined);
         setRecentRecords(combined.slice(0, 10));
@@ -176,7 +189,7 @@ export default function ControlCenterScreen() {
   useFocusEffect(
     useCallback(() => {
       loadData();
-    }, [refreshKey])
+    }, [refreshKey]),
   );
 
   const handleRecordPress = async (record: RecentRecord) => {
@@ -224,7 +237,11 @@ export default function ControlCenterScreen() {
       let fileName = noteFileName;
 
       if (noteFileUri) {
-        const uploadRes = await api.uploadFile(noteFileUri, noteFileName || 'file', 'application/octet-stream');
+        const uploadRes = await api.uploadFile(
+          noteFileUri,
+          noteFileName || 'file',
+          'application/octet-stream',
+        );
         fileUrl = uploadRes.fileUrl;
         fileName = uploadRes.fileName || noteFileName;
       }
@@ -250,10 +267,12 @@ export default function ControlCenterScreen() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ type: 'study_note', id: newId }),
-        }).then(async () => {
-          // After AI finishes, reload data so red dot appears
-          loadData();
-        }).catch(() => {});
+        })
+          .then(async () => {
+            // After AI finishes, reload data so red dot appears
+            loadData();
+          })
+          .catch(() => {});
       }
     } catch (e: any) {
       Alert.alert('错误', e.message || '保存失败');
@@ -273,7 +292,10 @@ export default function ControlCenterScreen() {
     try {
       console.log('[control-center] Opening file picker...');
       const result = await selectFile();
-      console.log('[control-center] File picker result:', result ? `selected: ${result.name}` : 'cancelled/empty');
+      console.log(
+        '[control-center] File picker result:',
+        result ? `selected: ${result.name}` : 'cancelled/empty',
+      );
       if (result) {
         setMaterialFileUri(result.uri);
         setMaterialFileName(result.name);
@@ -294,7 +316,7 @@ export default function ControlCenterScreen() {
       const uploadRes = await api.uploadFile(
         materialFileUri,
         materialFileName || 'file',
-        'application/octet-stream'
+        'application/octet-stream',
       );
 
       // 上传接口已在服务端同步创建 material 并完成分类（返回 materialId），
@@ -310,7 +332,7 @@ export default function ControlCenterScreen() {
         '上传成功',
         uploadRes.classification?.error
           ? '文件已上传，AI 分类未完成，正在后台重试，完成后小红点提示'
-          : '文件已上传，AI 已自动编排分类，完成后小红点提示'
+          : '文件已上传，AI 已自动编排分类，完成后小红点提示',
       );
 
       // 服务端同步分类失败时，后台重试一次（issue #7 Task 2 的临时兜底）
@@ -320,10 +342,12 @@ export default function ControlCenterScreen() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ type: 'material', id: newId }),
-        }).then(async () => {
-          // After AI finishes, reload data so red dot appears
-          loadData();
-        }).catch(() => {});
+        })
+          .then(async () => {
+            // After AI finishes, reload data so red dot appears
+            loadData();
+          })
+          .catch(() => {});
       }
     } catch (e: any) {
       Alert.alert('错误', e.message || '上传失败');
@@ -334,516 +358,780 @@ export default function ControlCenterScreen() {
 
   return (
     <>
-    <Screen statusBarStyle="dark" safeAreaEdges={['left', 'right', 'bottom']}>
-      <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
-        {/* Header */}
-        <View style={{ paddingTop: insets.top + 16, paddingHorizontal: 20, paddingBottom: 8 }}>
-          <Text style={{ fontSize: 28, fontWeight: '800', color: COLORS.text }}>
-            控制中心
-          </Text>
-          <Text style={{ fontSize: 14, color: COLORS.textSecondary, marginTop: 4 }}>
-            学习数据总览与快捷操作
-          </Text>
-        </View>
+      <Screen statusBarStyle="dark" safeAreaEdges={['left', 'right', 'bottom']}>
+        <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
+          {/* Header */}
+          <View style={{ paddingTop: insets.top + 16, paddingHorizontal: 20, paddingBottom: 8 }}>
+            <Text style={{ fontSize: 28, fontWeight: '800', color: COLORS.text }}>控制中心</Text>
+            <Text style={{ fontSize: 14, color: COLORS.textSecondary, marginTop: 4 }}>
+              学习数据总览与快捷操作
+            </Text>
+          </View>
 
-        <ScrollView
-          style={{ flex: 1 }}
-          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 100 }}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Stats Row */}
-          <View style={{ flexDirection: 'row', gap: 12, marginBottom: 24 }}>
-            {[
-              { label: '学习纪要', value: stats.notes, icon: 'edit-3', color: COLORS.green },
-              { label: '上传资料', value: stats.materials, icon: 'upload', color: COLORS.orange },
-              { label: '待查看', value: stats.unviewed, icon: 'bell', color: COLORS.red },
-            ].map((item, i) => (
-              <View key={i} style={{
-                flex: 1,
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 100 }}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Stats Row */}
+            <View style={{ flexDirection: 'row', gap: 12, marginBottom: 24 }}>
+              {[
+                { label: '学习纪要', value: stats.notes, icon: 'edit-3', color: COLORS.green },
+                { label: '上传资料', value: stats.materials, icon: 'upload', color: COLORS.orange },
+                { label: '待查看', value: stats.unviewed, icon: 'bell', color: COLORS.red },
+              ].map((item, i) => (
+                <View
+                  key={i}
+                  style={{
+                    flex: 1,
+                    backgroundColor: COLORS.card,
+                    borderRadius: 20,
+                    padding: 16,
+                    shadowColor: '#D1D9E6',
+                    shadowOffset: { width: 4, height: 4 },
+                    shadowOpacity: 0.6,
+                    shadowRadius: 6,
+                    elevation: 4,
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 18,
+                      backgroundColor: `${item.color}1A`,
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      marginBottom: 10,
+                    }}
+                  >
+                    <Feather name={item.icon as any} size={16} color={item.color} />
+                  </View>
+                  <Text style={{ fontSize: 24, fontWeight: '800', color: COLORS.text }}>
+                    {item.value}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: COLORS.textSecondary, marginTop: 4 }}>
+                    {item.label}
+                  </Text>
+                </View>
+              ))}
+            </View>
+
+            {/* Quick Actions */}
+            <View
+              style={{
                 backgroundColor: COLORS.card,
-                borderRadius: 20,
-                padding: 16,
+                borderRadius: 24,
+                padding: 20,
+                marginBottom: 24,
                 shadowColor: '#D1D9E6',
                 shadowOffset: { width: 4, height: 4 },
                 shadowOpacity: 0.6,
                 shadowRadius: 6,
                 elevation: 4,
-              }}>
-                <View style={{
-                  width: 36, height: 36, borderRadius: 18,
-                  backgroundColor: `${item.color}1A`,
-                  justifyContent: 'center', alignItems: 'center',
-                  marginBottom: 10,
-                }}>
-                  <Feather name={item.icon as any} size={16} color={item.color} />
-                </View>
-                <Text style={{ fontSize: 24, fontWeight: '800', color: COLORS.text }}>
-                  {item.value}
-                </Text>
-                <Text style={{ fontSize: 12, color: COLORS.textSecondary, marginTop: 4 }}>
-                  {item.label}
-                </Text>
-              </View>
-            ))}
-          </View>
-
-          {/* Quick Actions */}
-          <View style={{
-            backgroundColor: COLORS.card,
-            borderRadius: 24,
-            padding: 20,
-            marginBottom: 24,
-            shadowColor: '#D1D9E6',
-            shadowOffset: { width: 4, height: 4 },
-            shadowOpacity: 0.6,
-            shadowRadius: 6,
-            elevation: 4,
-          }}>
-            <Text style={{ fontSize: 18, fontWeight: '700', color: COLORS.text, marginBottom: 16 }}>
-              快捷操作
-            </Text>
-            <View style={{ flexDirection: 'row', gap: 12 }}>
-              <TouchableOpacity
-                style={{ flex: 1, alignItems: 'center', padding: 16, backgroundColor: '#E8E8EB', borderRadius: 16 }}
-                onPress={() => router.push('/study-note-edit')}
+              }}
+            >
+              <Text
+                style={{ fontSize: 18, fontWeight: '700', color: COLORS.text, marginBottom: 16 }}
               >
-                <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(0,184,148,0.12)', justifyContent: 'center', alignItems: 'center', marginBottom: 10 }}>
-                  <Feather name="edit-3" size={24} color={COLORS.green} />
-                </View>
-                <Text style={{ fontSize: 13, fontWeight: '700', color: COLORS.text }}>写入学习纪要</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={{ flex: 1, alignItems: 'center', padding: 16, backgroundColor: '#E8E8EB', borderRadius: 16 }}
-                onPress={() => setMaterialModalVisible(true)}
-              >
-                <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,159,67,0.12)', justifyContent: 'center', alignItems: 'center', marginBottom: 10 }}>
-                  <Feather name="upload" size={24} color={COLORS.orange} />
-                </View>
-                <Text style={{ fontSize: 13, fontWeight: '700', color: COLORS.text }}>上传资料</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Recent Records */}
-          <View style={{
-            backgroundColor: COLORS.card,
-            borderRadius: 24,
-            padding: 20,
-            marginBottom: 24,
-            shadowColor: '#D1D9E6',
-            shadowOffset: { width: 4, height: 4 },
-            shadowOpacity: 0.6,
-            shadowRadius: 6,
-            elevation: 4,
-          }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Text style={{ fontSize: 18, fontWeight: '700', color: COLORS.text }}>
-                  最近学习
-                </Text>
-                {stats.unviewed > 0 && (
-                  <View style={{ marginLeft: 8, backgroundColor: COLORS.red, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 }}>
-                    <Text style={{ color: '#FFF', fontSize: 12, fontWeight: '700' }}>{stats.unviewed}</Text>
-                  </View>
-                )}
-              </View>
-              <TouchableOpacity onPress={() => setAllRecordsModal(true)}>
-                <Text style={{ fontSize: 14, color: COLORS.primary, fontWeight: '600' }}>查看全部 →</Text>
-              </TouchableOpacity>
-            </View>
-
-            {loading ? (
-              <View style={{ alignItems: 'center', paddingVertical: 24 }}>
-                <Text style={{ color: COLORS.textMuted }}>加载中...</Text>
-              </View>
-            ) : recentRecords.length === 0 ? (
-              <View style={{ alignItems: 'center', paddingVertical: 24 }}>
-                <Feather name="inbox" size={40} color={COLORS.textMuted} />
-                <Text style={{ fontSize: 14, color: COLORS.textSecondary, marginTop: 12, textAlign: 'center' }}>
-                  还没有学习记录
-                </Text>
-                <Text style={{ fontSize: 12, color: COLORS.textMuted, marginTop: 4 }}>
-                  点击上方快捷操作开始记录
-                </Text>
-              </View>
-            ) : (
-              recentRecords.map((record) => {
-                const isNote = record.record_type === 'study_note';
-                const hasRedDot = record.ai_processed && !record.viewed_after_process;
-                const displayTitle = record.title || (record as any).name || record.file_name || (isNote ? '学习纪要' : '上传资料');
-                const selected = selectedIds.has(`${record.record_type}_${record.id}`);
-
-                return (
-                  <TouchableOpacity
-                    key={`${record.record_type}_${record.id}`}
+                快捷操作
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    alignItems: 'center',
+                    padding: 16,
+                    backgroundColor: '#E8E8EB',
+                    borderRadius: 16,
+                  }}
+                  onPress={() => router.push('/study-note-edit')}
+                >
+                  <View
                     style={{
-                      flexDirection: 'row',
+                      width: 48,
+                      height: 48,
+                      borderRadius: 24,
+                      backgroundColor: 'rgba(0,184,148,0.12)',
+                      justifyContent: 'center',
                       alignItems: 'center',
-                      paddingVertical: 12,
-                      borderBottomWidth: 1,
-                      borderBottomColor: 'rgba(0,0,0,0.04)',
+                      marginBottom: 10,
                     }}
-                    onPress={() => handleRecordPress(record)}
-                    onLongPress={() => enterSelectMode(record)}
                   >
-                    {/* Checkbox in select mode */}
-                    {selectMode && (
-                      <View style={{ marginRight: 10 }}>
+                    <Feather name="edit-3" size={24} color={COLORS.green} />
+                  </View>
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: COLORS.text }}>
+                    写入学习纪要
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    alignItems: 'center',
+                    padding: 16,
+                    backgroundColor: '#E8E8EB',
+                    borderRadius: 16,
+                  }}
+                  onPress={() => setMaterialModalVisible(true)}
+                >
+                  <View
+                    style={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: 24,
+                      backgroundColor: 'rgba(255,159,67,0.12)',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      marginBottom: 10,
+                    }}
+                  >
+                    <Feather name="upload" size={24} color={COLORS.orange} />
+                  </View>
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: COLORS.text }}>
+                    上传资料
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Recent Records */}
+            <View
+              style={{
+                backgroundColor: COLORS.card,
+                borderRadius: 24,
+                padding: 20,
+                marginBottom: 24,
+                shadowColor: '#D1D9E6',
+                shadowOffset: { width: 4, height: 4 },
+                shadowOpacity: 0.6,
+                shadowRadius: 6,
+                elevation: 4,
+              }}
+            >
+              <View
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: 16,
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: COLORS.text }}>
+                    最近学习
+                  </Text>
+                  {stats.unviewed > 0 && (
+                    <View
+                      style={{
+                        marginLeft: 8,
+                        backgroundColor: COLORS.red,
+                        borderRadius: 10,
+                        paddingHorizontal: 8,
+                        paddingVertical: 2,
+                      }}
+                    >
+                      <Text style={{ color: '#FFF', fontSize: 12, fontWeight: '700' }}>
+                        {stats.unviewed}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                <TouchableOpacity onPress={() => setAllRecordsModal(true)}>
+                  <Text style={{ fontSize: 14, color: COLORS.primary, fontWeight: '600' }}>
+                    查看全部 →
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {loading ? (
+                <View style={{ alignItems: 'center', paddingVertical: 24 }}>
+                  <Text style={{ color: COLORS.textMuted }}>加载中...</Text>
+                </View>
+              ) : recentRecords.length === 0 ? (
+                <View style={{ alignItems: 'center', paddingVertical: 24 }}>
+                  <Feather name="inbox" size={40} color={COLORS.textMuted} />
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      color: COLORS.textSecondary,
+                      marginTop: 12,
+                      textAlign: 'center',
+                    }}
+                  >
+                    还没有学习记录
+                  </Text>
+                  <Text style={{ fontSize: 12, color: COLORS.textMuted, marginTop: 4 }}>
+                    点击上方快捷操作开始记录
+                  </Text>
+                </View>
+              ) : (
+                recentRecords.map((record) => {
+                  const isNote = record.record_type === 'study_note';
+                  const hasRedDot = record.ai_processed && !record.viewed_after_process;
+                  const displayTitle =
+                    record.title ||
+                    (record as any).name ||
+                    record.file_name ||
+                    (isNote ? '学习纪要' : '上传资料');
+                  const selected = selectedIds.has(`${record.record_type}_${record.id}`);
+
+                  return (
+                    <TouchableOpacity
+                      key={`${record.record_type}_${record.id}`}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        paddingVertical: 12,
+                        borderBottomWidth: 1,
+                        borderBottomColor: 'rgba(0,0,0,0.04)',
+                      }}
+                      onPress={() => handleRecordPress(record)}
+                      onLongPress={() => enterSelectMode(record)}
+                    >
+                      {/* Checkbox in select mode */}
+                      {selectMode && (
+                        <View style={{ marginRight: 10 }}>
+                          <Feather
+                            name={selected ? 'check-square' : 'square'}
+                            size={22}
+                            color={selected ? COLORS.primary : COLORS.textMuted}
+                          />
+                        </View>
+                      )}
+                      <View
+                        style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: 20,
+                          backgroundColor: isNote
+                            ? 'rgba(0,184,148,0.12)'
+                            : 'rgba(255,159,67,0.12)',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                        }}
+                      >
                         <Feather
-                          name={selected ? 'check-square' : 'square'}
-                          size={22}
-                          color={selected ? COLORS.primary : COLORS.textMuted}
+                          name={isNote ? 'edit-3' : 'upload'}
+                          size={18}
+                          color={isNote ? COLORS.green : COLORS.orange}
                         />
                       </View>
-                    )}
-                    <View style={{
-                      width: 40, height: 40, borderRadius: 20,
-                      backgroundColor: isNote ? 'rgba(0,184,148,0.12)' : 'rgba(255,159,67,0.12)',
-                      justifyContent: 'center', alignItems: 'center',
-                    }}>
-                      <Feather
-                        name={isNote ? 'edit-3' : 'upload'}
-                        size={18}
-                        color={isNote ? COLORS.green : COLORS.orange}
-                      />
-                    </View>
-                    <View style={{ flex: 1, marginLeft: 12 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <Text style={{ fontSize: 14, fontWeight: '600', color: COLORS.text, flex: 1 }} numberOfLines={1}>
-                          {displayTitle}
-                        </Text>
-                        {hasRedDot && (
-                          <View style={{
-                            width: 10,
-                            height: 10,
-                            borderRadius: 5,
-                            backgroundColor: COLORS.red,
-                            marginLeft: 6,
-                          }} />
-                        )}
+                      <View style={{ flex: 1, marginLeft: 12 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <Text
+                            style={{ fontSize: 14, fontWeight: '600', color: COLORS.text, flex: 1 }}
+                            numberOfLines={1}
+                          >
+                            {displayTitle}
+                          </Text>
+                          {hasRedDot && (
+                            <View
+                              style={{
+                                width: 10,
+                                height: 10,
+                                borderRadius: 5,
+                                backgroundColor: COLORS.red,
+                                marginLeft: 6,
+                              }}
+                            />
+                          )}
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+                          <Text style={{ fontSize: 12, color: COLORS.textSecondary }}>
+                            {isNote ? '学习纪要' : '资料'} · {formatDate(record.created_at)}
+                          </Text>
+                          {record.logical_path ? (
+                            <View
+                              style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 8 }}
+                            >
+                              <Feather name="folder" size={10} color={COLORS.textMuted} />
+                              <Text
+                                style={{ fontSize: 10, color: COLORS.textMuted, marginLeft: 2 }}
+                                numberOfLines={1}
+                              >
+                                {record.logical_path.split('/').filter(Boolean).slice(-1)[0] || ''}
+                              </Text>
+                            </View>
+                          ) : null}
+                        </View>
+                        {record.papercore ? (
+                          <Text
+                            style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}
+                            numberOfLines={1}
+                          >
+                            {record.papercore}
+                          </Text>
+                        ) : null}
                       </View>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-                        <Text style={{ fontSize: 12, color: COLORS.textSecondary }}>
+                      <Feather name="chevron-right" size={16} color={COLORS.textMuted} />
+                    </TouchableOpacity>
+                  );
+                })
+              )}
+            </View>
+          </ScrollView>
+        </View>
+
+        {/* Study Note Modal */}
+        <Modal visible={noteModalVisible} animationType="slide" transparent>
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}>
+            <View
+              style={{
+                backgroundColor: COLORS.white,
+                borderTopLeftRadius: 24,
+                borderTopRightRadius: 24,
+                maxHeight: '90%',
+              }}
+            >
+              <View
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: 20,
+                  borderBottomWidth: 1,
+                  borderBottomColor: COLORS.bg,
+                }}
+              >
+                <Text style={{ fontSize: 18, fontWeight: '700', color: COLORS.text }}>
+                  📝 新学习便签
+                </Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    setNoteModalVisible(false);
+                    resetNoteForm();
+                  }}
+                >
+                  <Feather name="x" size={24} color={COLORS.textSecondary} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={{ padding: 20 }} showsVerticalScrollIndicator={false}>
+                <Text
+                  style={{ fontSize: 14, fontWeight: '600', color: COLORS.text, marginBottom: 8 }}
+                >
+                  标题
+                </Text>
+                <TextInput
+                  style={{
+                    backgroundColor: COLORS.bg,
+                    borderRadius: 16,
+                    padding: 14,
+                    fontSize: 15,
+                    color: COLORS.text,
+                    marginBottom: 16,
+                  }}
+                  placeholder="输入便签标题..."
+                  placeholderTextColor={COLORS.textMuted}
+                  value={noteTitle}
+                  onChangeText={setNoteTitle}
+                />
+
+                <Text
+                  style={{ fontSize: 14, fontWeight: '600', color: COLORS.text, marginBottom: 8 }}
+                >
+                  内容
+                </Text>
+                <TextInput
+                  style={{
+                    backgroundColor: COLORS.bg,
+                    borderRadius: 16,
+                    padding: 14,
+                    fontSize: 15,
+                    color: COLORS.text,
+                    marginBottom: 16,
+                    minHeight: 120,
+                    textAlignVertical: 'top',
+                  }}
+                  placeholder="今天学到了什么？写下你的理解..."
+                  placeholderTextColor={COLORS.textMuted}
+                  value={noteContent}
+                  onChangeText={setNoteContent}
+                  multiline
+                  textAlignVertical="top"
+                />
+
+                <Text
+                  style={{ fontSize: 14, fontWeight: '600', color: COLORS.text, marginBottom: 8 }}
+                >
+                  附件（可选）
+                </Text>
+                <TouchableOpacity
+                  style={{
+                    borderRadius: 16,
+                    borderWidth: 2,
+                    borderStyle: 'dashed',
+                    borderColor: COLORS.textMuted,
+                    padding: 20,
+                    alignItems: 'center',
+                    marginBottom: 24,
+                  }}
+                  onPress={handleSelectNoteFile}
+                >
+                  {noteFileUri ? (
+                    <View style={{ alignItems: 'center' }}>
+                      <Feather name="file" size={32} color={COLORS.primary} />
+                      <Text style={{ marginTop: 8, color: COLORS.primary, fontWeight: '600' }}>
+                        {noteFileName}
+                      </Text>
+                    </View>
+                  ) : (
+                    <View style={{ alignItems: 'center' }}>
+                      <Feather name="image" size={32} color={COLORS.textMuted} />
+                      <Text style={{ marginTop: 8, color: COLORS.textMuted }}>
+                        点击上传照片或文件
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={{
+                    backgroundColor: noteSubmitting ? '#D1D5DB' : COLORS.primary,
+                    borderRadius: 16,
+                    padding: 16,
+                    alignItems: 'center',
+                    marginBottom: 24,
+                  }}
+                  onPress={handleSubmitNote}
+                  disabled={noteSubmitting}
+                >
+                  <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 16 }}>
+                    保存学习纪要
+                  </Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Material Modal */}
+        <Modal visible={materialModalVisible} animationType="slide" transparent>
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}>
+            <View
+              style={{
+                backgroundColor: COLORS.white,
+                borderTopLeftRadius: 24,
+                borderTopRightRadius: 24,
+              }}
+            >
+              <View
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: 20,
+                  borderBottomWidth: 1,
+                  borderBottomColor: COLORS.bg,
+                }}
+              >
+                <Text style={{ fontSize: 18, fontWeight: '700', color: COLORS.text }}>
+                  上传资料
+                </Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    setMaterialModalVisible(false);
+                    setMaterialFileUri(null);
+                    setMaterialFileName(null);
+                  }}
+                >
+                  <Feather name="x" size={24} color={COLORS.textSecondary} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={{ padding: 20 }}>
+                <Text
+                  style={{ fontSize: 14, fontWeight: '600', color: COLORS.text, marginBottom: 8 }}
+                >
+                  选择文件
+                </Text>
+                <TouchableOpacity
+                  style={{
+                    borderRadius: 16,
+                    borderWidth: 2,
+                    borderStyle: 'dashed',
+                    borderColor: COLORS.textMuted,
+                    padding: 32,
+                    alignItems: 'center',
+                    marginBottom: 24,
+                  }}
+                  onPress={handleSelectMaterialFile}
+                >
+                  {materialFileUri ? (
+                    <View style={{ alignItems: 'center' }}>
+                      <Feather name="file" size={40} color={COLORS.orange} />
+                      <Text style={{ marginTop: 8, color: COLORS.orange, fontWeight: '600' }}>
+                        {materialFileName}
+                      </Text>
+                    </View>
+                  ) : (
+                    <View style={{ alignItems: 'center' }}>
+                      <Feather name="upload" size={40} color={COLORS.textMuted} />
+                      <Text style={{ marginTop: 8, color: COLORS.textMuted }}>点击选择文件</Text>
+                      <Text style={{ marginTop: 4, color: COLORS.textMuted, fontSize: 12 }}>
+                        支持图片、PDF、文档等
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={{
+                    backgroundColor:
+                      !materialFileUri || materialSubmitting ? '#D1D5DB' : COLORS.orange,
+                    borderRadius: 16,
+                    padding: 16,
+                    alignItems: 'center',
+                    marginBottom: 24,
+                  }}
+                  onPress={handleSubmitMaterial}
+                  disabled={!materialFileUri || materialSubmitting}
+                >
+                  <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 16 }}>上传资料</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* All Records Modal */}
+        <Modal visible={allRecordsModal} animationType="slide" transparent>
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}>
+            <View
+              style={{
+                backgroundColor: COLORS.white,
+                borderTopLeftRadius: 24,
+                borderTopRightRadius: 24,
+                maxHeight: '85%',
+              }}
+            >
+              <View
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: 20,
+                  borderBottomWidth: 1,
+                  borderBottomColor: COLORS.bg,
+                }}
+              >
+                <Text style={{ fontSize: 18, fontWeight: '700', color: COLORS.text }}>
+                  全部记录
+                </Text>
+                <TouchableOpacity onPress={() => setAllRecordsModal(false)}>
+                  <Feather name="x" size={24} color={COLORS.textSecondary} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={{ padding: 20 }} showsVerticalScrollIndicator={false}>
+                {allRecords.map((record) => {
+                  const isNote = record.record_type === 'study_note';
+                  const hasRedDot = record.ai_processed && !record.viewed_after_process;
+                  const displayTitle =
+                    record.title ||
+                    (record as any).name ||
+                    record.file_name ||
+                    (isNote ? '学习纪要' : '上传资料');
+                  const selected = selectedIds.has(`${record.record_type}_${record.id}`);
+
+                  return (
+                    <TouchableOpacity
+                      key={`all_${record.record_type}_${record.id}`}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        paddingVertical: 14,
+                        borderBottomWidth: 1,
+                        borderBottomColor: COLORS.bg,
+                      }}
+                      onPress={() => {
+                        if (selectMode) {
+                          toggleSelect(record);
+                        } else {
+                          setAllRecordsModal(false);
+                          handleRecordPress(record);
+                        }
+                      }}
+                      onLongPress={() => {
+                        if (!selectMode) enterSelectMode(record);
+                      }}
+                    >
+                      {selectMode && (
+                        <View style={{ marginRight: 10 }}>
+                          <Feather
+                            name={selected ? 'check-square' : 'square'}
+                            size={22}
+                            color={selected ? COLORS.primary : COLORS.textMuted}
+                          />
+                        </View>
+                      )}
+                      <View
+                        style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: 20,
+                          backgroundColor: isNote
+                            ? 'rgba(0,184,148,0.12)'
+                            : 'rgba(255,159,67,0.12)',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Feather
+                          name={isNote ? 'edit-3' : 'upload'}
+                          size={18}
+                          color={isNote ? COLORS.green : COLORS.orange}
+                        />
+                      </View>
+                      <View style={{ flex: 1, marginLeft: 12 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <Text
+                            style={{ fontSize: 14, fontWeight: '600', color: COLORS.text, flex: 1 }}
+                            numberOfLines={1}
+                          >
+                            {displayTitle}
+                          </Text>
+                          {hasRedDot && (
+                            <View
+                              style={{
+                                width: 10,
+                                height: 10,
+                                borderRadius: 5,
+                                backgroundColor: COLORS.red,
+                                marginLeft: 6,
+                              }}
+                            />
+                          )}
+                        </View>
+                        <Text style={{ fontSize: 12, color: COLORS.textSecondary, marginTop: 2 }}>
                           {isNote ? '学习纪要' : '资料'} · {formatDate(record.created_at)}
                         </Text>
+                        {record.papercore ? (
+                          <Text
+                            style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}
+                            numberOfLines={1}
+                          >
+                            {record.papercore}
+                          </Text>
+                        ) : null}
                         {record.logical_path ? (
-                          <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 8 }}>
-                            <Feather name="folder" size={10} color={COLORS.textMuted} />
-                            <Text style={{ fontSize: 10, color: COLORS.textMuted, marginLeft: 2 }} numberOfLines={1}>
-                              {record.logical_path.split('/').filter(Boolean).slice(-1)[0] || ''}
+                          <View
+                            style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}
+                          >
+                            <Feather name="folder" size={10} color={COLORS.primary} />
+                            <Text style={{ fontSize: 10, color: COLORS.primary, marginLeft: 4 }}>
+                              {record.logical_path}
                             </Text>
                           </View>
                         ) : null}
                       </View>
-                      {record.papercore ? (
-                        <Text style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }} numberOfLines={1}>
-                          {record.papercore}
-                        </Text>
-                      ) : null}
-                    </View>
-                    <Feather name="chevron-right" size={16} color={COLORS.textMuted} />
-                  </TouchableOpacity>
-                );
-              })
-            )}
-          </View>
-        </ScrollView>
-      </View>
-
-      {/* Study Note Modal */}
-      <Modal visible={noteModalVisible} animationType="slide" transparent>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}>
-          <View style={{ backgroundColor: COLORS.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '90%' }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: COLORS.bg }}>
-              <Text style={{ fontSize: 18, fontWeight: '700', color: COLORS.text }}>📝 新学习便签</Text>
-              <TouchableOpacity onPress={() => { setNoteModalVisible(false); resetNoteForm(); }}>
-                <Feather name="x" size={24} color={COLORS.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={{ padding: 20 }} showsVerticalScrollIndicator={false}>
-              <Text style={{ fontSize: 14, fontWeight: '600', color: COLORS.text, marginBottom: 8 }}>标题</Text>
-              <TextInput
-                style={{ backgroundColor: COLORS.bg, borderRadius: 16, padding: 14, fontSize: 15, color: COLORS.text, marginBottom: 16 }}
-                placeholder="输入便签标题..."
-                placeholderTextColor={COLORS.textMuted}
-                value={noteTitle}
-                onChangeText={setNoteTitle}
-              />
-
-              <Text style={{ fontSize: 14, fontWeight: '600', color: COLORS.text, marginBottom: 8 }}>内容</Text>
-              <TextInput
-                style={{ backgroundColor: COLORS.bg, borderRadius: 16, padding: 14, fontSize: 15, color: COLORS.text, marginBottom: 16, minHeight: 120, textAlignVertical: 'top' }}
-                placeholder="今天学到了什么？写下你的理解..."
-                placeholderTextColor={COLORS.textMuted}
-                value={noteContent}
-                onChangeText={setNoteContent}
-                multiline
-                textAlignVertical="top"
-              />
-
-              <Text style={{ fontSize: 14, fontWeight: '600', color: COLORS.text, marginBottom: 8 }}>附件（可选）</Text>
-              <TouchableOpacity
-                style={{ borderRadius: 16, borderWidth: 2, borderStyle: 'dashed', borderColor: COLORS.textMuted, padding: 20, alignItems: 'center', marginBottom: 24 }}
-                onPress={handleSelectNoteFile}
-              >
-                {noteFileUri ? (
-                  <View style={{ alignItems: 'center' }}>
-                    <Feather name="file" size={32} color={COLORS.primary} />
-                    <Text style={{ marginTop: 8, color: COLORS.primary, fontWeight: '600' }}>{noteFileName}</Text>
-                  </View>
-                ) : (
-                  <View style={{ alignItems: 'center' }}>
-                    <Feather name="image" size={32} color={COLORS.textMuted} />
-                    <Text style={{ marginTop: 8, color: COLORS.textMuted }}>点击上传照片或文件</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={{ backgroundColor: noteSubmitting ? '#D1D5DB' : COLORS.primary, borderRadius: 16, padding: 16, alignItems: 'center', marginBottom: 24 }}
-                onPress={handleSubmitNote}
-                disabled={noteSubmitting}
-              >
-                <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 16 }}>
-                  保存学习纪要
-                </Text>
-              </TouchableOpacity>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Material Modal */}
-      <Modal visible={materialModalVisible} animationType="slide" transparent>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}>
-          <View style={{ backgroundColor: COLORS.white, borderTopLeftRadius: 24, borderTopRightRadius: 24 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: COLORS.bg }}>
-              <Text style={{ fontSize: 18, fontWeight: '700', color: COLORS.text }}>上传资料</Text>
-              <TouchableOpacity onPress={() => { setMaterialModalVisible(false); setMaterialFileUri(null); setMaterialFileName(null); }}>
-                <Feather name="x" size={24} color={COLORS.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={{ padding: 20 }}>
-              <Text style={{ fontSize: 14, fontWeight: '600', color: COLORS.text, marginBottom: 8 }}>选择文件</Text>
-              <TouchableOpacity
-                style={{ borderRadius: 16, borderWidth: 2, borderStyle: 'dashed', borderColor: COLORS.textMuted, padding: 32, alignItems: 'center', marginBottom: 24 }}
-                onPress={handleSelectMaterialFile}
-              >
-                {materialFileUri ? (
-                  <View style={{ alignItems: 'center' }}>
-                    <Feather name="file" size={40} color={COLORS.orange} />
-                    <Text style={{ marginTop: 8, color: COLORS.orange, fontWeight: '600' }}>{materialFileName}</Text>
-                  </View>
-                ) : (
-                  <View style={{ alignItems: 'center' }}>
-                    <Feather name="upload" size={40} color={COLORS.textMuted} />
-                    <Text style={{ marginTop: 8, color: COLORS.textMuted }}>点击选择文件</Text>
-                    <Text style={{ marginTop: 4, color: COLORS.textMuted, fontSize: 12 }}>支持图片、PDF、文档等</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={{ backgroundColor: !materialFileUri || materialSubmitting ? '#D1D5DB' : COLORS.orange, borderRadius: 16, padding: 16, alignItems: 'center', marginBottom: 24 }}
-                onPress={handleSubmitMaterial}
-                disabled={!materialFileUri || materialSubmitting}
-              >
-                <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 16 }}>
-                  上传资料
-                </Text>
-              </TouchableOpacity>
+                      <Feather name="chevron-right" size={16} color={COLORS.textMuted} />
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
             </View>
           </View>
-        </View>
-      </Modal>
+        </Modal>
 
-      {/* All Records Modal */}
-      <Modal visible={allRecordsModal} animationType="slide" transparent>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}>
-          <View style={{ backgroundColor: COLORS.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '85%' }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: COLORS.bg }}>
-              <Text style={{ fontSize: 18, fontWeight: '700', color: COLORS.text }}>全部记录</Text>
-              <TouchableOpacity onPress={() => setAllRecordsModal(false)}>
-                <Feather name="x" size={24} color={COLORS.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={{ padding: 20 }} showsVerticalScrollIndicator={false}>
-              {allRecords.map((record) => {
-                const isNote = record.record_type === 'study_note';
-                const hasRedDot = record.ai_processed && !record.viewed_after_process;
-                const displayTitle = record.title || (record as any).name || record.file_name || (isNote ? '学习纪要' : '上传资料');
-                const selected = selectedIds.has(`${record.record_type}_${record.id}`);
-
-                return (
-                  <TouchableOpacity
-                    key={`all_${record.record_type}_${record.id}`}
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      paddingVertical: 14,
-                      borderBottomWidth: 1,
-                      borderBottomColor: COLORS.bg,
-                    }}
-                    onPress={() => {
-                      if (selectMode) {
-                        toggleSelect(record);
-                      } else {
-                        setAllRecordsModal(false);
-                        handleRecordPress(record);
-                      }
-                    }}
-                    onLongPress={() => {
-                      if (!selectMode) enterSelectMode(record);
-                    }}
-                  >
-                    {selectMode && (
-                      <View style={{ marginRight: 10 }}>
-                        <Feather
-                          name={selected ? 'check-square' : 'square'}
-                          size={22}
-                          color={selected ? COLORS.primary : COLORS.textMuted}
-                        />
-                      </View>
-                    )}
-                    <View style={{
-                      width: 40, height: 40, borderRadius: 20,
-                      backgroundColor: isNote ? 'rgba(0,184,148,0.12)' : 'rgba(255,159,67,0.12)',
-                      justifyContent: 'center', alignItems: 'center',
-                    }}>
-                      <Feather
-                        name={isNote ? 'edit-3' : 'upload'}
-                        size={18}
-                        color={isNote ? COLORS.green : COLORS.orange}
-                      />
-                    </View>
-                    <View style={{ flex: 1, marginLeft: 12 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <Text style={{ fontSize: 14, fontWeight: '600', color: COLORS.text, flex: 1 }} numberOfLines={1}>
-                          {displayTitle}
-                        </Text>
-                        {hasRedDot && (
-                          <View style={{
-                            width: 10, height: 10, borderRadius: 5,
-                            backgroundColor: COLORS.red, marginLeft: 6,
-                          }} />
-                        )}
-                      </View>
-                      <Text style={{ fontSize: 12, color: COLORS.textSecondary, marginTop: 2 }}>
-                        {isNote ? '学习纪要' : '资料'} · {formatDate(record.created_at)}
-                      </Text>
-                      {record.papercore ? (
-                        <Text style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }} numberOfLines={1}>
-                          {record.papercore}
-                        </Text>
-                      ) : null}
-                      {record.logical_path ? (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-                          <Feather name="folder" size={10} color={COLORS.primary} />
-                          <Text style={{ fontSize: 10, color: COLORS.primary, marginLeft: 4 }}>{record.logical_path}</Text>
-                        </View>
-                      ) : null}
-                    </View>
-                    <Feather name="chevron-right" size={16} color={COLORS.textMuted} />
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Multi-select bottom bar */}
-      {selectMode && (
-        <View style={{
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          backgroundColor: '#FFFFFF',
-          borderTopWidth: 1,
-          borderTopColor: '#F0F0F3',
-          paddingBottom: insets.bottom + 8,
-          paddingHorizontal: 20,
-          paddingTop: 12,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 8,
-          elevation: 10,
-        }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <TouchableOpacity
-              onPress={() => { setSelectMode(false); setSelectedIds(new Set()); }}
-            >
-              <Feather name="x" size={22} color={COLORS.textSecondary} />
-            </TouchableOpacity>
-            <Text style={{ fontSize: 16, fontWeight: '700', color: COLORS.text }}>
-              已选 {selectedIds.size} 个
-            </Text>
-          </View>
-          <TouchableOpacity
+        {/* Multi-select bottom bar */}
+        {selectMode && (
+          <View
             style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              backgroundColor: '#FFFFFF',
+              borderTopWidth: 1,
+              borderTopColor: '#F0F0F3',
+              paddingBottom: insets.bottom + 8,
+              paddingHorizontal: 20,
+              paddingTop: 12,
               flexDirection: 'row',
               alignItems: 'center',
-              gap: 6,
-              backgroundColor: selectedIds.size > 0 ? COLORS.primary : '#D1D5DB',
-              paddingHorizontal: 20,
-              paddingVertical: 10,
-              borderRadius: 20,
+              justifyContent: 'space-between',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: -2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 8,
+              elevation: 10,
             }}
-            onPress={handleGenerateNote}
-            disabled={selectedIds.size === 0}
           >
-            <Feather name="edit-3" size={16} color="#FFF" />
-            <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 14 }}>生成笔记</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* Select mode header hint */}
-      {selectMode && (
-        <View style={{
-          position: 'absolute',
-          top: insets.top + 16,
-          left: 0,
-          right: 0,
-          alignItems: 'center',
-          zIndex: 10,
-          pointerEvents: 'none',
-        }}>
-          <View style={{
-            backgroundColor: COLORS.primary,
-            paddingHorizontal: 16,
-            paddingVertical: 6,
-            borderRadius: 20,
-            opacity: 0.9,
-          }}>
-            <Text style={{ color: '#FFF', fontSize: 13, fontWeight: '600' }}>
-              长按进入多选 · 已选 {selectedIds.size} 项
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <TouchableOpacity
+                onPress={() => {
+                  setSelectMode(false);
+                  setSelectedIds(new Set());
+                }}
+              >
+                <Feather name="x" size={22} color={COLORS.textSecondary} />
+              </TouchableOpacity>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: COLORS.text }}>
+                已选 {selectedIds.size} 个
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6,
+                backgroundColor: selectedIds.size > 0 ? COLORS.primary : '#D1D5DB',
+                paddingHorizontal: 20,
+                paddingVertical: 10,
+                borderRadius: 20,
+              }}
+              onPress={handleGenerateNote}
+              disabled={selectedIds.size === 0}
+            >
+              <Feather name="edit-3" size={16} color="#FFF" />
+              <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 14 }}>生成笔记</Text>
+            </TouchableOpacity>
           </View>
-        </View>
-      )}
-    </Screen>
+        )}
 
-    {/* Note Helper Panel */}
-    <NoteHelperPanel
-      visible={noteHelperVisible}
-      onClose={() => {
-        setNoteHelperVisible(false);
-        setSelectMode(false);
-        setSelectedIds(new Set());
-      }}
-      sourceFiles={noteHelperSourceFiles}
-      onGenerate={handleNoteHelperGenerate}
-    />
+        {/* Select mode header hint */}
+        {selectMode && (
+          <View
+            style={{
+              position: 'absolute',
+              top: insets.top + 16,
+              left: 0,
+              right: 0,
+              alignItems: 'center',
+              zIndex: 10,
+              pointerEvents: 'none',
+            }}
+          >
+            <View
+              style={{
+                backgroundColor: COLORS.primary,
+                paddingHorizontal: 16,
+                paddingVertical: 6,
+                borderRadius: 20,
+                opacity: 0.9,
+              }}
+            >
+              <Text style={{ color: '#FFF', fontSize: 13, fontWeight: '600' }}>
+                长按进入多选 · 已选 {selectedIds.size} 项
+              </Text>
+            </View>
+          </View>
+        )}
+      </Screen>
+
+      {/* Note Helper Panel */}
+      <NoteHelperPanel
+        visible={noteHelperVisible}
+        onClose={() => {
+          setNoteHelperVisible(false);
+          setSelectMode(false);
+          setSelectedIds(new Set());
+        }}
+        sourceFiles={noteHelperSourceFiles}
+        onGenerate={handleNoteHelperGenerate}
+      />
     </>
   );
 }
@@ -856,10 +1144,17 @@ async function selectFile(): Promise<{ uri: string; name: string; type: string }
       type: '*/*',
       copyToCacheDirectory: true,
     });
-    console.log('[selectFile] Result:', JSON.stringify({ canceled: result.canceled, assetsCount: result.assets?.length }));
+    console.log(
+      '[selectFile] Result:',
+      JSON.stringify({ canceled: result.canceled, assetsCount: result.assets?.length }),
+    );
     if (!result.canceled && result.assets?.[0]) {
       const asset = result.assets[0];
-      console.log('[selectFile] Asset:', { name: asset.name, mimeType: asset.mimeType, uriPrefix: asset.uri?.slice(0, 40) });
+      console.log('[selectFile] Asset:', {
+        name: asset.name,
+        mimeType: asset.mimeType,
+        uriPrefix: asset.uri?.slice(0, 40),
+      });
       return {
         uri: asset.uri,
         name: asset.name || 'uploaded_file',

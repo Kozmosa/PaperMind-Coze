@@ -23,7 +23,8 @@ const UNREADABLE_FILE_COURSE_MAP: {
     pattern: /^Bi_/i,
     L1: '数学',
     L2: '运筹学',
-    courseSystem: '线性规划、单纯形法、对偶理论、灵敏度分析、运输问题、指派问题、网络优化、动态规划、整数规划、博弈论、决策分析、排队论、库存论、非线性规划',
+    courseSystem:
+      '线性规划、单纯形法、对偶理论、灵敏度分析、运输问题、指派问题、网络优化、动态规划、整数规划、博弈论、决策分析、排队论、库存论、非线性规划',
     topicHint: 'Bi_ORC{N} 中 N 对应课程模块，week{X} 对应教学周，据此推断话题',
   },
 ];
@@ -56,7 +57,7 @@ async function getExistingTagHierarchy(userId: string): Promise<{
   const L2 = new Set<string>();
   const L3 = new Set<string>();
 
-  allTags.forEach(tagArr => {
+  allTags.forEach((tagArr) => {
     // Format: [L1, L2, ...L3s]
     if (tagArr.length >= 1 && tagArr[0]) L1.add(tagArr[0]);
     if (tagArr.length >= 2 && tagArr[1]) L2.add(tagArr[1]);
@@ -83,7 +84,6 @@ function extractText(record: any): string {
   return '';
 }
 
-
 // ==========================================
 // Helper: Strip TOC (table of contents) from extracted PDF text
 // TOC pages have dense dot leaders and page numbers but no real content
@@ -109,7 +109,9 @@ function stripTOC(text: string): string {
       const skipTo = markers[2];
       if (skipTo > 500 && skipTo < text.length - 100) {
         const trimmed = text.slice(skipTo).trim();
-        console.log(`[stripTOC] dot density ${(dotRatio*100).toFixed(1)}%, skipped ${skipTo} chars to page marker 3, remaining: ${trimmed.length}`);
+        console.log(
+          `[stripTOC] dot density ${(dotRatio * 100).toFixed(1)}%, skipped ${skipTo} chars to page marker 3, remaining: ${trimmed.length}`,
+        );
         return trimmed;
       }
     }
@@ -117,7 +119,9 @@ function stripTOC(text: string): string {
     // Fallback: skip first 3000 chars (roughly 1-2 pages of TOC)
     if (text.length > 4000) {
       const trimmed = text.slice(3000).trim();
-      console.log(`[stripTOC] dot density ${(dotRatio*100).toFixed(1)}%, skip-first-3000 fallback, remaining: ${trimmed.length}`);
+      console.log(
+        `[stripTOC] dot density ${(dotRatio * 100).toFixed(1)}%, skip-first-3000 fallback, remaining: ${trimmed.length}`,
+      );
       return trimmed;
     }
   }
@@ -144,11 +148,12 @@ function isReadableText(text: string): boolean {
   }
 
   // Count overall readable characters (CJK, ASCII letters, digits, common punctuation)
-  const readable = text.match(/[\u4e00-\u9fff\u3000-\u303f\uff00-\uffefa-zA-Z0-9\s.,;:!?()[\]\]{}\-+=_"'<>/\\@#$%^&*]/g);
+  const readable = text.match(
+    /[\u4e00-\u9fff\u3000-\u303f\uff00-\uffefa-zA-Z0-9\s.,;:!?()[\]\]{}\-+=_"'<>/\\@#$%^&*]/g,
+  );
   if (!readable) return false;
   return readable.length / text.length > 0.15;
 }
-
 
 // ==========================================
 // Helper: Build L1→L2 tree from DB records (real-time, for LLM global positioning)
@@ -192,12 +197,20 @@ async function getTopL3sUnderL2(
   l1: string,
   l2: string,
   papercore: string,
-  topK: number
+  topK: number,
 ): Promise<{ name: string; papercore: string }[]> {
   const supabase = getSupabaseClient();
   const [notesRes, materialsRes] = await Promise.all([
-    supabase.from('study_notes').select('tags, papercore').eq('user_id', userId).not('tags', 'is', null),
-    supabase.from('materials').select('tags, papercore').eq('user_id', userId).not('tags', 'is', null),
+    supabase
+      .from('study_notes')
+      .select('tags, papercore')
+      .eq('user_id', userId)
+      .not('tags', 'is', null),
+    supabase
+      .from('materials')
+      .select('tags, papercore')
+      .eq('user_id', userId)
+      .not('tags', 'is', null),
   ]);
 
   const l3Set = new Map<string, string>(); // l3_name → papercore
@@ -216,13 +229,19 @@ async function getTopL3sUnderL2(
   const papercoreChars = new Set(papercore.replace(/\s+/g, ''));
   const scored = Array.from(l3Set.entries()).map(([name, pc]) => {
     let overlap = 0;
-    for (const ch of name) { if (papercoreChars.has(ch)) overlap++; }
-    for (const ch of (pc || '').replace(/\s+/g, '')) { if (papercoreChars.has(ch)) overlap++; }
+    for (const ch of name) {
+      if (papercoreChars.has(ch)) overlap++;
+    }
+    for (const ch of (pc || '').replace(/\s+/g, '')) {
+      if (papercoreChars.has(ch)) overlap++;
+    }
     return { name, papercore: pc, score: overlap };
   });
 
   scored.sort((a, b) => b.score - a.score);
-  return scored.slice(0, topK).map(({ name, papercore }) => ({ name, papercore: papercore.slice(0, 200) }));
+  return scored
+    .slice(0, topK)
+    .map(({ name, papercore }) => ({ name, papercore: papercore.slice(0, 200) }));
 }
 
 // ==========================================
@@ -260,7 +279,7 @@ async function countL3sUnderL2(userId: string, l1: string, l2: string): Promise<
 // ==========================================
 async function generatePapercore(
   text: string,
-  opts?: { fileName?: string; folderName?: string }
+  opts?: { fileName?: string; folderName?: string },
 ): Promise<string> {
   if (!text || text.trim().length < 10) {
     // Degraded: no text at all
@@ -294,7 +313,10 @@ async function generatePapercore(
       messages: [{ role: 'user', content: prompt }],
     });
     const content = response.content
-      .filter((c: any) => c.type === 'text').map((c: any) => c.text).join('').trim();
+      .filter((c: any) => c.type === 'text')
+      .map((c: any) => c.text)
+      .join('')
+      .trim();
     return content || text.slice(0, 150);
   } catch (e) {
     console.error('[papercore] LLM error:', e);
@@ -309,7 +331,10 @@ async function generatePapercore(
 function buildDegradedPapercore(fileName?: string, folderName?: string): string {
   const source = fileName || folderName;
   if (source) {
-    const keyword = source.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ').trim();
+    const keyword = source
+      .replace(/\.[^.]+$/, '')
+      .replace(/[-_]/g, ' ')
+      .trim();
     return `该文档以公式/图表为主，根据文件名及上下文推断，核心内容定位为：${keyword}。`;
   }
   return '该文档以公式/图表为主，核心主题未识别，建议手动补充摘要。';
@@ -327,7 +352,9 @@ function charOverlapRatio(a: string, b: string): number {
   const aSet = new Set(aChars);
   const bSet = new Set(bChars);
   let shared = 0;
-  for (const ch of aSet) { if (bSet.has(ch)) shared++; }
+  for (const ch of aSet) {
+    if (bSet.has(ch)) shared++;
+  }
   return shared / Math.min(aSet.size, bSet.size);
 }
 
@@ -359,9 +386,19 @@ async function generateHierarchicalTags(
   papercore: string,
   textLength: number,
   existingHierarchy: { L1: string[]; L2: string[]; L3: string[] },
-  userId: string
+  userId: string,
 ): Promise<{ L1: string; L2: string; l2IsNew: boolean; tags: string[] }> {
-  const INVALID = new Set(['无','未知','未分类','无法识别','无法确定','无法分类','其他','其它','未标注']);
+  const INVALID = new Set([
+    '无',
+    '未知',
+    '未分类',
+    '无法识别',
+    '无法确定',
+    '无法分类',
+    '其他',
+    '其它',
+    '未标注',
+  ]);
 
   // L3 new-tag limit: <3000 chars → ≤3, <6000 → ≤4, ≥6000 → ≤5
   const l3NewLimit = textLength < 3000 ? 3 : textLength < 6000 ? 4 : 5;
@@ -400,7 +437,11 @@ ${papercore.slice(0, 800)}
       temperature: 0.3,
       messages: [{ role: 'user', content: globalPrompt }],
     });
-    const c = resp.content.filter((x: any) => x.type === 'text').map((x: any) => x.text).join('').trim();
+    const c = resp.content
+      .filter((x: any) => x.type === 'text')
+      .map((x: any) => x.text)
+      .join('')
+      .trim();
     const m = c.match(/\{[\s\S]*\}/);
     if (m) {
       const parsed = JSON.parse(m[0]);
@@ -451,9 +492,12 @@ ${papercore.slice(0, 800)}
       countL3sUnderL2(userId, l1, l2),
     ]);
 
-    const topL3Text = topL3s.length > 0
-      ? topL3s.map((t, i) => `${i + 1}. "${t.name}"\n   摘要：${t.papercore.slice(0, 150)}`).join('\n')
-      : '(该学科下暂无已有标签)';
+    const topL3Text =
+      topL3s.length > 0
+        ? topL3s
+            .map((t, i) => `${i + 1}. "${t.name}"\n   摘要：${t.papercore.slice(0, 150)}`)
+            .join('\n')
+        : '(该学科下暂无已有标签)';
 
     const l3Prompt = `你是章节标签管理专家。请从新文档提取章节标题（L3标签）。
 
@@ -485,7 +529,11 @@ ${papercore.slice(0, 600)}
         temperature: 0.3,
         messages: [{ role: 'user', content: l3Prompt }],
       });
-      const c = resp.content.filter((x: any) => x.type === 'text').map((x: any) => x.text).join('').trim();
+      const c = resp.content
+        .filter((x: any) => x.type === 'text')
+        .map((x: any) => x.text)
+        .join('')
+        .trim();
       const m = c.match(/\[[\s\S]*\]/);
       if (m) {
         const proposed = JSON.parse(m[0]).filter(Boolean);
@@ -507,7 +555,9 @@ ${papercore.slice(0, 600)}
           if (bestMatch) {
             if (!matchedL3s.includes(bestMatch)) {
               matchedL3s.push(bestMatch);
-              console.log(`  [l3-force-match] "${tag}" → "${bestMatch}" (overlap ${(bestScore*100).toFixed(0)}%)`);
+              console.log(
+                `  [l3-force-match] "${tag}" → "${bestMatch}" (overlap ${(bestScore * 100).toFixed(0)}%)`,
+              );
             }
           } else {
             unmatchedL3s.push(tag);
@@ -518,10 +568,14 @@ ${papercore.slice(0, 600)}
         const allowedNew = unmatchedL3s.slice(0, l3NewLimit);
         finalL3s = [...matchedL3s, ...allowedNew];
         if (unmatchedL3s.length > l3NewLimit) {
-          console.log(`  [l3-limit] ${unmatchedL3s.length - l3NewLimit} excess new tags dropped: ${unmatchedL3s.slice(l3NewLimit).join(', ')}`);
+          console.log(
+            `  [l3-limit] ${unmatchedL3s.length - l3NewLimit} excess new tags dropped: ${unmatchedL3s.slice(l3NewLimit).join(', ')}`,
+          );
         }
 
-        console.log(`[l3-evolution] ${l1}/${l2}: ${allExistingL3s.length} existing → ${allExistingL3s.length + allowedNew.length - matchedL3s.filter(t => !allExistingL3s.includes(t)).length} after (limit ${l2TotalL3 + l3NewLimit})`);
+        console.log(
+          `[l3-evolution] ${l1}/${l2}: ${allExistingL3s.length} existing → ${allExistingL3s.length + allowedNew.length - matchedL3s.filter((t) => !allExistingL3s.includes(t)).length} after (limit ${l2TotalL3 + l3NewLimit})`,
+        );
       }
     } catch (e) {
       console.error('[l3-evolution] LLM error:', e);
@@ -529,9 +583,13 @@ ${papercore.slice(0, 600)}
   }
 
   // Filter invalid + L3 must not duplicate parent L2 name
-  const filteredL3s = finalL3s.filter(t => !INVALID.has(t) && !t.startsWith('无法') && !t.startsWith('未') && t !== l2);
+  const filteredL3s = finalL3s.filter(
+    (t) => !INVALID.has(t) && !t.startsWith('无法') && !t.startsWith('未') && t !== l2,
+  );
 
-  console.log(`[tags-result] L1="${l1}" L2="${l2}" l2IsNew=${l2IsNew} L3=[${filteredL3s.join(', ')}]`);
+  console.log(
+    `[tags-result] L1="${l1}" L2="${l2}" l2IsNew=${l2IsNew} L3=[${filteredL3s.join(', ')}]`,
+  );
   return { L1: l1, L2: l2, l2IsNew, tags: filteredL3s };
 }
 
@@ -542,7 +600,7 @@ ${papercore.slice(0, 600)}
 function buildLogicalPaths(L1: string, L2: string, knowledgePoints: string[]): string[] {
   if (L1 && L2) {
     if (knowledgePoints.length > 0) {
-      return knowledgePoints.map(l3 => `/${L1}/${L2}/${l3}/`);
+      return knowledgePoints.map((l3) => `/${L1}/${L2}/${l3}/`);
     }
     return [`/${L1}/${L2}/`];
   }
@@ -572,7 +630,12 @@ function getUserSetLogicalPath(record: any): string | null {
 
 // Helper: 资料分类完成后同步 knowledge_nodes（issue #7 Task 5）
 // 图谱此前只聚合 materials/study_notes，上传的资料在知识节点侧不可见
-async function syncKnowledgeNodeForMaterial(userId: string, material: any, tags: string[], papercore: string): Promise<void> {
+async function syncKnowledgeNodeForMaterial(
+  userId: string,
+  material: any,
+  tags: string[],
+  papercore: string,
+): Promise<void> {
   try {
     const supabase = getSupabaseClient();
     const shortName = (material.name || '资料').slice(0, 50);
@@ -583,12 +646,15 @@ async function syncKnowledgeNodeForMaterial(userId: string, material: any, tags:
       .eq('original_file', material.name || null)
       .limit(1);
     if (existing && existing.length > 0) {
-      await supabase.from('knowledge_nodes').update({
-        papercore,
-        short_name: shortName,
-        tags,
-        updated_at: new Date().toISOString(),
-      }).eq('id', existing[0].id);
+      await supabase
+        .from('knowledge_nodes')
+        .update({
+          papercore,
+          short_name: shortName,
+          tags,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existing[0].id);
     } else {
       await supabase.from('knowledge_nodes').insert({
         user_id: userId,
@@ -700,10 +766,13 @@ export async function handleProcessContent(req: Request, res: Response) {
     }
 
     // 提取文件名
-    const recordFileName = (record as any).name || (record as any).title || (record as any).file_name || undefined;
+    const recordFileName =
+      (record as any).name || (record as any).title || (record as any).file_name || undefined;
 
     // Detect unsupported/placeholder content
-    const isPlaceholder = text.startsWith('[') && (text.includes('需OCR') || text.includes('旧版PPT') || text.includes('无法自动提取'));
+    const isPlaceholder =
+      text.startsWith('[') &&
+      (text.includes('需OCR') || text.includes('旧版PPT') || text.includes('无法自动提取'));
     const isUnsupported = text.includes('旧版PPT二进制格式');
 
     // 强制解析：即使内容不可读/为空，也根据文件名尝试 LLM 分类
@@ -711,27 +780,57 @@ export async function handleProcessContent(req: Request, res: Response) {
       const forcePapercore = buildDegradedPapercore(recordFileName);
       const existingHierarchy2 = await getExistingTagHierarchy(userId);
       try {
-        const forced = await generateHierarchicalTags(forcePapercore, forcePapercore.length, existingHierarchy2, userId);
+        const forced = await generateHierarchicalTags(
+          forcePapercore,
+          forcePapercore.length,
+          existingHierarchy2,
+          userId,
+        );
         const { L1, L2, tags: kps } = forced;
         const lps = buildLogicalPaths(L1, L2, kps);
         const userPath = getUserSetLogicalPath(record);
         const finalLps = userPath ? JSON.parse(userPath) : lps;
-        await supabase.from(table).update({
-          ai_processed: true, papercore: forcePapercore,
-          logical_path: JSON.stringify(finalLps), tags: [L1, L2, ...kps].filter(Boolean),
-          process_status: 'processed',
-        }).eq('id', id).eq('user_id', userId);
-        if (table === 'materials') await syncKnowledgeNodeForMaterial(userId, record, [L1, L2, ...kps].filter(Boolean), forcePapercore);
+        await supabase
+          .from(table)
+          .update({
+            ai_processed: true,
+            papercore: forcePapercore,
+            logical_path: JSON.stringify(finalLps),
+            tags: [L1, L2, ...kps].filter(Boolean),
+            process_status: 'processed',
+          })
+          .eq('id', id)
+          .eq('user_id', userId);
+        if (table === 'materials')
+          await syncKnowledgeNodeForMaterial(
+            userId,
+            record,
+            [L1, L2, ...kps].filter(Boolean),
+            forcePapercore,
+          );
         scheduleIndexRebuild();
-        return res.json({ data: { id, status: 'processed', papercore: forcePapercore, tags: [L1, L2, ...kps], logical_path: finalLps, reason: 'forced' } });
+        return res.json({
+          data: {
+            id,
+            status: 'processed',
+            papercore: forcePapercore,
+            tags: [L1, L2, ...kps],
+            logical_path: finalLps,
+            reason: 'forced',
+          },
+        });
       } catch (e: any) {
         console.error('[forced-classify] error:', e.message);
         const userPath = getUserSetLogicalPath(record);
         // 失败不伪装已处理：保持 ai_processed=false 供批次重试，标记 failed
-        await supabase.from(table).update({
-          process_status: 'failed',
-          logical_path: userPath ? userPath : '/未分类/',
-        }).eq('id', id).eq('user_id', userId);
+        await supabase
+          .from(table)
+          .update({
+            process_status: 'failed',
+            logical_path: userPath ? userPath : '/未分类/',
+          })
+          .eq('id', id)
+          .eq('user_id', userId);
         return res.json({ data: { id, status: 'failed', reason: 'forced classification failed' } });
       }
     }
@@ -741,38 +840,75 @@ export async function handleProcessContent(req: Request, res: Response) {
       const degradedPapercore = buildDegradedPapercore(recordFileName);
       const existingHierarchy3 = await getExistingTagHierarchy(userId);
       try {
-        const forced = await generateHierarchicalTags(degradedPapercore, degradedPapercore.length, existingHierarchy3, userId);
+        const forced = await generateHierarchicalTags(
+          degradedPapercore,
+          degradedPapercore.length,
+          existingHierarchy3,
+          userId,
+        );
         const { L1, L2, tags: kps } = forced;
         const lps = buildLogicalPaths(L1, L2, kps);
         const userPath = getUserSetLogicalPath(record);
         const finalLps = userPath ? JSON.parse(userPath) : lps;
-        await supabase.from(table).update({
-          ai_processed: true, papercore: degradedPapercore,
-          logical_path: JSON.stringify(finalLps), tags: [L1, L2, ...kps].filter(Boolean),
-          process_status: 'processed',
-        }).eq('id', id).eq('user_id', userId);
-        if (table === 'materials') await syncKnowledgeNodeForMaterial(userId, record, [L1, L2, ...kps].filter(Boolean), degradedPapercore);
+        await supabase
+          .from(table)
+          .update({
+            ai_processed: true,
+            papercore: degradedPapercore,
+            logical_path: JSON.stringify(finalLps),
+            tags: [L1, L2, ...kps].filter(Boolean),
+            process_status: 'processed',
+          })
+          .eq('id', id)
+          .eq('user_id', userId);
+        if (table === 'materials')
+          await syncKnowledgeNodeForMaterial(
+            userId,
+            record,
+            [L1, L2, ...kps].filter(Boolean),
+            degradedPapercore,
+          );
         scheduleIndexRebuild();
-        return res.json({ data: { id, status: 'processed', papercore: degradedPapercore, tags: [L1, L2, ...kps], logical_path: finalLps, reason: 'forced-degraded' } });
+        return res.json({
+          data: {
+            id,
+            status: 'processed',
+            papercore: degradedPapercore,
+            tags: [L1, L2, ...kps],
+            logical_path: finalLps,
+            reason: 'forced-degraded',
+          },
+        });
       } catch {
         const userPath = getUserSetLogicalPath(record);
         // 失败不伪装已处理：保持 ai_processed=false 供批次重试，标记 failed
-        await supabase.from(table).update({
-          process_status: 'failed',
-          logical_path: userPath ? userPath : JSON.stringify(['/未分类/']),
-        }).eq('id', id).eq('user_id', userId);
-        return res.json({ data: { id, status: 'failed', reason: 'degraded classification failed' } });
+        await supabase
+          .from(table)
+          .update({
+            process_status: 'failed',
+            logical_path: userPath ? userPath : JSON.stringify(['/未分类/']),
+          })
+          .eq('id', id)
+          .eq('user_id', userId);
+        return res.json({
+          data: { id, status: 'failed', reason: 'degraded classification failed' },
+        });
       }
     }
 
     // Get existing tag hierarchy
     const existingHierarchy = await getExistingTagHierarchy(userId);
-    
+
     // Step 1: Generate papercore (standalone, no tags needed)
     const papercore = await generatePapercore(text, { fileName: recordFileName });
 
     // Step 2: Global positioning + local evolution → determine L1/L2/L3
-    const result = await generateHierarchicalTags(papercore, text.length, existingHierarchy, userId);
+    const result = await generateHierarchicalTags(
+      papercore,
+      text.length,
+      existingHierarchy,
+      userId,
+    );
 
     const { L1, L2, tags: knowledgePoints } = result;
     const aiLogicalPaths = buildLogicalPaths(L1, L2, knowledgePoints);
@@ -781,7 +917,11 @@ export async function handleProcessContent(req: Request, res: Response) {
     // Respect user-set logical_path from upload form (don't overwrite with AI)
     const existingLogicalPath = (record as any).logical_path;
     let finalLogicalPath: string;
-    if (existingLogicalPath && typeof existingLogicalPath === 'string' && existingLogicalPath.trim()) {
+    if (
+      existingLogicalPath &&
+      typeof existingLogicalPath === 'string' &&
+      existingLogicalPath.trim()
+    ) {
       try {
         const parsed = JSON.parse(existingLogicalPath);
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -789,7 +929,9 @@ export async function handleProcessContent(req: Request, res: Response) {
           // Only keep user path if it's a real category (not root, not 未分类)
           if (first && first !== '/' && first !== '/未分类/' && !first.includes('未分类')) {
             finalLogicalPath = existingLogicalPath;
-            console.log(`[process-content] Keeping user-set logical_path: ${finalLogicalPath} (AI would have used: ${JSON.stringify(aiLogicalPaths)})`);
+            console.log(
+              `[process-content] Keeping user-set logical_path: ${finalLogicalPath} (AI would have used: ${JSON.stringify(aiLogicalPaths)})`,
+            );
           } else {
             finalLogicalPath = JSON.stringify(aiLogicalPaths);
           }
@@ -824,7 +966,8 @@ export async function handleProcessContent(req: Request, res: Response) {
 
     if (updateError) throw new Error(updateError.message);
 
-    if (table === 'materials') await syncKnowledgeNodeForMaterial(userId, record, hierarchicalTags, papercore);
+    if (table === 'materials')
+      await syncKnowledgeNodeForMaterial(userId, record, hierarchicalTags, papercore);
     scheduleIndexRebuild();
     res.json({
       data: {
@@ -900,7 +1043,7 @@ router.post('/reprocess-material', async (req: Request, res: Response) => {
       if (searchName) {
         try {
           const files = fs.readdirSync(testDataDir);
-          const match = files.find(f => f.includes(searchName) || searchName.includes(f));
+          const match = files.find((f) => f.includes(searchName) || searchName.includes(f));
           if (match) filePath = path.join(testDataDir, match);
         } catch {}
       }
@@ -937,7 +1080,10 @@ router.post('/reprocess-material', async (req: Request, res: Response) => {
           const parsed = await parseStringPromise(xml);
           function collectText(obj: any) {
             if (!obj || typeof obj !== 'object') return;
-            if (Array.isArray(obj)) { obj.forEach(collectText); return; }
+            if (Array.isArray(obj)) {
+              obj.forEach(collectText);
+              return;
+            }
             if (obj['a:t']) {
               const values = Array.isArray(obj['a:t']) ? obj['a:t'] : [obj['a:t']];
               values.forEach((v: any) => {
@@ -952,14 +1098,19 @@ router.post('/reprocess-material', async (req: Request, res: Response) => {
         fileContent = allTexts.join(' ').replace(/\s+/g, ' ').trim();
       } catch {}
     } else if (ext === '.md' || ext === '.txt') {
-      fileContent = buffer.toString('utf-8').replace(/^\uFEFF/, '').trim();
+      fileContent = buffer
+        .toString('utf-8')
+        .replace(/^\uFEFF/, '')
+        .trim();
     }
 
     console.log(`[reprocess-material] ${material.name}: extracted ${fileContent.length} chars`);
 
     // Strip TOC (table of contents) to get real content
     fileContent = stripTOC(fileContent);
-    console.log(`[reprocess-material] ${material.name}: after TOC strip ${fileContent.length} chars`);
+    console.log(
+      `[reprocess-material] ${material.name}: after TOC strip ${fileContent.length} chars`,
+    );
 
     // 4. Check readability
     if (!fileContent || fileContent.length < 5) {
@@ -972,19 +1123,30 @@ router.post('/reprocess-material', async (req: Request, res: Response) => {
       const degradedPapercore = buildDegradedPapercore(materialFileName);
       // 与 process-content 的 forced-degraded 路径一致：保留用户设置的 logical_path
       const userPath = getUserSetLogicalPath(material);
-      await supabase.from('materials').update({
-        ai_processed: true,
-        papercore: degradedPapercore,
-        logical_path: userPath ? userPath : JSON.stringify(['/未分类/']),
-        process_status: 'processed',
-      }).eq('id', id).eq('user_id', userId);
-      return res.json({ data: { id, status: 'processed', papercore: degradedPapercore, reason: 'degraded' } });
+      await supabase
+        .from('materials')
+        .update({
+          ai_processed: true,
+          papercore: degradedPapercore,
+          logical_path: userPath ? userPath : JSON.stringify(['/未分类/']),
+          process_status: 'processed',
+        })
+        .eq('id', id)
+        .eq('user_id', userId);
+      return res.json({
+        data: { id, status: 'processed', papercore: degradedPapercore, reason: 'degraded' },
+      });
     }
 
     // 5. Generate papercore first, then tags from papercore
     const existingHierarchy = await getExistingTagHierarchy(userId);
-        const papercore = await generatePapercore(fileContent, { fileName: materialFileName });
-    const result = await generateHierarchicalTags(papercore, fileContent.length, existingHierarchy, userId);
+    const papercore = await generatePapercore(fileContent, { fileName: materialFileName });
+    const result = await generateHierarchicalTags(
+      papercore,
+      fileContent.length,
+      existingHierarchy,
+      userId,
+    );
 
     const { L1, L2, tags: knowledgePoints } = result;
     const logicalPaths = buildLogicalPaths(L1, L2, knowledgePoints);
@@ -1001,7 +1163,11 @@ router.post('/reprocess-material', async (req: Request, res: Response) => {
       viewed_after_process: false,
       updated_at: new Date().toISOString(),
     };
-    const { error: updateError } = await supabase.from('materials').update(updatePayload).eq('id', id).eq('user_id', userId);
+    const { error: updateError } = await supabase
+      .from('materials')
+      .update(updatePayload)
+      .eq('id', id)
+      .eq('user_id', userId);
     if (updateError) throw new Error(updateError.message);
 
     scheduleIndexRebuild();
@@ -1019,7 +1185,10 @@ router.post('/reprocess-material', async (req: Request, res: Response) => {
     try {
       const rid = (req as any).params?.id;
       if (rid) {
-        await getSupabaseClient().from('materials').update({ process_status: 'failed' }).eq('id', rid);
+        await getSupabaseClient()
+          .from('materials')
+          .update({ process_status: 'failed' })
+          .eq('id', rid);
       }
     } catch {}
     res.status(500).json({ error: err.message });
@@ -1057,37 +1226,53 @@ router.post('/process-study-notes', async (req, res) => {
         const text = extractText(note);
 
         if (text.trim().length < 5) {
-          await supabase.from('study_notes').update({
-            ai_processed: true,
-            papercore: text || '',
-            logical_path: '/未分类/',
-            process_status: 'processed',
-          }).eq('id', note.id);
+          await supabase
+            .from('study_notes')
+            .update({
+              ai_processed: true,
+              papercore: text || '',
+              logical_path: '/未分类/',
+              process_status: 'processed',
+            })
+            .eq('id', note.id);
           results.push({ id: note.id, status: 'skipped' });
           continue;
         }
 
         const existingHierarchy = await getExistingTagHierarchy(userId);
-                const noteFileName = (note as any).title || undefined;
+        const noteFileName = (note as any).title || undefined;
         const papercore = await generatePapercore(text, { fileName: noteFileName });
-        const result = await generateHierarchicalTags(papercore, text.length, existingHierarchy, userId);
+        const result = await generateHierarchicalTags(
+          papercore,
+          text.length,
+          existingHierarchy,
+          userId,
+        );
 
         const { L1, L2, tags: knowledgePoints } = result;
         const logicalPaths = buildLogicalPaths(L1, L2, knowledgePoints);
         const logicalPath = JSON.stringify(logicalPaths);
         const hierarchicalTags = [L1, L2, ...knowledgePoints].filter(Boolean);
 
-        await supabase.from('study_notes').update({
-          tags: hierarchicalTags,
-          papercore,
-          logical_path: logicalPath,
-          ai_processed: true,
-          process_status: 'processed',
-          viewed_after_process: false,
-          updated_at: new Date().toISOString(),
-        }).eq('id', note.id);
+        await supabase
+          .from('study_notes')
+          .update({
+            tags: hierarchicalTags,
+            papercore,
+            logical_path: logicalPath,
+            ai_processed: true,
+            process_status: 'processed',
+            viewed_after_process: false,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', note.id);
 
-        results.push({ id: note.id, status: 'processed', tags: hierarchicalTags, logical_path: logicalPaths });
+        results.push({
+          id: note.id,
+          status: 'processed',
+          tags: hierarchicalTags,
+          logical_path: logicalPaths,
+        });
       } catch (e: any) {
         console.error(`Failed to process study note ${note.id}:`, e);
         await supabase.from('study_notes').update({ process_status: 'failed' }).eq('id', note.id);
@@ -1142,12 +1327,15 @@ router.post('/process-materials', async (req, res) => {
         }
 
         if (text.trim().length < 5) {
-          await supabase.from('materials').update({
-            ai_processed: true,
-            papercore: text || '',
-            logical_path: '/未分类/',
-            process_status: 'processed',
-          }).eq('id', material.id);
+          await supabase
+            .from('materials')
+            .update({
+              ai_processed: true,
+              papercore: text || '',
+              logical_path: '/未分类/',
+              process_status: 'processed',
+            })
+            .eq('id', material.id);
           results.push({ id: material.id, status: 'skipped' });
           continue;
         }
@@ -1158,36 +1346,57 @@ router.post('/process-materials', async (req, res) => {
           const degradedPapercore = buildDegradedPapercore(materialFileName);
           // 与 process-content 的 forced-degraded 路径一致：保留用户设置的 logical_path
           const userPath = getUserSetLogicalPath(material);
-          await supabase.from('materials').update({
-            ai_processed: true,
+          await supabase
+            .from('materials')
+            .update({
+              ai_processed: true,
+              papercore: degradedPapercore,
+              logical_path: userPath ? userPath : JSON.stringify(['/未分类/']),
+              process_status: 'processed',
+            })
+            .eq('id', material.id);
+          results.push({
+            id: material.id,
+            status: 'processed',
             papercore: degradedPapercore,
-            logical_path: userPath ? userPath : JSON.stringify(['/未分类/']),
-            process_status: 'processed',
-          }).eq('id', material.id);
-          results.push({ id: material.id, status: 'processed', papercore: degradedPapercore, reason: 'degraded' });
+            reason: 'degraded',
+          });
           continue;
         }
 
         const existingHierarchy = await getExistingTagHierarchy(userId);
-                const papercore = await generatePapercore(text, { fileName: materialFileName });
-        const result = await generateHierarchicalTags(papercore, text.length, existingHierarchy, userId);
+        const papercore = await generatePapercore(text, { fileName: materialFileName });
+        const result = await generateHierarchicalTags(
+          papercore,
+          text.length,
+          existingHierarchy,
+          userId,
+        );
 
         const { L1, L2, tags: knowledgePoints } = result;
         const logicalPaths = buildLogicalPaths(L1, L2, knowledgePoints);
         const logicalPath = JSON.stringify(logicalPaths);
         const hierarchicalTags = [L1, L2, ...knowledgePoints].filter(Boolean);
 
-        await supabase.from('materials').update({
-          tags: hierarchicalTags,
-          papercore,
-          logical_path: logicalPath,
-          ai_processed: true,
-          process_status: 'processed',
-          viewed_after_process: false,
-          updated_at: new Date().toISOString(),
-        }).eq('id', material.id);
+        await supabase
+          .from('materials')
+          .update({
+            tags: hierarchicalTags,
+            papercore,
+            logical_path: logicalPath,
+            ai_processed: true,
+            process_status: 'processed',
+            viewed_after_process: false,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', material.id);
 
-        results.push({ id: material.id, status: 'processed', tags: hierarchicalTags, logical_path: logicalPaths });
+        results.push({
+          id: material.id,
+          status: 'processed',
+          tags: hierarchicalTags,
+          logical_path: logicalPaths,
+        });
       } catch (e: any) {
         console.error(`Failed to process material ${material.id}:`, e);
         await supabase.from('materials').update({ process_status: 'failed' }).eq('id', material.id);
@@ -1212,22 +1421,47 @@ router.get('/graph-data', async (req: Request, res: Response) => {
     const supabase = getSupabaseClient();
 
     const [notesRes, materialsRes, nodesRes] = await Promise.all([
-      supabase.from('study_notes').select('id, title, tags, papercore, logical_path, created_at').eq('user_id', userId).eq('ai_processed', true).order('created_at', { ascending: false }).limit(100),
-      supabase.from('materials').select('id, name, tags, papercore, logical_path, created_at').eq('user_id', userId).eq('ai_processed', true).order('created_at', { ascending: false }).limit(100),
+      supabase
+        .from('study_notes')
+        .select('id, title, tags, papercore, logical_path, created_at')
+        .eq('user_id', userId)
+        .eq('ai_processed', true)
+        .order('created_at', { ascending: false })
+        .limit(100),
+      supabase
+        .from('materials')
+        .select('id, name, tags, papercore, logical_path, created_at')
+        .eq('user_id', userId)
+        .eq('ai_processed', true)
+        .order('created_at', { ascending: false })
+        .limit(100),
       // knowledge_nodes 也参与图谱聚合（issue #7 Task 5）
-      supabase.from('knowledge_nodes').select('id, short_name, tags, papercore, created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(100),
+      supabase
+        .from('knowledge_nodes')
+        .select('id, short_name, tags, papercore, created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(100),
     ]);
 
-    console.log(`[graph-data] notes: ${notesRes.data?.length || 0}, materials: ${materialsRes.data?.length || 0}, nodes: ${nodesRes.data?.length || 0}`);
+    console.log(
+      `[graph-data] notes: ${notesRes.data?.length || 0}, materials: ${materialsRes.data?.length || 0}, nodes: ${nodesRes.data?.length || 0}`,
+    );
 
     const notes: any[] = (notesRes.data || []).map((n: any) => ({
-      ...n, type: 'note' as const, title: n.title || '未命名纪要',
+      ...n,
+      type: 'note' as const,
+      title: n.title || '未命名纪要',
     }));
     const materials: any[] = (materialsRes.data || []).map((m: any) => ({
-      ...m, type: 'material' as const, title: m.name || '未命名资料',
+      ...m,
+      type: 'material' as const,
+      title: m.name || '未命名资料',
     }));
     const knodes: any[] = (nodesRes.data || []).map((n: any) => ({
-      ...n, type: 'node' as const, title: n.short_name || '知识节点',
+      ...n,
+      type: 'node' as const,
+      title: n.short_name || '知识节点',
     }));
     const allRecords = [...notes, ...materials, ...knodes];
 
@@ -1254,7 +1488,7 @@ router.get('/graph-data', async (req: Request, res: Response) => {
     const cooccurrenceMap = new Map<string, number>(); // "tagA|||tagB" -> count
     const docTagMap = new Map<string, Set<string>>(); // docId -> set of tag ids
 
-    allRecords.forEach(record => {
+    allRecords.forEach((record) => {
       const tags = (record.tags || []) as string[];
       if (tags.length === 0) return;
 
@@ -1268,7 +1502,16 @@ router.get('/graph-data', async (req: Request, res: Response) => {
         const l1Id = `tag_L1_${l1}`;
         docTags.push(l1Id);
         if (!tagMap.has(l1Id)) {
-          tagMap.set(l1Id, { id: l1Id, name: l1, level: 'L1', count: 0, documentIds: [], children: [], x: 0, y: 0 });
+          tagMap.set(l1Id, {
+            id: l1Id,
+            name: l1,
+            level: 'L1',
+            count: 0,
+            documentIds: [],
+            children: [],
+            x: 0,
+            y: 0,
+          });
         }
         const node = tagMap.get(l1Id)!;
         node.count++;
@@ -1279,7 +1522,17 @@ router.get('/graph-data', async (req: Request, res: Response) => {
         const l2Id = `tag_L2_${l1}_${l2}`;
         docTags.push(l2Id);
         if (!tagMap.has(l2Id)) {
-          tagMap.set(l2Id, { id: l2Id, name: l2, level: 'L2', count: 0, documentIds: [], children: [], parentId: `tag_L1_${l1}`, x: 0, y: 0 });
+          tagMap.set(l2Id, {
+            id: l2Id,
+            name: l2,
+            level: 'L2',
+            count: 0,
+            documentIds: [],
+            children: [],
+            parentId: `tag_L1_${l1}`,
+            x: 0,
+            y: 0,
+          });
         }
         const node = tagMap.get(l2Id)!;
         node.count++;
@@ -1293,7 +1546,17 @@ router.get('/graph-data', async (req: Request, res: Response) => {
         const l3Id = `tag_L3_${l1}_${l2}_${l3}`;
         docTags.push(l3Id);
         if (!tagMap.has(l3Id)) {
-          tagMap.set(l3Id, { id: l3Id, name: l3, level: 'L3', count: 0, documentIds: [], children: [], parentId: `tag_L2_${l1}_${l2}`, x: 0, y: 0 });
+          tagMap.set(l3Id, {
+            id: l3Id,
+            name: l3,
+            level: 'L3',
+            count: 0,
+            documentIds: [],
+            children: [],
+            parentId: `tag_L2_${l1}_${l2}`,
+            x: 0,
+            y: 0,
+          });
         }
         const node = tagMap.get(l3Id)!;
         node.count++;
@@ -1310,7 +1573,10 @@ router.get('/graph-data', async (req: Request, res: Response) => {
       // Co-occurrence: tags appearing in the same document
       for (let i = 0; i < docTags.length; i++) {
         for (let j = i + 1; j < docTags.length; j++) {
-          const key = docTags[i] < docTags[j] ? `${docTags[i]}|||${docTags[j]}` : `${docTags[j]}|||${docTags[i]}`;
+          const key =
+            docTags[i] < docTags[j]
+              ? `${docTags[i]}|||${docTags[j]}`
+              : `${docTags[j]}|||${docTags[i]}`;
           cooccurrenceMap.set(key, (cooccurrenceMap.get(key) || 0) + 1);
         }
       }
@@ -1322,15 +1588,15 @@ router.get('/graph-data', async (req: Request, res: Response) => {
     const cx = canvasW / 2;
     const cy = canvasH / 2;
 
-    const l1Nodes = Array.from(tagMap.values()).filter(n => n.level === 'L1');
-    const l2Nodes = Array.from(tagMap.values()).filter(n => n.level === 'L2');
-    const l3Nodes = Array.from(tagMap.values()).filter(n => n.level === 'L3');
+    const l1Nodes = Array.from(tagMap.values()).filter((n) => n.level === 'L1');
+    const l2Nodes = Array.from(tagMap.values()).filter((n) => n.level === 'L2');
+    const l3Nodes = Array.from(tagMap.values()).filter((n) => n.level === 'L3');
 
     // Node sizes (radius + text label space)
     const getNodeRadius = (level: 'L1' | 'L2' | 'L3'): number => {
-      if (level === 'L1') return 50;  // circle 28 + label
-      if (level === 'L2') return 35;  // circle 18 + label
-      return 22;                       // circle 12 + label
+      if (level === 'L1') return 50; // circle 28 + label
+      if (level === 'L2') return 35; // circle 18 + label
+      return 22; // circle 12 + label
     };
 
     // L1: spread around center
@@ -1342,7 +1608,7 @@ router.get('/graph-data', async (req: Request, res: Response) => {
     });
 
     // L2: circle around parent L1 — wider spread for cluster separation
-    l2Nodes.forEach(node => {
+    l2Nodes.forEach((node) => {
       if (node.parentId) {
         const parent = tagMap.get(node.parentId);
         if (parent) {
@@ -1361,7 +1627,7 @@ router.get('/graph-data', async (req: Request, res: Response) => {
     });
 
     // L3: circle around parent L2 — dynamic radius + staggered angles
-    l3Nodes.forEach(node => {
+    l3Nodes.forEach((node) => {
       if (node.parentId) {
         const parent = tagMap.get(node.parentId);
         if (parent) {
@@ -1379,7 +1645,18 @@ router.get('/graph-data', async (req: Request, res: Response) => {
     });
 
     // ====== Force-directed relaxation: cluster-aware collision avoidance ======
-    interface SimNode { id: string; x: number; y: number; vx: number; vy: number; fixed: boolean; radius: number; parentId?: string; l2ParentId?: string; level: string; }
+    interface SimNode {
+      id: string;
+      x: number;
+      y: number;
+      vx: number;
+      vy: number;
+      fixed: boolean;
+      radius: number;
+      parentId?: string;
+      l2ParentId?: string;
+      level: string;
+    }
     const simNodes = new Map<string, SimNode>();
 
     // Build L2 parent lookup for L3 nodes
@@ -1390,13 +1667,22 @@ router.get('/graph-data', async (req: Request, res: Response) => {
       }
     }
 
-    tagMap.forEach(node => {
+    tagMap.forEach((node) => {
       simNodes.set(node.id, {
-        id: node.id, x: node.x, y: node.y, vx: 0, vy: 0,
+        id: node.id,
+        x: node.x,
+        y: node.y,
+        vx: 0,
+        vy: 0,
         fixed: node.level === 'L1',
         radius: getNodeRadius(node.level),
         parentId: node.parentId,
-        l2ParentId: node.level === 'L3' ? l3ToL2Parent.get(node.id) : (node.level === 'L2' ? node.id : undefined),
+        l2ParentId:
+          node.level === 'L3'
+            ? l3ToL2Parent.get(node.id)
+            : node.level === 'L2'
+              ? node.id
+              : undefined,
         level: node.level,
       });
     });
@@ -1405,8 +1691,8 @@ router.get('/graph-data', async (req: Request, res: Response) => {
     const iterations = 250;
     const repulsionBase = 1200;
     const crossClusterRepulsion = 1500; // stronger push between different L2 clusters
-    const parentAttractionL2 = 0.012;   // L2 → L1 attraction
-    const parentAttractionL3 = 0.03;    // L3 → L2 attraction (stronger, stay in cluster)
+    const parentAttractionL2 = 0.012; // L2 → L1 attraction
+    const parentAttractionL3 = 0.03; // L3 → L2 attraction (stronger, stay in cluster)
     const damping = 0.65;
     const alphaDecay = 0.995;
 
@@ -1419,8 +1705,10 @@ router.get('/graph-data', async (req: Request, res: Response) => {
       // 1. Repulsion between all pairs
       for (let i = 0; i < simEntries.length; i++) {
         for (let j = i + 1; j < simEntries.length; j++) {
-          const a = simEntries[i], b = simEntries[j];
-          const dx = b.x - a.x, dy = b.y - a.y;
+          const a = simEntries[i],
+            b = simEntries[j];
+          const dx = b.x - a.x,
+            dy = b.y - a.y;
           const dist = Math.sqrt(dx * dx + dy * dy) || 0.1;
 
           // Different L2 clusters → much stronger repulsion and larger safety distance
@@ -1430,11 +1718,17 @@ router.get('/graph-data', async (req: Request, res: Response) => {
 
           if (dist < minDist) {
             const overlap = minDist - dist;
-            const force = overlap / minDist * repForce / Math.max(dist, 8);
+            const force = ((overlap / minDist) * repForce) / Math.max(dist, 8);
             const fx = (dx / dist) * force;
             const fy = (dy / dist) * force;
-            if (!a.fixed) { a.vx -= fx; a.vy -= fy; }
-            if (!b.fixed) { b.vx += fx; b.vy += fy; }
+            if (!a.fixed) {
+              a.vx -= fx;
+              a.vy -= fy;
+            }
+            if (!b.fixed) {
+              b.vx += fx;
+              b.vy += fy;
+            }
           }
         }
       }
@@ -1456,17 +1750,22 @@ router.get('/graph-data', async (req: Request, res: Response) => {
       // 3. L2 → L2 extra repulsion (push clusters apart)
       for (let i = 0; i < l2Nodes.length; i++) {
         for (let j = i + 1; j < l2Nodes.length; j++) {
-          const a = simNodes.get(l2Nodes[i].id), b = simNodes.get(l2Nodes[j].id);
+          const a = simNodes.get(l2Nodes[i].id),
+            b = simNodes.get(l2Nodes[j].id);
           if (!a || !b) continue;
-          const dx = b.x - a.x, dy = b.y - a.y;
+          const dx = b.x - a.x,
+            dy = b.y - a.y;
           const dist = Math.sqrt(dx * dx + dy * dy) || 0.1;
           const minDist = a.radius + b.radius + 120;
           if (dist < minDist) {
-            const force = (minDist - dist) / minDist * currentRepulsion * 1.5 / Math.max(dist, 5);
+            const force =
+              (((minDist - dist) / minDist) * currentRepulsion * 1.5) / Math.max(dist, 5);
             const fx = (dx / dist) * force;
             const fy = (dy / dist) * force;
-            a.vx -= fx; a.vy -= fy;
-            b.vx += fx; b.vy += fy;
+            a.vx -= fx;
+            a.vy -= fy;
+            b.vx += fx;
+            b.vy += fy;
           }
         }
       }
@@ -1477,7 +1776,10 @@ router.get('/graph-data', async (req: Request, res: Response) => {
         node.vx *= damping;
         node.vy *= damping;
         const speed = Math.sqrt(node.vx * node.vx + node.vy * node.vy);
-        if (speed > 6) { node.vx = node.vx / speed * 6; node.vy = node.vy / speed * 6; }
+        if (speed > 6) {
+          node.vx = (node.vx / speed) * 6;
+          node.vy = (node.vy / speed) * 6;
+        }
         node.x += node.vx;
         node.y += node.vy;
         // Soft boundaries
@@ -1504,7 +1806,7 @@ router.get('/graph-data', async (req: Request, res: Response) => {
     const edges: TagEdge[] = [];
 
     // Hierarchical edges
-    tagMap.forEach(node => {
+    tagMap.forEach((node) => {
       if (node.parentId && tagMap.has(node.parentId)) {
         edges.push({ from: node.parentId, to: node.id, type: 'hierarchy' });
       }
@@ -1522,17 +1824,19 @@ router.get('/graph-data', async (req: Request, res: Response) => {
     });
 
     // ====== Domain circles (based on L1 tags, dynamic radius from children) ======
-    const domains = l1Nodes.map(node => {
+    const domains = l1Nodes.map((node) => {
       // Find furthest child (L2 or L3) to determine domain radius
       let maxDist = 0;
       for (const child of l2Nodes) {
         if (child.parentId === node.id) {
-          const dx = child.x - node.x, dy = child.y - node.y;
+          const dx = child.x - node.x,
+            dy = child.y - node.y;
           maxDist = Math.max(maxDist, Math.sqrt(dx * dx + dy * dy) + 50);
           // Also check L3 children
           for (const l3 of l3Nodes) {
             if (l3.parentId === child.id) {
-              const d3x = l3.x - node.x, d3y = l3.y - node.y;
+              const d3x = l3.x - node.x,
+                d3y = l3.y - node.y;
               maxDist = Math.max(maxDist, Math.sqrt(d3x * d3x + d3y * d3y) + 25);
             }
           }
@@ -1540,7 +1844,8 @@ router.get('/graph-data', async (req: Request, res: Response) => {
       }
       return {
         name: node.name,
-        cx: node.x, cy: node.y,
+        cx: node.x,
+        cy: node.y,
         r: Math.max(130, Math.ceil(maxDist)),
         count: node.count,
       };
@@ -1576,37 +1881,53 @@ router.get('/tag-documents', async (req: Request, res: Response) => {
 
     // tag is the display name (not the full ID). Match against tags arrays
     const [notesRes, materialsRes] = await Promise.all([
-      supabase.from('study_notes').select('id, title, tags, papercore, logical_path, created_at').eq('user_id', userId).eq('ai_processed', true).order('created_at', { ascending: false }).limit(200),
-      supabase.from('materials').select('id, name, tags, papercore, logical_path, created_at').eq('user_id', userId).eq('ai_processed', true).order('created_at', { ascending: false }).limit(200),
+      supabase
+        .from('study_notes')
+        .select('id, title, tags, papercore, logical_path, created_at')
+        .eq('user_id', userId)
+        .eq('ai_processed', true)
+        .order('created_at', { ascending: false })
+        .limit(200),
+      supabase
+        .from('materials')
+        .select('id, name, tags, papercore, logical_path, created_at')
+        .eq('user_id', userId)
+        .eq('ai_processed', true)
+        .order('created_at', { ascending: false })
+        .limit(200),
     ]);
 
     const matchTag = (recordTags: string[] | null) => {
       if (!recordTags || !Array.isArray(recordTags)) return false;
-      return recordTags.some(t => t === tag);
+      return recordTags.some((t) => t === tag);
     };
 
-    const matchedNotes = (notesRes.data || []).filter((n: any) => matchTag(n.tags)).map((n: any) => ({
-      id: n.id,
-      title: n.title || '未命名纪要',
-      type: 'study_note' as const,
-      papercore: n.papercore || '',
-      tags: n.tags || [],
-      logical_path: n.logical_path || '',
-      created_at: n.created_at || '',
-    }));
+    const matchedNotes = (notesRes.data || [])
+      .filter((n: any) => matchTag(n.tags))
+      .map((n: any) => ({
+        id: n.id,
+        title: n.title || '未命名纪要',
+        type: 'study_note' as const,
+        papercore: n.papercore || '',
+        tags: n.tags || [],
+        logical_path: n.logical_path || '',
+        created_at: n.created_at || '',
+      }));
 
-    const matchedMaterials = (materialsRes.data || []).filter((m: any) => matchTag(m.tags)).map((m: any) => ({
-      id: m.id,
-      title: m.name || '未命名资料',
-      type: 'material' as const,
-      papercore: m.papercore || '',
-      tags: m.tags || [],
-      logical_path: m.logical_path || '',
-      created_at: m.created_at || '',
-    }));
+    const matchedMaterials = (materialsRes.data || [])
+      .filter((m: any) => matchTag(m.tags))
+      .map((m: any) => ({
+        id: m.id,
+        title: m.name || '未命名资料',
+        type: 'material' as const,
+        papercore: m.papercore || '',
+        tags: m.tags || [],
+        logical_path: m.logical_path || '',
+        created_at: m.created_at || '',
+      }));
 
     const documents = [...matchedNotes, ...matchedMaterials].sort(
-      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
     );
 
     res.json({ data: documents });
@@ -1649,7 +1970,9 @@ router.post('/trigger', async (_req, res) => {
 // Merges truly identical tags (e.g. "复分析" → "复变函数")
 // Does NOT merge related-but-different concepts
 // ==========================================
-async function consolidateTags(userId: string): Promise<{ merged: { tag: string; into: string; level: string }[] }> {
+async function consolidateTags(
+  userId: string,
+): Promise<{ merged: { tag: string; into: string; level: string }[] }> {
   const supabase = getSupabaseClient();
   const hierarchy = await getExistingTagHierarchy(userId);
   const merged: { tag: string; into: string; level: string }[] = [];
@@ -1660,10 +1983,13 @@ async function consolidateTags(userId: string): Promise<{ merged: { tag: string;
   const applyMerge = async (from: string, to: string) => {
     if (from === to) return;
     for (const table of ['study_notes', 'materials']) {
-      const { data: records } = await supabase.from(table).select('id, tags, logical_path').eq('user_id', userId);
-      for (const r of (records || [])) {
+      const { data: records } = await supabase
+        .from(table)
+        .select('id, tags, logical_path')
+        .eq('user_id', userId);
+      for (const r of records || []) {
         const tags: string[] = r.tags || [];
-        const updated = tags.map(t => t === from ? to : t);
+        const updated = tags.map((t) => (t === from ? to : t));
         const deduped = updated.filter((t, i) => t !== updated[i - 1]);
         if (deduped.join(',') !== tags.join(',')) {
           // Handle logical_path as JSON array (new format) or plain string (legacy)
@@ -1675,11 +2001,14 @@ async function consolidateTags(userId: string): Promise<{ merged: { tag: string;
           } catch {
             paths = [rawPath];
           }
-          const newPaths = paths.map(p => p.replace(`/${from}/`, `/${to}/`));
-          await supabase.from(table).update({
-            tags: deduped,
-            logical_path: JSON.stringify(newPaths),
-          }).eq('id', r.id);
+          const newPaths = paths.map((p) => p.replace(`/${from}/`, `/${to}/`));
+          await supabase
+            .from(table)
+            .update({
+              tags: deduped,
+              logical_path: JSON.stringify(newPaths),
+            })
+            .eq('id', r.id);
         }
       }
     }
@@ -1697,7 +2026,7 @@ async function consolidateTags(userId: string): Promise<{ merged: { tag: string;
         await applyMerge(shorter, longer);
         merged.push({ tag: shorter, into: longer, level: 'L2' });
         // Remove from arrays
-        hierarchy.L2 = hierarchy.L2.filter(t => t !== shorter);
+        hierarchy.L2 = hierarchy.L2.filter((t) => t !== shorter);
       }
     }
   }
@@ -1714,7 +2043,7 @@ async function consolidateTags(userId: string): Promise<{ merged: { tag: string;
       console.log(`[consolidate] known synonym: "${from}" → "${to}"`);
       await applyMerge(from, to);
       merged.push({ tag: from, into: to, level: 'L2' });
-      hierarchy.L2 = hierarchy.L2.filter(t => t !== from);
+      hierarchy.L2 = hierarchy.L2.filter((t) => t !== from);
     }
   }
 
@@ -1737,13 +2066,15 @@ async function consolidateTags(userId: string): Promise<{ merged: { tag: string;
   }
 
   // --- LLM consolidation: L2 synonyms + cross-L2 L3 dedup ---
-  const l2Only = [...hierarchy.L2].filter(l2 => l2);
+  const l2Only = [...hierarchy.L2].filter((l2) => l2);
   if (l2Only.length > 1) {
     // Build compact representation: each L2 with its top L3s (max 8 per L2)
-    const l2Summaries = l2Only.map(l2 => {
-      const l3s = [...(l2ToL3s.get(l2) || new Set())].slice(0, 8);
-      return `"${l2}" → [${l3s.join(', ')}]`;
-    }).join('\n');
+    const l2Summaries = l2Only
+      .map((l2) => {
+        const l3s = [...(l2ToL3s.get(l2) || new Set())].slice(0, 8);
+        return `"${l2}" → [${l3s.join(', ')}]`;
+      })
+      .join('\n');
 
     const prompt = `你是学科分类与标签去重专家。分析以下二级学科(L2)及其包含的章节(L3)：
 
@@ -1764,7 +2095,11 @@ ${l2Summaries}
         temperature: 0.1,
         messages: [{ role: 'user', content: prompt }],
       });
-      const content = response.content.filter((c: any) => c.type === 'text').map((c: any) => c.text).join('').trim();
+      const content = response.content
+        .filter((c: any) => c.type === 'text')
+        .map((c: any) => c.text)
+        .join('')
+        .trim();
       const jsonMatch = content.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
         const pairs: { merge: string; into: string; level: string }[] = JSON.parse(jsonMatch[0]);
@@ -1776,7 +2111,7 @@ ${l2Summaries}
           console.log(`[consolidate] LLM merge: "${pair.merge}" → "${pair.into}" (${level})`);
           await applyMerge(pair.merge, pair.into);
           merged.push({ tag: pair.merge, into: pair.into, level });
-          hierarchy.L2 = hierarchy.L2.filter(t => t !== pair.merge);
+          hierarchy.L2 = hierarchy.L2.filter((t) => t !== pair.merge);
         }
       }
     } catch (e) {
@@ -1796,13 +2131,27 @@ router.post('/rebuild-all', async (req: Request, res: Response) => {
     const supabase = getSupabaseClient();
 
     await Promise.all([
-      supabase.from('study_notes').update({ ai_processed: false, papercore: '', tags: [], logical_path: '' }).eq('user_id', userId),
-      supabase.from('materials').update({ ai_processed: false, papercore: '', tags: [], logical_path: '' }).eq('user_id', userId),
+      supabase
+        .from('study_notes')
+        .update({ ai_processed: false, papercore: '', tags: [], logical_path: '' })
+        .eq('user_id', userId),
+      supabase
+        .from('materials')
+        .update({ ai_processed: false, papercore: '', tags: [], logical_path: '' })
+        .eq('user_id', userId),
     ]);
 
     const [notesRes, materialsRes] = await Promise.all([
-      supabase.from('study_notes').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
-      supabase.from('materials').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
+      supabase
+        .from('study_notes')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('materials')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false }),
     ]);
 
     const notes = notesRes.data || [];
@@ -1811,7 +2160,7 @@ router.post('/rebuild-all', async (req: Request, res: Response) => {
     const errors: any[] = [];
     // Dynamic hierarchy: update after each file so later files can inherit earlier files' tags
     const existingHierarchy = await getExistingTagHierarchy(userId);
-    
+
     const updateHierarchy = (l1: string, l2: string, l3s: string[]) => {
       if (l1 && !existingHierarchy.L1.includes(l1)) existingHierarchy.L1.push(l1);
       if (l2 && !existingHierarchy.L2.includes(l2)) existingHierarchy.L2.push(l2);
@@ -1826,25 +2175,54 @@ router.post('/rebuild-all', async (req: Request, res: Response) => {
       try {
         const text = extractText(note);
         if (!text || text.trim().length < 5) {
-          await supabase.from('study_notes').update({ ai_processed: true, papercore: text || '', logical_path: '/未分类/' }).eq('id', note.id).eq('user_id', userId);
-          processed++; continue;
+          await supabase
+            .from('study_notes')
+            .update({ ai_processed: true, papercore: text || '', logical_path: '/未分类/' })
+            .eq('id', note.id)
+            .eq('user_id', userId);
+          processed++;
+          continue;
         }
         const noteFileName = (note as any).title || undefined;
         const papercore = await generatePapercore(text, { fileName: noteFileName });
-        const result = await generateHierarchicalTags(papercore, text.length, existingHierarchy, userId);
+        const result = await generateHierarchicalTags(
+          papercore,
+          text.length,
+          existingHierarchy,
+          userId,
+        );
         const { L1, L2, tags: knowledgePoints } = result;
         const logicalPaths = buildLogicalPaths(L1, L2, knowledgePoints);
         const logicalPath = JSON.stringify(logicalPaths);
         const notePayload = {
-          tags: [L1, L2, ...knowledgePoints].filter(Boolean), papercore, logical_path: logicalPath,
-          ai_processed: true, viewed_after_process: false, updated_at: new Date().toISOString(),
+          tags: [L1, L2, ...knowledgePoints].filter(Boolean),
+          papercore,
+          logical_path: logicalPath,
+          ai_processed: true,
+          viewed_after_process: false,
+          updated_at: new Date().toISOString(),
         };
-        const { error: updateErr } = await supabase.from('study_notes').update(notePayload).eq('id', note.id).eq('user_id', userId);
+        const { error: updateErr } = await supabase
+          .from('study_notes')
+          .update(notePayload)
+          .eq('id', note.id)
+          .eq('user_id', userId);
         if (updateErr) throw new Error(updateErr.message);
         updateHierarchy(L1, L2, knowledgePoints);
-        perFileLog.push({ id: note.id, name: note.name || (note.content||'').slice(0,40), type: 'study_note', L1, L2, L3s: knowledgePoints, papercore: papercore.slice(0,100), paths: logicalPaths });
+        perFileLog.push({
+          id: note.id,
+          name: note.name || (note.content || '').slice(0, 40),
+          type: 'study_note',
+          L1,
+          L2,
+          L3s: knowledgePoints,
+          papercore: papercore.slice(0, 100),
+          paths: logicalPaths,
+        });
         processed++;
-      } catch (e: any) { errors.push({ id: note.id, type: 'study_note', error: e.message }); }
+      } catch (e: any) {
+        errors.push({ id: note.id, type: 'study_note', error: e.message });
+      }
     }
 
     for (const material of materials) {
@@ -1855,38 +2233,97 @@ router.post('/rebuild-all', async (req: Request, res: Response) => {
         else text = extractText(material);
 
         if (!text || text.trim().length < 5) {
-          await supabase.from('materials').update({ ai_processed: true, papercore: text || '', logical_path: '/未分类/' }).eq('id', material.id).eq('user_id', userId);
-          processed++; continue;
+          await supabase
+            .from('materials')
+            .update({ ai_processed: true, papercore: text || '', logical_path: '/未分类/' })
+            .eq('id', material.id)
+            .eq('user_id', userId);
+          processed++;
+          continue;
         }
         if (!isReadableText(text)) {
           const matName = material.name || '';
           // 不可读扫描件：命中课程映射的延迟到批处理强制分类
-          const courseIdx = UNREADABLE_FILE_COURSE_MAP.findIndex(c => c.pattern.test(matName));
+          const courseIdx = UNREADABLE_FILE_COURSE_MAP.findIndex((c) => c.pattern.test(matName));
           if (courseIdx >= 0) {
-            perFileLog.push({ id: material.id, name: matName.slice(0,60), type: 'material', L1: '', L2: '', L3s: [], papercore: '', paths: [], skipped: `degraded_course_${courseIdx}` });
-            processed++; continue;
+            perFileLog.push({
+              id: material.id,
+              name: matName.slice(0, 60),
+              type: 'material',
+              L1: '',
+              L2: '',
+              L3s: [],
+              papercore: '',
+              paths: [],
+              skipped: `degraded_course_${courseIdx}`,
+            });
+            processed++;
+            continue;
           }
           const degradedPapercore = buildDegradedPapercore(matName);
-          await supabase.from('materials').update({ ai_processed: true, papercore: degradedPapercore, logical_path: JSON.stringify(['/未分类/']) }).eq('id', material.id).eq('user_id', userId);
-          perFileLog.push({ id: material.id, name: matName.slice(0,60), type: 'material', L1: '', L2: '', L3s: [], papercore: degradedPapercore.slice(0, 120), paths: ['/未分类/'], skipped: 'degraded' });
-          processed++; continue;
+          await supabase
+            .from('materials')
+            .update({
+              ai_processed: true,
+              papercore: degradedPapercore,
+              logical_path: JSON.stringify(['/未分类/']),
+            })
+            .eq('id', material.id)
+            .eq('user_id', userId);
+          perFileLog.push({
+            id: material.id,
+            name: matName.slice(0, 60),
+            type: 'material',
+            L1: '',
+            L2: '',
+            L3s: [],
+            papercore: degradedPapercore.slice(0, 120),
+            paths: ['/未分类/'],
+            skipped: 'degraded',
+          });
+          processed++;
+          continue;
         }
         const matFileName = (material as any).name || undefined;
         const papercore = await generatePapercore(text, { fileName: matFileName });
-        const result = await generateHierarchicalTags(papercore, text.length, existingHierarchy, userId);
+        const result = await generateHierarchicalTags(
+          papercore,
+          text.length,
+          existingHierarchy,
+          userId,
+        );
         const { L1, L2, tags: knowledgePoints } = result;
         const logicalPaths = buildLogicalPaths(L1, L2, knowledgePoints);
         const logicalPath = JSON.stringify(logicalPaths);
         const matPayload = {
-          tags: [L1, L2, ...knowledgePoints].filter(Boolean), papercore, logical_path: logicalPath,
-          ai_processed: true, viewed_after_process: false, updated_at: new Date().toISOString(),
+          tags: [L1, L2, ...knowledgePoints].filter(Boolean),
+          papercore,
+          logical_path: logicalPath,
+          ai_processed: true,
+          viewed_after_process: false,
+          updated_at: new Date().toISOString(),
         };
-        const { error: updateErr2 } = await supabase.from('materials').update(matPayload).eq('id', material.id).eq('user_id', userId);
+        const { error: updateErr2 } = await supabase
+          .from('materials')
+          .update(matPayload)
+          .eq('id', material.id)
+          .eq('user_id', userId);
         if (updateErr2) throw new Error(updateErr2.message);
         updateHierarchy(L1, L2, knowledgePoints);
-        perFileLog.push({ id: material.id, name: material.name?.slice(0,60), type: 'material', L1, L2, L3s: knowledgePoints, papercore: papercore.slice(0,120), paths: logicalPaths });
+        perFileLog.push({
+          id: material.id,
+          name: material.name?.slice(0, 60),
+          type: 'material',
+          L1,
+          L2,
+          L3s: knowledgePoints,
+          papercore: papercore.slice(0, 120),
+          paths: logicalPaths,
+        });
         processed++;
-      } catch (e: any) { errors.push({ id: material.id, type: 'material', error: e.message }); }
+      } catch (e: any) {
+        errors.push({ id: material.id, type: 'material', error: e.message });
+      }
     }
 
     // ==========================================
@@ -1897,17 +2334,34 @@ router.post('/rebuild-all', async (req: Request, res: Response) => {
     const finalTree = await buildL1L2Tree(userId);
     const finalTreeText = formatL1L2Tree(finalTree);
     const finalL1s = Array.from(finalTree.keys());
-    const finalL2s = Array.from(finalTree.values()).flatMap(s => Array.from(s));
+    const finalL2s = Array.from(finalTree.values()).flatMap((s) => Array.from(s));
 
-    console.log(`[l2-reassign] Final tree: ${finalL1s.length} L1s, ${finalL2s.length} L2s — ${finalTreeText.replace(/\n/g, ' | ')}`);
+    console.log(
+      `[l2-reassign] Final tree: ${finalL1s.length} L1s, ${finalL2s.length} L2s — ${finalTreeText.replace(/\n/g, ' | ')}`,
+    );
 
     let reassigned = 0;
-    const INVALID = new Set(['无','未知','未分类','无法识别','无法确定','无法分类','其他','其它','未标注']);
+    const INVALID = new Set([
+      '无',
+      '未知',
+      '未分类',
+      '无法识别',
+      '无法确定',
+      '无法分类',
+      '其他',
+      '其它',
+      '未标注',
+    ]);
 
     for (const entry of perFileLog) {
       const oldL2 = entry.L2;
       const papercore = entry.papercore || '';
-      if (!papercore || papercore.startsWith('该文档以公式') || papercore.startsWith('该文档因严重编码')) continue;
+      if (
+        !papercore ||
+        papercore.startsWith('该文档以公式') ||
+        papercore.startsWith('该文档因严重编码')
+      )
+        continue;
       if (!entry.L1 || !entry.L2) continue;
 
       const reassignPrompt = `你是学科分类专家。以下是完整的学科树和一份文档。请判断此文档的L2归属是否需要修正。
@@ -1934,7 +2388,11 @@ ${papercore.slice(0, 600)}
           temperature: 0.2,
           messages: [{ role: 'user', content: reassignPrompt }],
         });
-        const c2 = resp2.content.filter((x: any) => x.type === 'text').map((x: any) => x.text).join('').trim();
+        const c2 = resp2.content
+          .filter((x: any) => x.type === 'text')
+          .map((x: any) => x.text)
+          .join('')
+          .trim();
         const m2 = c2.match(/\{[\s\S]*\}/);
         if (m2) {
           const parsed = JSON.parse(m2[0]);
@@ -1943,22 +2401,36 @@ ${papercore.slice(0, 600)}
           if (INVALID.has(newL1) || INVALID.has(newL2)) continue;
 
           // Validate against final tree
-          const validL1 = finalL1s.includes(newL1) ? newL1 : (finalL1s.includes(entry.L1) ? entry.L1 : finalL1s[0]);
-          const validL2 = finalL2s.includes(newL2) || (finalTree.get(validL1)?.has(newL2))
-            ? newL2 : finalL2s.includes(entry.L2) ? entry.L2 : Array.from(finalTree.get(validL1) || [])[0];
+          const validL1 = finalL1s.includes(newL1)
+            ? newL1
+            : finalL1s.includes(entry.L1)
+              ? entry.L1
+              : finalL1s[0];
+          const validL2 =
+            finalL2s.includes(newL2) || finalTree.get(validL1)?.has(newL2)
+              ? newL2
+              : finalL2s.includes(entry.L2)
+                ? entry.L2
+                : Array.from(finalTree.get(validL1) || [])[0];
 
           if (validL2 && validL2 !== oldL2) {
-            console.log(`[l2-reassign] ${entry.name || entry.id}: "${oldL2}" → "${validL2}" | ${parsed.reasoning || 'no reason'}`);
+            console.log(
+              `[l2-reassign] ${entry.name || entry.id}: "${oldL2}" → "${validL2}" | ${parsed.reasoning || 'no reason'}`,
+            );
 
             // Update DB
             const table = entry.type === 'study_note' ? 'study_notes' : 'materials';
             const newTags = [validL1, validL2, ...(entry.L3s || [])].filter(Boolean);
             const newLogicalPaths = buildLogicalPaths(validL1, validL2, entry.L3s || []);
-            await (supabase as any).from(table).update({
-              tags: newTags,
-              logical_path: JSON.stringify(newLogicalPaths),
-              updated_at: new Date().toISOString(),
-            }).eq('id', entry.id).eq('user_id', userId);
+            await (supabase as any)
+              .from(table)
+              .update({
+                tags: newTags,
+                logical_path: JSON.stringify(newLogicalPaths),
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', entry.id)
+              .eq('user_id', userId);
 
             // Update perFileLog
             entry.L1 = validL1;
@@ -1981,12 +2453,14 @@ ${papercore.slice(0, 600)}
     // ==========================================
     for (let ci = 0; ci < UNREADABLE_FILE_COURSE_MAP.length; ci++) {
       const course = UNREADABLE_FILE_COURSE_MAP[ci];
-      const courseEntries = perFileLog.filter(e => e.skipped === `degraded_course_${ci}`);
+      const courseEntries = perFileLog.filter((e) => e.skipped === `degraded_course_${ci}`);
       if (courseEntries.length === 0) continue;
 
-      console.log(`[course-batch] Processing ${courseEntries.length} unreadable files for ${course.L1} > ${course.L2}...`);
+      console.log(
+        `[course-batch] Processing ${courseEntries.length} unreadable files for ${course.L1} > ${course.L2}...`,
+      );
       const existingL3s = await getAllL3NamesUnderL2(userId, course.L1, course.L2);
-      const filenames = courseEntries.map(e => e.name).join('\n');
+      const filenames = courseEntries.map((e) => e.name).join('\n');
 
       const coursePrompt = `你是${course.L2}课程专家。以下是一批${course.L2}课程PDF的文件名，由于PDF编码问题无法提取文本，请根据文件名推断每个文件的核心话题。
 
@@ -2013,28 +2487,42 @@ ${course.L2}下已有L3标签：${existingL3s.join(', ') || '(尚无)'}
           temperature: 0.3,
           messages: [{ role: 'user', content: coursePrompt }],
         });
-        const content = resp.content.filter((c: any) => c.type === 'text').map((c: any) => c.text).join('').trim();
+        const content = resp.content
+          .filter((c: any) => c.type === 'text')
+          .map((c: any) => c.text)
+          .join('')
+          .trim();
         const jsonMatch = content.match(/\[[\s\S]*\]/);
         if (jsonMatch) {
           const parsed = JSON.parse(jsonMatch[0]);
           for (const entry of parsed) {
-            const logEntry = courseEntries.find(e => e.name === entry.filename);
+            const logEntry = courseEntries.find((e) => e.name === entry.filename);
             if (!logEntry) continue;
             const l3s = (entry.l3s || []).slice(0, 3);
-            const L1 = course.L1, L2 = course.L2;
+            const L1 = course.L1,
+              L2 = course.L2;
             const papercore = entry.topic || `${L2}课程：${entry.filename}`;
             const logicalPaths = buildLogicalPaths(L1, L2, l3s);
 
-            await (supabase as any).from('materials').update({
-              tags: [L1, L2, ...l3s].filter(Boolean),
-              papercore,
-              logical_path: JSON.stringify(logicalPaths),
-              ai_processed: true, updated_at: new Date().toISOString(),
-            }).eq('id', logEntry.id).eq('user_id', userId);
+            await (supabase as any)
+              .from('materials')
+              .update({
+                tags: [L1, L2, ...l3s].filter(Boolean),
+                papercore,
+                logical_path: JSON.stringify(logicalPaths),
+                ai_processed: true,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', logEntry.id)
+              .eq('user_id', userId);
 
-            logEntry.L1 = L1; logEntry.L2 = L2; logEntry.L3s = l3s;
-            logEntry.papercore = papercore.slice(0, 120); logEntry.paths = logicalPaths;
-            delete logEntry.skipped; (logEntry as any).forced = true;
+            logEntry.L1 = L1;
+            logEntry.L2 = L2;
+            logEntry.L3s = l3s;
+            logEntry.papercore = papercore.slice(0, 120);
+            logEntry.paths = logicalPaths;
+            delete logEntry.skipped;
+            (logEntry as any).forced = true;
             updateHierarchy(L1, L2, l3s);
             console.log(`[course-batch] ${entry.filename}: ${l3s.join(', ')}`);
           }
@@ -2052,7 +2540,9 @@ ${course.L2}下已有L3标签：${existingL3s.join(', ') || '(尚无)'}
     for (const course of UNREADABLE_FILE_COURSE_MAP) {
       const courseL3s = await getAllL3NamesUnderL2(userId, course.L1, course.L2);
       if (courseL3s.length <= 3) continue;
-      console.log(`[l3-consolidate] ${course.L2} has ${courseL3s.length} L3s, checking consolidation...`);
+      console.log(
+        `[l3-consolidate] ${course.L2} has ${courseL3s.length} L3s, checking consolidation...`,
+      );
 
       const l3ConsolidatePrompt = `你是${course.L2}标签管理专家。以下是${course.L2}下的所有L3标签，其中有些过于细碎，需合并为更宽的类别。
 
@@ -2076,7 +2566,11 @@ ${courseL3s.join('\n')}
           temperature: 0.2,
           messages: [{ role: 'user', content: l3ConsolidatePrompt }],
         });
-        const content = resp.content.filter((c: any) => c.type === 'text').map((c: any) => c.text).join('').trim();
+        const content = resp.content
+          .filter((c: any) => c.type === 'text')
+          .map((c: any) => c.text)
+          .join('')
+          .trim();
         const jsonMatch = content.match(/\[[\s\S]*\]/);
         if (jsonMatch) {
           const merges: { merge: string; into: string }[] = JSON.parse(jsonMatch[0]);
@@ -2085,26 +2579,38 @@ ${courseL3s.join('\n')}
             if (from === to || !courseL3s.includes(from)) continue;
             console.log(`[l3-consolidate] ${course.L2} L3: "${from}" → "${to}"`);
             for (const table of ['study_notes', 'materials']) {
-              const { data: records } = await (supabase as any).from(table).select('id, tags, logical_path').eq('user_id', userId);
-              for (const r of (records || [])) {
+              const { data: records } = await (supabase as any)
+                .from(table)
+                .select('id, tags, logical_path')
+                .eq('user_id', userId);
+              for (const r of records || []) {
                 const tags: string[] = r.tags || [];
                 if (tags.length >= 3 && tags[1] === course.L2 && tags.includes(from)) {
-                  const updated = tags.map(t => t === from ? to : t);
+                  const updated = tags.map((t) => (t === from ? to : t));
                   const deduped = updated.filter((t, i) => updated.indexOf(t) === i);
                   const rawPath = r.logical_path || '[]';
                   let paths: string[];
-                  try { paths = JSON.parse(rawPath); if (!Array.isArray(paths)) paths = [rawPath]; }
-                  catch { paths = [rawPath]; }
+                  try {
+                    paths = JSON.parse(rawPath);
+                    if (!Array.isArray(paths)) paths = [rawPath];
+                  } catch {
+                    paths = [rawPath];
+                  }
                   const newPaths = paths.map((p: string) => p.replace(`/${from}/`, `/${to}/`));
-                  await (supabase as any).from(table).update({
-                    tags: deduped, logical_path: JSON.stringify(newPaths),
-                  }).eq('id', r.id);
+                  await (supabase as any)
+                    .from(table)
+                    .update({
+                      tags: deduped,
+                      logical_path: JSON.stringify(newPaths),
+                    })
+                    .eq('id', r.id);
                 }
               }
             }
             l3Merged++;
           }
-          if (l3Merged > 0) console.log(`[l3-consolidate] ${course.L2}: ${l3Merged} L3 merges completed`);
+          if (l3Merged > 0)
+            console.log(`[l3-consolidate] ${course.L2}: ${l3Merged} L3 merges completed`);
         }
       } catch (e) {
         console.error(`[l3-consolidate] ${course.L2} LLM error:`, e);
@@ -2112,12 +2618,19 @@ ${courseL3s.join('\n')}
     }
 
     res.json({
-      data: { total: notes.length + materials.length, processed, merged, reassigned,
+      data: {
+        total: notes.length + materials.length,
+        processed,
+        merged,
+        reassigned,
         perFileLog,
         errors: errors.length > 0 ? errors : undefined,
-        message: `${processed}/${notes.length + materials.length} 处理${merged.length > 0 ? `, ${merged.length} 组合并` : ''}${reassigned > 0 ? `, ${reassigned} 个重新分配L2` : ''}` },
+        message: `${processed}/${notes.length + materials.length} 处理${merged.length > 0 ? `, ${merged.length} 组合并` : ''}${reassigned > 0 ? `, ${reassigned} 个重新分配L2` : ''}`,
+      },
     });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // ==========================================
@@ -2127,8 +2640,12 @@ router.post('/consolidate-tags', async (req: Request, res: Response) => {
   try {
     const userId = (req as any).userId || 'guest';
     const { merged } = await consolidateTags(userId);
-    res.json({ data: { merged, message: merged.length > 0 ? `合并 ${merged.length} 组` : '无需合并' } });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+    res.json({
+      data: { merged, message: merged.length > 0 ? `合并 ${merged.length} 组` : '无需合并' },
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // ==========================================
@@ -2142,17 +2659,24 @@ router.post('/migrate-add-conflict-column', async (_req, res) => {
     for (const table of ['study_notes', 'materials']) {
       try {
         // Try updating a non-existent record to test if column exists
-        const { error } = await supabase.from(table).update({
-          embedding_conflict: false,
-        }).eq('id', '00000000-0000-0000-0000-000000000000');
+        const { error } = await supabase
+          .from(table)
+          .update({
+            embedding_conflict: false,
+          })
+          .eq('id', '00000000-0000-0000-0000-000000000000');
 
         if (error) {
           if (error.message.includes('embedding_conflict') || error.code === '42703') {
             // Column doesn't exist — add it via raw SQL
-            const { error: sqlError } = await supabase.rpc('add_embedding_conflict_column', { table_name: table });
+            const { error: sqlError } = await supabase.rpc('add_embedding_conflict_column', {
+              table_name: table,
+            });
             if (sqlError) {
               // RPC not available, try direct approach
-              results.push(`${table}: column missing (run: ALTER TABLE ${table} ADD COLUMN embedding_conflict BOOLEAN DEFAULT FALSE)`);
+              results.push(
+                `${table}: column missing (run: ALTER TABLE ${table} ADD COLUMN embedding_conflict BOOLEAN DEFAULT FALSE)`,
+              );
             } else {
               results.push(`${table}: column added via RPC`);
             }
@@ -2167,7 +2691,13 @@ router.post('/migrate-add-conflict-column', async (_req, res) => {
       }
     }
 
-    res.json({ data: { results, manual: 'If column missing, run in Supabase SQL Editor: ALTER TABLE study_notes ADD COLUMN embedding_conflict BOOLEAN DEFAULT FALSE; ALTER TABLE materials ADD COLUMN embedding_conflict BOOLEAN DEFAULT FALSE;' } });
+    res.json({
+      data: {
+        results,
+        manual:
+          'If column missing, run in Supabase SQL Editor: ALTER TABLE study_notes ADD COLUMN embedding_conflict BOOLEAN DEFAULT FALSE; ALTER TABLE materials ADD COLUMN embedding_conflict BOOLEAN DEFAULT FALSE;',
+      },
+    });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }

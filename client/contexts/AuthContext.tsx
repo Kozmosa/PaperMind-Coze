@@ -61,7 +61,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
   }, []);
 
-  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+  const login = async (
+    email: string,
+    password: string,
+  ): Promise<{ success: boolean; error?: string }> => {
     try {
       const supabase = createSupabaseClient();
       if (!supabase) {
@@ -70,7 +73,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const tempToken = `temp_${btoa(email)}`;
         setUser(tempUser);
         setToken(tempToken);
-        await AsyncStorage.setItem(SESSION_KEY, JSON.stringify({ user: tempUser, token: tempToken }));
+        await AsyncStorage.setItem(
+          SESSION_KEY,
+          JSON.stringify({ user: tempUser, token: tempToken }),
+        );
         return { success: true };
       }
 
@@ -79,17 +85,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       setUser({ id: data.user?.id || '', email: data.user?.email });
       setToken(data.session?.access_token || '');
-      await AsyncStorage.setItem(SESSION_KEY, JSON.stringify({
-        user: { id: data.user?.id || '', email: data.user?.email },
-        token: data.session?.access_token || '',
-      }));
+      await AsyncStorage.setItem(
+        SESSION_KEY,
+        JSON.stringify({
+          user: { id: data.user?.id || '', email: data.user?.email },
+          token: data.session?.access_token || '',
+        }),
+      );
       return { success: true };
     } catch (e: any) {
       return { success: false, error: e.message || '登录失败' };
     }
   };
 
-  const signup = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+  const signup = async (
+    email: string,
+    password: string,
+  ): Promise<{ success: boolean; error?: string }> => {
     try {
       const supabase = createSupabaseClient();
       if (!supabase) {
@@ -114,12 +126,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } catch {}
     setUser(null);
     setToken(null);
-    setRefreshKey(k => k + 1);
+    setRefreshKey((k) => k + 1);
     await AsyncStorage.removeItem(SESSION_KEY);
   };
 
   const updateUser = (userData: Partial<UserOut>) => {
-    setUser((prev) => prev ? { ...prev, ...userData } : null);
+    setUser((prev) => (prev ? { ...prev, ...userData } : null));
   };
 
   const value: AuthContextType = {

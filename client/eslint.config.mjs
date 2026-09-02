@@ -17,9 +17,9 @@ export default [
     ignores: [
       '**/dist/**',
       '**/node_modules/**',
-      'api/**',           // 排除自动生成的 API 代码
-      'src/api/**',       // 排除 src 下的自动生成 API
-      '.expo/**',         // 排除 Expo 自动生成的文件
+      'api/**', // 排除自动生成的 API 代码
+      'src/api/**', // 排除 src 下的自动生成 API
+      '.expo/**', // 排除 Expo 自动生成的文件
       'tailwind.config.js', // 排除 Tailwind 配置文件
       '**/*.d.ts',
       'eslint.config.*',
@@ -27,7 +27,7 @@ export default [
       './scripts/**',
     ],
   },
-  regexp.configs["flat/recommended"],
+  regexp.configs['flat/recommended'],
   js.configs.recommended,
   ...tseslint.configs.recommended,
 
@@ -36,14 +36,14 @@ export default [
   pluginReact.configs.flat['jsx-runtime'],
   reactHooks.configs.flat.recommended,
   {
-    files: ["**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"],
+    files: ['**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
 
     // 语言选项：设置全局变量
     languageOptions: {
       globals: {
         ...globals.browser,
         ...globals.es2021,
-        '__DEV__': 'readonly',
+        __DEV__: 'readonly',
       },
     },
 
@@ -71,12 +71,12 @@ export default [
     },
     rules: {
       // 关闭代码风格规则
-      'semi': 'off',
-      'quotes': 'off',
-      'indent': 'off',
-      "no-empty": ["error", { "allowEmptyCatch": true }],
-      "no-unused-expressions": "warn",
-      "no-useless-escape": "warn",
+      semi: 'off',
+      quotes: 'off',
+      indent: 'off',
+      'no-empty': ['error', { allowEmptyCatch: true }],
+      'no-unused-expressions': 'warn',
+      'no-useless-escape': 'warn',
       'import/no-unresolved': 'error',
       '@typescript-eslint/no-require-imports': 'off',
       '@typescript-eslint/no-unused-vars': 'off',
@@ -97,12 +97,12 @@ export default [
       'no-restricted-syntax': [
         'error',
         {
-          'selector': 'Literal[value=/via\\.placeholder\\.com/]',
-          'message': 'via.placeholder.com 服务不可用，禁止在代码中使用',
+          selector: 'Literal[value=/via\\.placeholder\\.com/]',
+          message: 'via.placeholder.com 服务不可用，禁止在代码中使用',
         },
         {
-          'selector': 'TemplateLiteral > TemplateElement[value.raw=/via\\.placeholder\\.com/]',
-          'message': 'via.placeholder.com 服务不可用，禁止在代码中使用',
+          selector: 'TemplateLiteral > TemplateElement[value.raw=/via\\.placeholder\\.com/]',
+          message: 'via.placeholder.com 服务不可用，禁止在代码中使用',
         },
       ],
       'reactnative/wrap-horizontal-scrollview-inside-view': ['error'],
@@ -114,12 +114,12 @@ export default [
 
   {
     files: [
-      "metro.config.js",
-      "scripts/**/*.js",
-      "expo/scripts/**/*.js",
-      "eslint.config.js",
-      "babel.config.js",
-      "server/**/*.js"
+      'metro.config.js',
+      'scripts/**/*.js',
+      'expo/scripts/**/*.js',
+      'eslint.config.js',
+      'babel.config.js',
+      'server/**/*.js',
     ],
     languageOptions: {
       globals: {

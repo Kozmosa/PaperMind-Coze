@@ -18,7 +18,7 @@ const USER_ID = 'debug_user_001';
 // ========== 文件提取函数（与 knowledge-builder.ts 保持一致） ==========
 async function extractFileContent(
   buffer: Buffer,
-  ext: string
+  ext: string,
 ): Promise<{ text: string; status: 'ok' | 'unsupported' | 'empty' }> {
   if (ext === '.pdf') {
     try {
@@ -40,7 +40,7 @@ async function extractFileContent(
       const zip = new AdmZip(buffer);
       const entries = zip.getEntries();
       const slideFiles = entries
-        .filter(e => e.entryName.match(/ppt\/slides\/slide\d+\.xml/i))
+        .filter((e) => e.entryName.match(/ppt\/slides\/slide\d+\.xml/i))
         .sort((a, b) => a.entryName.localeCompare(b.entryName));
 
       const allTexts: string[] = [];
@@ -50,7 +50,10 @@ async function extractFileContent(
 
         function collectText(obj: any) {
           if (!obj || typeof obj !== 'object') return;
-          if (Array.isArray(obj)) { obj.forEach(collectText); return; }
+          if (Array.isArray(obj)) {
+            obj.forEach(collectText);
+            return;
+          }
           if (obj['a:t']) {
             const values = Array.isArray(obj['a:t']) ? obj['a:t'] : [obj['a:t']];
             values.forEach((v: any) => {
@@ -77,7 +80,10 @@ async function extractFileContent(
   }
 
   if (ext === '.md' || ext === '.txt') {
-    const text = buffer.toString('utf-8').replace(/^\uFEFF/, '').trim();
+    const text = buffer
+      .toString('utf-8')
+      .replace(/^\uFEFF/, '')
+      .trim();
     return { text, status: text.length > 0 ? 'ok' : 'empty' };
   }
 
@@ -89,8 +95,10 @@ async function main() {
   console.log('=== 重新处理 Materials ===\n');
 
   // 1. 获取所有 materials
-  const recordsRes = await fetch(`${BACKEND}/api/v1/control-center/recent-records?user_id=${USER_ID}`);
-  const recordsData = await recordsRes.json() as any;
+  const recordsRes = await fetch(
+    `${BACKEND}/api/v1/control-center/recent-records?user_id=${USER_ID}`,
+  );
+  const recordsData = (await recordsRes.json()) as any;
   const materials = (recordsData.data || []).filter((r: any) => r.record_type === 'material');
 
   console.log(`共 ${materials.length} 个 materials\n`);
@@ -116,7 +124,7 @@ async function main() {
     if (!fs.existsSync(filePath)) {
       console.log(`  ⚠ 文件不存在: ${filePath}`);
       // Try to find by partial name
-      const match = availableFiles.find(f => f.includes(name) || name.includes(f));
+      const match = availableFiles.find((f) => f.includes(name) || name.includes(f));
       if (match) {
         console.log(`  → 找到匹配: ${match}`);
         const matchedPath = path.join(TEST_DATA_DIR, match);
@@ -149,7 +157,7 @@ async function main() {
         body: JSON.stringify(body),
       });
 
-      const procData = await procRes.json() as any;
+      const procData = (await procRes.json()) as any;
       console.log(`  API 响应: ${JSON.stringify(procData.data || procData).slice(0, 200)}`);
       success++;
     } catch (e: any) {
@@ -158,14 +166,14 @@ async function main() {
     }
 
     // Small delay to avoid rate limiting
-    await new Promise(r => setTimeout(r, 500));
+    await new Promise((r) => setTimeout(r, 500));
   }
 
   console.log(`\n=== 完成 ===`);
   console.log(`成功: ${success}, 跳过: ${skipped}, 失败: ${failed}`);
 }
 
-main().catch(e => {
+main().catch((e) => {
   console.error('Fatal:', e);
   process.exit(1);
 });

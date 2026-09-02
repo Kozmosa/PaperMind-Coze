@@ -35,7 +35,7 @@ export default function ReflectionIndexScreen() {
   useFocusEffect(
     useCallback(() => {
       loadReflections();
-    }, [])
+    }, []),
   );
 
   const loadReflections = async () => {
@@ -82,7 +82,7 @@ export default function ReflectionIndexScreen() {
           setGenerating(false);
           console.error('Generate reflection error:', error);
           Toast.show({ type: 'error', text1: '反思生成失败', text2: error || '请重试' });
-        }
+        },
       );
     } catch (e) {
       console.error('Failed to generate report', e);
@@ -99,12 +99,22 @@ export default function ReflectionIndexScreen() {
   return (
     <Screen statusBarStyle="dark" safeAreaEdges={['left', 'right', 'top']}>
       {/* Header */}
-      <View style={{ paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#F0F0F3' }}>
+      <View
+        style={{
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+          backgroundColor: '#FFF',
+          borderBottomWidth: 1,
+          borderBottomColor: '#F0F0F3',
+        }}
+      >
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <TouchableOpacity onPress={() => router.back()}>
             <Feather name="arrow-left" size={24} color="#2D3436" />
           </TouchableOpacity>
-          <Text style={{ marginLeft: 12, fontSize: 18, fontWeight: '700', color: '#2D3436' }}>学习反思</Text>
+          <Text style={{ marginLeft: 12, fontSize: 18, fontWeight: '700', color: '#2D3436' }}>
+            学习反思
+          </Text>
         </View>
       </View>
 
@@ -113,24 +123,58 @@ export default function ReflectionIndexScreen() {
           <ActivityIndicator size="large" color="#6C63FF" />
         </View>
       ) : (
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ padding: 16 }}
+          showsVerticalScrollIndicator={false}
+        >
           {/* Report generation card */}
-          <View style={{ backgroundColor: '#FFF', borderRadius: 20, padding: 24, marginBottom: 24, shadowColor: '#D1D9E6', shadowOffset: { width: 4, height: 4 }, shadowOpacity: 0.6, shadowRadius: 8, elevation: 4 }}>
+          <View
+            style={{
+              backgroundColor: '#FFF',
+              borderRadius: 20,
+              padding: 24,
+              marginBottom: 24,
+              shadowColor: '#D1D9E6',
+              shadowOffset: { width: 4, height: 4 },
+              shadowOpacity: 0.6,
+              shadowRadius: 8,
+              elevation: 4,
+            }}
+          >
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-              <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#6C63FF18', justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
+              <View
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 22,
+                  backgroundColor: '#6C63FF18',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  marginRight: 12,
+                }}
+              >
                 <Feather name="bar-chart-2" size={22} color="#6C63FF" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 18, fontWeight: '700', color: '#2D3436' }}>生成学习报告</Text>
+                <Text style={{ fontSize: 18, fontWeight: '700', color: '#2D3436' }}>
+                  生成学习报告
+                </Text>
                 <Text style={{ fontSize: 13, color: '#636E72', marginTop: 2 }}>
-                  {generating ? 'AI 正在分析你的学习数据并生成反思报告...' : '小助手正在撰写学习报告请稍后'}
+                  {generating
+                    ? 'AI 正在分析你的学习数据并生成反思报告...'
+                    : '小助手正在撰写学习报告请稍后'}
                 </Text>
               </View>
             </View>
 
             {!generating && (
               <>
-                <Text style={{ fontSize: 14, fontWeight: '600', color: '#2D3436', marginBottom: 12 }}>选择时间段</Text>
+                <Text
+                  style={{ fontSize: 14, fontWeight: '600', color: '#2D3436', marginBottom: 12 }}
+                >
+                  选择时间段
+                </Text>
                 <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
                   {TIME_OPTIONS.map((opt) => (
                     <TouchableOpacity
@@ -144,7 +188,13 @@ export default function ReflectionIndexScreen() {
                       }}
                       onPress={() => setSelectedPeriod(opt.value)}
                     >
-                      <Text style={{ color: selectedPeriod === opt.value ? '#FFF' : '#636E72', fontWeight: '600', fontSize: 14 }}>
+                      <Text
+                        style={{
+                          color: selectedPeriod === opt.value ? '#FFF' : '#636E72',
+                          fontWeight: '600',
+                          fontSize: 14,
+                        }}
+                      >
                         {opt.label}
                       </Text>
                     </TouchableOpacity>
@@ -155,26 +205,32 @@ export default function ReflectionIndexScreen() {
 
             {/* Streaming output during generation */}
             {generating && (
-              <View style={{
-                backgroundColor: '#F7F8FC',
-                borderRadius: 14,
-                borderWidth: 1,
-                borderColor: '#E8EAF0',
-                marginBottom: 16,
-                maxHeight: 400,
-                overflow: 'hidden',
-              }}>
-                <View style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  paddingHorizontal: 14,
-                  paddingVertical: 10,
-                  borderBottomWidth: 1,
-                  borderBottomColor: '#E8EAF0',
-                  backgroundColor: '#EEF0FF',
-                }}>
+              <View
+                style={{
+                  backgroundColor: '#F7F8FC',
+                  borderRadius: 14,
+                  borderWidth: 1,
+                  borderColor: '#E8EAF0',
+                  marginBottom: 16,
+                  maxHeight: 400,
+                  overflow: 'hidden',
+                }}
+              >
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingHorizontal: 14,
+                    paddingVertical: 10,
+                    borderBottomWidth: 1,
+                    borderBottomColor: '#E8EAF0',
+                    backgroundColor: '#EEF0FF',
+                  }}
+                >
                   <ActivityIndicator size="small" color="#6C63FF" />
-                  <Text style={{ marginLeft: 8, fontSize: 13, fontWeight: '600', color: '#6C63FF' }}>
+                  <Text
+                    style={{ marginLeft: 8, fontSize: 13, fontWeight: '600', color: '#6C63FF' }}
+                  >
                     AI 正在生成反思报告...
                   </Text>
                 </View>
@@ -209,7 +265,9 @@ export default function ReflectionIndexScreen() {
               {generating ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <ActivityIndicator size="small" color="#FFF" />
-                  <Text style={{ color: '#FFF', fontWeight: '700', marginLeft: 8 }}>AI 正在撰写报告...</Text>
+                  <Text style={{ color: '#FFF', fontWeight: '700', marginLeft: 8 }}>
+                    AI 正在撰写报告...
+                  </Text>
                 </View>
               ) : (
                 <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 15 }}>开始生成报告</Text>
@@ -223,10 +281,19 @@ export default function ReflectionIndexScreen() {
           </Text>
 
           {reflections.length === 0 && (
-            <View style={{ backgroundColor: '#FFF', borderRadius: 20, padding: 40, alignItems: 'center' }}>
+            <View
+              style={{
+                backgroundColor: '#FFF',
+                borderRadius: 20,
+                padding: 40,
+                alignItems: 'center',
+              }}
+            >
               <Feather name="inbox" size={48} color="#B2BEC3" />
               <Text style={{ color: '#B2BEC3', marginTop: 12, fontSize: 15 }}>暂无报告</Text>
-              <Text style={{ color: '#B2BEC3', fontSize: 13, marginTop: 4, textAlign: 'center' }}>选择时间段后点击「开始生成报告」</Text>
+              <Text style={{ color: '#B2BEC3', fontSize: 13, marginTop: 4, textAlign: 'center' }}>
+                选择时间段后点击「开始生成报告」
+              </Text>
             </View>
           )}
 
@@ -237,11 +304,23 @@ export default function ReflectionIndexScreen() {
               onPress={() => router.push('/reflection-detail', { id: r.id })}
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#6C63FF18', justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
+                <View
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 20,
+                    backgroundColor: '#6C63FF18',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    marginRight: 12,
+                  }}
+                >
                   <Feather name="file-text" size={20} color="#6C63FF" />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 15, fontWeight: '700', color: '#2D3436' }}>学习反思报告</Text>
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: '#2D3436' }}>
+                    学习反思报告
+                  </Text>
                   <Text style={{ fontSize: 12, color: '#636E72', marginTop: 2 }}>
                     {getPeriodLabel(r.period)} · {new Date(r.created_at).toLocaleDateString()}
                   </Text>
@@ -252,16 +331,32 @@ export default function ReflectionIndexScreen() {
               {/* Preview snippets */}
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
                 {r.learning_behavior && (
-                  <View style={{ backgroundColor: '#F0F0F3', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 }}>
+                  <View
+                    style={{
+                      backgroundColor: '#F0F0F3',
+                      borderRadius: 8,
+                      paddingHorizontal: 10,
+                      paddingVertical: 4,
+                    }}
+                  >
                     <Text style={{ fontSize: 12, color: '#636E72' }} numberOfLines={1}>
-                      <AntDesign name="pie-chart" size={12} color="#636E72" /> {r.learning_behavior.slice(0, 20)}...
+                      <AntDesign name="pie-chart" size={12} color="#636E72" />{' '}
+                      {r.learning_behavior.slice(0, 20)}...
                     </Text>
                   </View>
                 )}
                 {r.challenge_report && (
-                  <View style={{ backgroundColor: '#F0F0F3', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 }}>
+                  <View
+                    style={{
+                      backgroundColor: '#F0F0F3',
+                      borderRadius: 8,
+                      paddingHorizontal: 10,
+                      paddingVertical: 4,
+                    }}
+                  >
                     <Text style={{ fontSize: 12, color: '#636E72' }} numberOfLines={1}>
-                      <AntDesign name="check-circle" size={12} color="#636E72" /> {r.challenge_report.slice(0, 20)}...
+                      <AntDesign name="check-circle" size={12} color="#636E72" />{' '}
+                      {r.challenge_report.slice(0, 20)}...
                     </Text>
                   </View>
                 )}

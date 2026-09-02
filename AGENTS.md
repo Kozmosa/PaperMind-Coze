@@ -7,27 +7,27 @@
 - Expo 代码在 client 目录，Express.js 代码在 server 目录
 - 本模板默认无 Tab Bar，可按需改造
 
-├── client/                     # React Native 前端代码
-│   ├── app/                    # Expo Router 路由目录（仅路由配置）
-│   │   ├── _layout.tsx         # 根布局文件（必需，务必阅读）
-│   │   └── index.tsx           # 首页
-│   ├── screens/                # 页面实现目录（与 app/ 路由对应）
-│   │   └── demo/               # 示例页面
-│   │       └── index.tsx
-│   ├── components/             # 可复用组件
-│   │   └── Screen.tsx          # 页面容器组件（必用）
-│   ├── hooks/                  # 自定义 Hooks
-│   ├── contexts/               # React Context 代码
-│   ├── utils/                  # 工具函数
-│   ├── assets/                 # 静态资源
-|   └── package.json            # Expo 应用 package.json
-├── server/                     # 服务端代码根目录 (Express.js)
-|   ├── src/
-│   │   └── index.ts            # 服务端入口文件
-|   └── package.json            # 服务端 package.json
+├── client/ # React Native 前端代码
+│ ├── app/ # Expo Router 路由目录（仅路由配置）
+│ │ ├── _layout.tsx # 根布局文件（必需，务必阅读）
+│ │ └── index.tsx # 首页
+│ ├── screens/ # 页面实现目录（与 app/ 路由对应）
+│ │ └── demo/ # 示例页面
+│ │ └── index.tsx
+│ ├── components/ # 可复用组件
+│ │ └── Screen.tsx # 页面容器组件（必用）
+│ ├── hooks/ # 自定义 Hooks
+│ ├── contexts/ # React Context 代码
+│ ├── utils/ # 工具函数
+│ ├── assets/ # 静态资源
+| └── package.json # Expo 应用 package.json
+├── server/ # 服务端代码根目录 (Express.js)
+| ├── src/
+│ │ └── index.ts # 服务端入口文件
+| └── package.json # 服务端 package.json
 ├── package.json
-├── .cozeproj                   # 预置脚手架脚本（禁止修改）
-└── .coze                       # 配置文件（禁止修改）
+├── .cozeproj # 预置脚手架脚本（禁止修改）
+└── .coze # 配置文件（禁止修改）
 
 ## 样式方案
 
@@ -101,14 +101,17 @@ client/app/
 ```
 
 **应用入口** `client/app/index.tsx`：
+
 ```tsx
 export { default } from "@/screens/home";
 ```
+
 > **禁止事项**：无 Tab Bar 场景下，不得创建 `(tabs)` 目录。
 
 ### 方案二：有 Tab Bar（Tabs 导航）
 
 采用路由分组实现底部导航栏：
+
 ```
 client/app/
 ├── _layout.tsx              # 根布局
@@ -120,6 +123,7 @@ client/app/
 ├── detail.tsx               # Tab 外的独立页面（通过 params 传递数据）
 └── +not-found.tsx
 ```
+
 > **⚠️ [CRITICAL]**： `app/index.tsx` 优先级高于 `(tabs)/index.tsx`，会导致首页无 Tab Bar。**当有(tabs)/index.tsx时必须删除 `app/index.tsx`**。
 
 **根布局配置** `client/app/_layout.tsx`：
@@ -134,6 +138,7 @@ client/app/
 ```
 
 **应用入口** `client/app/(tabs)/index.tsx`：
+
 ```tsx
 export { default } from "@/screens/home";
 ```
@@ -213,6 +218,7 @@ export default function TabLayout() {
 ```
 
 **Tab 页面文件** `client/app/(tabs)/index.tsx`：
+
 ```tsx
 export { default } from "@/screens/home";
 ```
@@ -229,12 +235,13 @@ export { default } from "@/screens/home";
 ## 依赖管理与模块导入规范
 
 ### 依赖安装
+
 **禁止**使用 `npm` 或 `yarn`，按目录区分安装命令：
 
-| 目录 | 安装命令 | 说明 |
-|------|----------|------|
+| 目录      | 安装命令                     | 说明                             |
+| --------- | ---------------------------- | -------------------------------- |
 | `client/` | `npx expo install <package>` | Expo 会自动选择与 SDK 兼容的版本 |
-| `server/` | `pnpm add <package>` | 使用 pnpm 管理后端依赖 |
+| `server/` | `pnpm add <package>`         | 使用 pnpm 管理后端依赖           |
 
 ```bash
 # client 目录（Expo 项目）

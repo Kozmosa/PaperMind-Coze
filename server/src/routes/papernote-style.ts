@@ -90,12 +90,17 @@ router.post('/extract', async (req: Request, res: Response) => {
     // 提取偏好关键词
     const extractedPrefs: Record<string, any> = {};
     const prompt = refinementPrompt.toLowerCase();
-    if (prompt.includes('详细') || prompt.includes('展开') || prompt.includes('更多')) extractedPrefs.detail_level = 'high';
-    if (prompt.includes('简洁') || prompt.includes('简短') || prompt.includes('概括')) extractedPrefs.detail_level = 'concise';
+    if (prompt.includes('详细') || prompt.includes('展开') || prompt.includes('更多'))
+      extractedPrefs.detail_level = 'high';
+    if (prompt.includes('简洁') || prompt.includes('简短') || prompt.includes('概括'))
+      extractedPrefs.detail_level = 'concise';
     if (prompt.includes('表格') || prompt.includes('对比')) extractedPrefs.prefer_tables = true;
-    if (prompt.includes('例子') || prompt.includes('示例') || prompt.includes('举例')) extractedPrefs.prefer_examples = true;
-    if (prompt.includes('重点') || prompt.includes('突出') || prompt.includes('强调')) extractedPrefs.emphasize_keypoints = true;
-    if (prompt.includes('通俗') || prompt.includes('简单') || prompt.includes('易懂')) extractedPrefs.language_style = 'plain';
+    if (prompt.includes('例子') || prompt.includes('示例') || prompt.includes('举例'))
+      extractedPrefs.prefer_examples = true;
+    if (prompt.includes('重点') || prompt.includes('突出') || prompt.includes('强调'))
+      extractedPrefs.emphasize_keypoints = true;
+    if (prompt.includes('通俗') || prompt.includes('简单') || prompt.includes('易懂'))
+      extractedPrefs.language_style = 'plain';
 
     // 合并到已有偏好
     const { data: existing } = await client
@@ -104,9 +109,10 @@ router.post('/extract', async (req: Request, res: Response) => {
       .eq('user_id', userId)
       .limit(1);
 
-    const existingPrefs = (existing && existing.length > 0 && existing[0].subject_preferences)
-      ? existing[0].subject_preferences
-      : {};
+    const existingPrefs =
+      existing && existing.length > 0 && existing[0].subject_preferences
+        ? existing[0].subject_preferences
+        : {};
 
     const mergedPrefs = { ...existingPrefs, ...extractedPrefs };
 
@@ -119,12 +125,10 @@ router.post('/extract', async (req: Request, res: Response) => {
         })
         .eq('id', existing[0].id);
     } else {
-      await client
-        .from('papernote_style')
-        .insert({
-          user_id: userId,
-          subject_preferences: mergedPrefs,
-        });
+      await client.from('papernote_style').insert({
+        user_id: userId,
+        subject_preferences: mergedPrefs,
+      });
     }
 
     res.json({ data: { extracted: extractedPrefs, merged: mergedPrefs } });

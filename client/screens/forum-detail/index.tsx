@@ -1,4 +1,14 @@
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, Platform, KeyboardAvoidingView, Keyboard } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  Modal,
+  Platform,
+  KeyboardAvoidingView,
+  Keyboard,
+} from 'react-native';
 import { useCallback, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
@@ -33,13 +43,18 @@ export default function ForumDetailScreen() {
   useFocusEffect(
     useCallback(() => {
       if (id) loadPosts();
-    }, [loadPosts])
+    }, [loadPosts]),
   );
 
   const handlePost = async () => {
     if (!newContent.trim()) return;
     try {
-      await api.createForumPost({ forum_id: id, title: '帖子', content: newContent, author_name: 'Papermind 用户' });
+      await api.createForumPost({
+        forum_id: id,
+        title: '帖子',
+        content: newContent,
+        author_name: 'Papermind 用户',
+      });
       setNewContent('');
       setPostModal(false);
       loadPosts();
@@ -58,7 +73,9 @@ export default function ForumDetailScreen() {
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 24, fontWeight: '800', color: '#2D3436' }}>{name}</Text>
-            <Text style={{ fontSize: 13, color: '#636E72', marginTop: 2 }}>{posts.length} 个帖子</Text>
+            <Text style={{ fontSize: 13, color: '#636E72', marginTop: 2 }}>
+              {posts.length} 个帖子
+            </Text>
           </View>
         </View>
 
@@ -71,31 +88,49 @@ export default function ForumDetailScreen() {
             <View style={{ alignItems: 'center', paddingVertical: 60 }}>
               <Feather name="message-circle" size={48} color="#B2BEC3" />
               <Text style={{ fontSize: 14, color: '#636E72', marginTop: 12 }}>还没有帖子</Text>
-              <Text style={{ fontSize: 12, color: '#B2BEC3', marginTop: 4 }}>快来发布第一条帖子吧</Text>
+              <Text style={{ fontSize: 12, color: '#B2BEC3', marginTop: 4 }}>
+                快来发布第一条帖子吧
+              </Text>
             </View>
           )}
 
           {posts.map((post) => (
-            <View key={post.id} style={{
-              backgroundColor: '#F0F0F3',
-              borderRadius: 20,
-              padding: 16,
-              marginBottom: 12,
-              shadowColor: '#D1D9E6',
-              shadowOffset: { width: 4, height: 4 },
-              shadowOpacity: 0.6,
-              shadowRadius: 6,
-              elevation: 4,
-            }}>
+            <View
+              key={post.id}
+              style={{
+                backgroundColor: '#F0F0F3',
+                borderRadius: 20,
+                padding: 16,
+                marginBottom: 12,
+                shadowColor: '#D1D9E6',
+                shadowOffset: { width: 4, height: 4 },
+                shadowOpacity: 0.6,
+                shadowRadius: 6,
+                elevation: 4,
+              }}
+            >
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-                <View style={{
-                  width: 32, height: 32, borderRadius: 16,
-                  backgroundColor: 'rgba(108,99,255,0.12)',
-                  justifyContent: 'center', alignItems: 'center',
-                }}>
+                <View
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 16,
+                    backgroundColor: 'rgba(108,99,255,0.12)',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                  }}
+                >
                   <Feather name="user" size={16} color="#6C63FF" />
                 </View>
-                <Text style={{ fontSize: 13, fontWeight: '600', color: '#2D3436', marginLeft: 8, flex: 1 }}>
+                <Text
+                  style={{
+                    fontSize: 13,
+                    fontWeight: '600',
+                    color: '#2D3436',
+                    marginLeft: 8,
+                    flex: 1,
+                  }}
+                >
                   {post.author_name}
                 </Text>
                 <Text style={{ fontSize: 11, color: '#B2BEC3' }}>
@@ -114,10 +149,14 @@ export default function ForumDetailScreen() {
         >
           <LinearGradient
             colors={['#6C63FF', '#896BFF']}
-            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
             style={{
-              width: 56, height: 56, borderRadius: 28,
-              justifyContent: 'center', alignItems: 'center',
+              width: 56,
+              height: 56,
+              borderRadius: 28,
+              justifyContent: 'center',
+              alignItems: 'center',
               shadowColor: '#6C63FF',
               shadowOffset: { width: 0, height: 4 },
               shadowOpacity: 0.35,
@@ -136,28 +175,41 @@ export default function ForumDetailScreen() {
               style={{ flex: 1, justifyContent: 'flex-end' }}
               behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             >
-              <View style={{
-                backgroundColor: '#F0F0F3',
-                borderTopLeftRadius: 28,
-                borderTopRightRadius: 28,
-                padding: 24,
-                paddingBottom: Platform.OS === 'ios' ? 40 : 24,
-              }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#2D3436' }}>发布帖子</Text>
+              <View
+                style={{
+                  backgroundColor: '#F0F0F3',
+                  borderTopLeftRadius: 28,
+                  borderTopRightRadius: 28,
+                  padding: 24,
+                  paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+                }}
+              >
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: 20,
+                  }}
+                >
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#2D3436' }}>
+                    发布帖子
+                  </Text>
                   <TouchableOpacity onPress={() => setPostModal(false)}>
                     <Feather name="x" size={22} color="#B2BEC3" />
                   </TouchableOpacity>
                 </View>
 
-                <View style={{
-                  backgroundColor: '#E8E8EB',
-                  borderRadius: 16,
-                  padding: 14,
-                  marginBottom: 20,
-                  borderWidth: 1,
-                  borderColor: 'rgba(255,255,255,0.6)',
-                }}>
+                <View
+                  style={{
+                    backgroundColor: '#E8E8EB',
+                    borderRadius: 16,
+                    padding: 14,
+                    marginBottom: 20,
+                    borderWidth: 1,
+                    borderColor: 'rgba(255,255,255,0.6)',
+                  }}
+                >
                   <TextInput
                     style={{ fontSize: 15, color: '#2D3436', minHeight: 120 }}
                     placeholder="写下你的想法..."
@@ -174,7 +226,8 @@ export default function ForumDetailScreen() {
                 >
                   <LinearGradient
                     colors={['#6C63FF', '#896BFF']}
-                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
                     style={{ paddingVertical: 16, alignItems: 'center' }}
                   >
                     <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 16 }}>发布</Text>

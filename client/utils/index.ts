@@ -16,7 +16,7 @@ const API_BASE = (process.env.EXPO_PUBLIC_API_BASE ?? '').replace(/\/$/, '');
 export async function createFormDataFile(
   fileUri: string,
   fileName: string,
-  mimeType: string
+  mimeType: string,
 ): Promise<File | { uri: string; type: string; name: string }> {
   if (Platform.OS === 'web') {
     const response = await fetch(fileUri);
@@ -46,10 +46,9 @@ export const buildAssetUrl = (url?: string | null, w?: number, h?: number): stri
 
   // 3. 构造参数，保留原有 Query (如有)
   const separator = abs.includes('?') ? '&' : '?';
-  const query = [
-    w ? `w=${Math.floor(w)}` : '',
-    h ? `h=${Math.floor(h)}` : ''
-  ].filter(Boolean).join('&');
+  const query = [w ? `w=${Math.floor(w)}` : '', h ? `h=${Math.floor(h)}` : '']
+    .filter(Boolean)
+    .join('&');
   return `${abs}${separator}${query}`;
 };
 
@@ -73,4 +72,4 @@ export const convertToLocalTimeStr = (utcDateStr: string): string => {
     return utcDateStr;
   }
   return d.local().format('YYYY-MM-DD HH:mm:ss');
-}
+};

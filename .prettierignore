@@ -19,3 +19,6 @@ server/nohup.out
 
 # 锁文件
 pnpm-lock.yaml
+
+# prettier 自身配置(保持严格 JSON)
+.prettierrc

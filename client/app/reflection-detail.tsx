@@ -1,1 +1,1 @@
-export { default } from "@/screens/reflection-detail";
+export { default } from '@/screens/reflection-detail';

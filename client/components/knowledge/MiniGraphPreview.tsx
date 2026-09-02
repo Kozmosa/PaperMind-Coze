@@ -62,7 +62,7 @@ function runForceLayout(
   centerName: string,
   related: RelatedNode[],
   w: number,
-  h: number
+  h: number,
 ): { nodes: LayoutNode[]; edges: LayoutEdge[] } {
   const nodes: LayoutNode[] = [];
   const edges: LayoutEdge[] = [];
@@ -171,7 +171,7 @@ export default function MiniGraphPreview({
 }: MiniGraphPreviewProps) {
   const { nodes, edges } = useMemo(
     () => runForceLayout(centerLabel, relatedNodes, width, height),
-    [centerLabel, relatedNodes, width, height]
+    [centerLabel, relatedNodes, width, height],
   );
 
   if (relatedNodes.length === 0) {
@@ -192,22 +192,25 @@ export default function MiniGraphPreview({
       <Svg width={width} height={height - 24}>
         {/* Edges */}
         {edges.map((edge, i) => {
-          const fromNode = nodes.find(n => n.id === edge.fromId);
-          const toNode = nodes.find(n => n.id === edge.toId);
+          const fromNode = nodes.find((n) => n.id === edge.fromId);
+          const toNode = nodes.find((n) => n.id === edge.toId);
           if (!fromNode || !toNode) return null;
           const mx = (fromNode.x + toNode.x) / 2;
           const my = (fromNode.y + toNode.y) / 2;
           return (
             <G key={`edge-${i}`}>
               <Line
-                x1={fromNode.x} y1={fromNode.y}
-                x2={toNode.x} y2={toNode.y}
+                x1={fromNode.x}
+                y1={fromNode.y}
+                x2={toNode.x}
+                y2={toNode.y}
                 stroke={edge.color}
                 strokeWidth={1.5}
                 strokeDasharray={edge.label === '相关' ? '4,3' : undefined}
               />
               <SvgText
-                x={mx} y={my - 6}
+                x={mx}
+                y={my - 6}
                 fontSize={8}
                 fill={edge.color}
                 textAnchor="middle"
@@ -223,13 +226,16 @@ export default function MiniGraphPreview({
         {nodes.map((node) => (
           <G key={node.id}>
             <Circle
-              cx={node.x} cy={node.y} r={node.r}
+              cx={node.x}
+              cy={node.y}
+              r={node.r}
               fill={node.fill}
               stroke={node.stroke}
               strokeWidth={node.isCenter ? 3 : 2}
             />
             <SvgText
-              x={node.x} y={node.y + 3}
+              x={node.x}
+              y={node.y + 3}
               fontSize={node.isCenter ? 10 : 8}
               fill={node.isCenter ? '#FFFFFF' : C.textSecondary}
               textAnchor="middle"

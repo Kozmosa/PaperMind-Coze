@@ -11,25 +11,25 @@ Note Helper 是 PaperMind 的「AI 笔记生成与编辑助手」（多文件选
 
 ### 1.1 PRD 点名库（重点）
 
-| 库 | 版本 | 已安装 | 被哪些文件使用 |
-|---|---|---|---|
-| `@kishannareshpal/expo-pdf` | — | ❌ 未安装 | 全仓库无引用。PDF 目前用 `react-native-webview`（原生）/ `<iframe>`（web）整篇预览，**无法跳页** |
-| `react-native-markdown-display` | — | ❌ 未安装 | 全仓库无引用。笔记渲染用自研 `client/components/markdown/MarkdownRenderer.tsx`（WebView + CDN marked/KaTeX） |
-| `react-native-reanimated` | ~4.1.1 | ✅ | `client/heroui/**`（大量动画）、`client/screens/knowledge/index.tsx`（手势动画）。**Note Helper 的侧边栏/浮动卡片未使用**（直接条件渲染，无滑入滑出） |
-| `react-native-gesture-handler` | ~2.28.0 | ✅ | `client/components/layout/Provider.tsx`、`client/screens/knowledge/index.tsx`、`client/screens/study-note-edit/index.tsx` 等 |
-| `expo` | 54.0.33 | ✅ | Expo SDK 54（RN 0.81.5 / React 19.1.0） |
-| AI SDK | — | ✅ | 服务端 `@anthropic-ai/sdk ^0.39.0`（`server/src/config/ai.ts`，Anthropic 兼容网关；工作区未提交改动正切换到 DeepSeek 官方）；`openai ^6.9.0` 已装但**服务端源码无任何引用**（冗余） |
+| 库                              | 版本    | 已安装    | 被哪些文件使用                                                                                                                                                                      |
+| ------------------------------- | ------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@kishannareshpal/expo-pdf`     | —       | ❌ 未安装 | 全仓库无引用。PDF 目前用 `react-native-webview`（原生）/ `<iframe>`（web）整篇预览，**无法跳页**                                                                                    |
+| `react-native-markdown-display` | —       | ❌ 未安装 | 全仓库无引用。笔记渲染用自研 `client/components/markdown/MarkdownRenderer.tsx`（WebView + CDN marked/KaTeX）                                                                        |
+| `react-native-reanimated`       | ~4.1.1  | ✅        | `client/heroui/**`（大量动画）、`client/screens/knowledge/index.tsx`（手势动画）。**Note Helper 的侧边栏/浮动卡片未使用**（直接条件渲染，无滑入滑出）                               |
+| `react-native-gesture-handler`  | ~2.28.0 | ✅        | `client/components/layout/Provider.tsx`、`client/screens/knowledge/index.tsx`、`client/screens/study-note-edit/index.tsx` 等                                                        |
+| `expo`                          | 54.0.33 | ✅        | Expo SDK 54（RN 0.81.5 / React 19.1.0）                                                                                                                                             |
+| AI SDK                          | —       | ✅        | 服务端 `@anthropic-ai/sdk ^0.39.0`（`server/src/config/ai.ts`，Anthropic 兼容网关；工作区未提交改动正切换到 DeepSeek 官方）；`openai ^6.9.0` 已装但**服务端源码无任何引用**（冗余） |
 
 ### 1.2 其他与 Note Helper 相关的库
 
-| 库 | 版本 | 使用情况 |
-|---|---|---|
-| `react-native-webview` | 13.15.0 | MarkdownRenderer、NoteHelperSidebar PDF 预览、ReferenceCard |
-| `react-native-sse` | ^1.2.1 | `client/screens/ai-chat/index.tsx`；Note Helper 的 SSE 是 `client/utils/api.ts` 手写 XMLHttpRequest 实现（两套并存） |
-| `@gorhom/bottom-sheet` | ^5.2.8 | `client/heroui` 组件库内部 |
-| `@supabase/supabase-js` | 2.95.3 | 服务端各路由 + 客户端 api.ts |
-| `drizzle-orm` / `drizzle-kit` | ^0.45.1 / ^0.31.8 | `server/src/storage/database/shared/schema.ts`；实际迁移用裸 SQL 文件（`server/migrations/`） |
-| `pdf-parse` / `mammoth` | ^2.4.5 / ^1.12.0 | `server/src/utils/extract-text.ts` 文本提取 |
+| 库                            | 版本              | 使用情况                                                                                                             |
+| ----------------------------- | ----------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `react-native-webview`        | 13.15.0           | MarkdownRenderer、NoteHelperSidebar PDF 预览、ReferenceCard                                                          |
+| `react-native-sse`            | ^1.2.1            | `client/screens/ai-chat/index.tsx`；Note Helper 的 SSE 是 `client/utils/api.ts` 手写 XMLHttpRequest 实现（两套并存） |
+| `@gorhom/bottom-sheet`        | ^5.2.8            | `client/heroui` 组件库内部                                                                                           |
+| `@supabase/supabase-js`       | 2.95.3            | 服务端各路由 + 客户端 api.ts                                                                                         |
+| `drizzle-orm` / `drizzle-kit` | ^0.45.1 / ^0.31.8 | `server/src/storage/database/shared/schema.ts`；实际迁移用裸 SQL 文件（`server/migrations/`）                        |
+| `pdf-parse` / `mammoth`       | ^2.4.5 / ^1.12.0  | `server/src/utils/extract-text.ts` 文本提取                                                                          |
 
 ### 1.3 完整依赖清单
 
@@ -46,32 +46,32 @@ Note Helper 是 PaperMind 的「AI 笔记生成与编辑助手」（多文件选
 
 ## 二、功能实现现状（对照 PRD 交付文件清单 + 验收标准）
 
-| # | PRD 条目 | 状态 | 证据 |
-|---|---|---|---|
-| F1 | `components/NoteHelperFab.tsx` 魔法笔 FAB | ✅ 已实现 | `client/components/note-helper/NoteHelperFab.tsx`；挂载于详情页 `study-note-edit/index.tsx:838`、`material-edit/index.tsx:359` |
-| F2 | `components/NoteHelperPanel.tsx` 下半平面（50% 高、生成中/已生成状态、流式渲染、全屏按钮） | ✅ 已实现 | `client/components/note-helper/NoteHelperPanel.tsx`；挂载于 study-note-edit、material-edit、control-center（:837）、knowledge（:651） |
-| F3 | `screens/note-helper-fullscreen.tsx` 全屏页（☰ 侧边栏、5 个快捷修正键、自由输入、保存） | ✅ 已实现 | `client/screens/note-helper-fullscreen/index.tsx` + 路由 `client/app/note-helper-fullscreen.tsx` + `_layout.tsx:57` 注册 |
-| F4 | `components/NoteHelperSidebar.tsx`（85% 宽、文件列表含类型/日期/引用数、点击预览原文） | ✅ 已实现（缺动画、PDF 不可翻页） | `client/components/note-helper/NoteHelperSidebar.tsx`；预览：纪要显示 blocks 文本，材料优先 viewUrl（WebView/iframe 整篇预览） |
-| F5 | `components/ReferenceCard.tsx` 浮动引用卡片 | ✅ 已实现（缺页码跳转） | `client/components/common/ReferenceCard.tsx`（PRD 写 components/ 根，实际在 common/）；含来源头、页码 badge、highlightText、PDF 预览 |
-| F6 | control-center 多选模式 | ✅ 已实现 | `client/screens/control-center/index.tsx`：selectedIds + 长按多选（:829 提示） + 「已选 N 个」（:788） + 「生成笔记」按钮（:805） |
-| F7 | knowledge 多选模式 | ✅ 已实现 | `client/screens/knowledge/index.tsx`：selectMode + onLongPress 进入多选（:489-491）+「已选 N 个」（:640）+「生成笔记」（:643-645） |
-| F8 | `utils/api.ts` 新增 generateNote / refineNote / getFileContent | ✅ 已实现 | `client/utils/api.ts`：`generateNote`（:219，旧版一次性）、`generateNoteStream`（:360）、`refineNoteStream`（:421）、`getSourceFileContent`（:486） |
-| B1 | `routes/ai.ts` 新增 POST `/api/v1/ai/generate-note`（流式）+ `/refine-note`（流式） | ✅ 已实现 | `server/src/routes/ai.ts:1158-1329`（SSE、读 papernote_style 偏好、文件级 citations + highlightText 上下文提取）、`:1336-1478`（SSE、修正时提取偏好存表） |
-| B2 | `routes/study-notes.ts` GET `/:id` 返回完整 blocks | ✅ 已实现 | `server/src/routes/study-notes.ts:9-23`（`select('*')` 返回整行含 blocks） |
-| B3 | `routes/materials.ts` GET `/:id/file-content` 返回内容和页数 | ✅ 已实现 | `server/src/routes/materials.ts:97-210`（返回 pages[]、totalPages、viewUrl、fileType） |
-| B4 | `routes/papernote-style.ts` 偏好管理 GET/POST/PATCH | ✅ 已实现（等价覆盖） | `server/src/routes/papernote-style.ts`：GET /、PUT /、POST /extract（关键词提取合并）；挂载于 `server/src/index.ts:49` |
-| D1 | `papernote_style` 表 | ✅ 已建 | `server/src/storage/database/shared/schema.ts:91`、`migrations/000_init.sql:99`、未提交的 `migrations/000_init_missing_tables.sql:51`。实际字段：id serial PK + user_id varchar(36) unique + `general_preference` text + `subject_preferences` jsonb（PRD 为 user_id UUID PK + preferences jsonb，实现更细分、功能等价） |
-| T1 | 从详情页 FAB 唤醒（默认选中当前笔记） | ✅ | study-note-edit/material-edit 的 FAB + Panel 以当前 id 作为 sourceFiles |
-| T2 | 列表页多选唤醒（长按多选 → 底部「生成笔记」） | ✅ | control-center + knowledge 均已实现 |
-| T3 | 下半平面实时流式渲染 + 全屏跳转 | ✅ | Panel 通过 `generateNoteStream`（XHR SSE）流式追加，done 后跳 `/note-helper-fullscreen` |
-| T4 | 全屏页 ☰ 打开侧边栏，查看源文件，点击可预览原文 | ✅（PDF 仅整篇预览） | Sidebar 文件列表 + 预览已实现；PDF 用 WebView/iframe，**不可翻页/跳页** |
-| T5 | 紫色引用标记 + 浮动卡片 + **PDF 直接跳转到对应页码** | ⚠️ 部分实现 | 标记 `[来源:N]` 渲染为紫色 `[N]` 可点击（fullscreen:158-169）、卡片弹出已实现；**页码跳转未实现**（ReferenceCard 只有「第N页」badge，PDF 从第 1 页开始） |
-| T6 | 快捷修正键 + 自由输入修正生效 | ✅ | fullscreen QUICK_ACTIONS ×5 + 自由输入 → `refineNoteStream` |
-| T7 | 修正指令被提取为偏好 | ⚠️ 部分实现 | refine-note 内 6 条关键词规则提取（详细/简洁/表格/例子/重点/通俗）存 `subject_preferences`；**非 PRD 所述「结构化偏好」深度，未按学科分层** |
-| T8 | 保存后写入 `study_notes`，可作为普通学习纪要查看 | ✅ | fullscreen `handleSave` → `api.createStudyNote`（title 为「源文件标题 + 综合笔记」） |
-| T9 | 偏好下次生成自动应用 | ✅ | generate-note 读 papernote_style 拼入 system prompt（ai.ts:1171-1184） |
-| T10 | 用户手动设置笔记风格 | ✅（PRD 外但 DESIGN.md 要求） | `client/screens/profile/index.tsx`「笔记风格偏好」编辑 general_preference；debug 页也有 style modal + style memo |
-| T11 | debug/full-app-test.html 测试载体 | ✅ | 3831 行，5 个 tab（主页/知识/AI/社区/我的）；已模拟 Note Helper 全流程（下半平面 `nh-panel`、全屏、侧边栏、引用卡片、快捷修正、自由输入、风格偏好、保存）、AI 对话、反思报告、文件上传、知识图谱 |
+| #   | PRD 条目                                                                                   | 状态                              | 证据                                                                                                                                                                                                                                                                                                                     |
+| --- | ------------------------------------------------------------------------------------------ | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| F1  | `components/NoteHelperFab.tsx` 魔法笔 FAB                                                  | ✅ 已实现                         | `client/components/note-helper/NoteHelperFab.tsx`；挂载于详情页 `study-note-edit/index.tsx:838`、`material-edit/index.tsx:359`                                                                                                                                                                                           |
+| F2  | `components/NoteHelperPanel.tsx` 下半平面（50% 高、生成中/已生成状态、流式渲染、全屏按钮） | ✅ 已实现                         | `client/components/note-helper/NoteHelperPanel.tsx`；挂载于 study-note-edit、material-edit、control-center（:837）、knowledge（:651）                                                                                                                                                                                    |
+| F3  | `screens/note-helper-fullscreen.tsx` 全屏页（☰ 侧边栏、5 个快捷修正键、自由输入、保存）   | ✅ 已实现                         | `client/screens/note-helper-fullscreen/index.tsx` + 路由 `client/app/note-helper-fullscreen.tsx` + `_layout.tsx:57` 注册                                                                                                                                                                                                 |
+| F4  | `components/NoteHelperSidebar.tsx`（85% 宽、文件列表含类型/日期/引用数、点击预览原文）     | ✅ 已实现（缺动画、PDF 不可翻页） | `client/components/note-helper/NoteHelperSidebar.tsx`；预览：纪要显示 blocks 文本，材料优先 viewUrl（WebView/iframe 整篇预览）                                                                                                                                                                                           |
+| F5  | `components/ReferenceCard.tsx` 浮动引用卡片                                                | ✅ 已实现（缺页码跳转）           | `client/components/common/ReferenceCard.tsx`（PRD 写 components/ 根，实际在 common/）；含来源头、页码 badge、highlightText、PDF 预览                                                                                                                                                                                     |
+| F6  | control-center 多选模式                                                                    | ✅ 已实现                         | `client/screens/control-center/index.tsx`：selectedIds + 长按多选（:829 提示） + 「已选 N 个」（:788） + 「生成笔记」按钮（:805）                                                                                                                                                                                        |
+| F7  | knowledge 多选模式                                                                         | ✅ 已实现                         | `client/screens/knowledge/index.tsx`：selectMode + onLongPress 进入多选（:489-491）+「已选 N 个」（:640）+「生成笔记」（:643-645）                                                                                                                                                                                       |
+| F8  | `utils/api.ts` 新增 generateNote / refineNote / getFileContent                             | ✅ 已实现                         | `client/utils/api.ts`：`generateNote`（:219，旧版一次性）、`generateNoteStream`（:360）、`refineNoteStream`（:421）、`getSourceFileContent`（:486）                                                                                                                                                                      |
+| B1  | `routes/ai.ts` 新增 POST `/api/v1/ai/generate-note`（流式）+ `/refine-note`（流式）        | ✅ 已实现                         | `server/src/routes/ai.ts:1158-1329`（SSE、读 papernote_style 偏好、文件级 citations + highlightText 上下文提取）、`:1336-1478`（SSE、修正时提取偏好存表）                                                                                                                                                                |
+| B2  | `routes/study-notes.ts` GET `/:id` 返回完整 blocks                                         | ✅ 已实现                         | `server/src/routes/study-notes.ts:9-23`（`select('*')` 返回整行含 blocks）                                                                                                                                                                                                                                               |
+| B3  | `routes/materials.ts` GET `/:id/file-content` 返回内容和页数                               | ✅ 已实现                         | `server/src/routes/materials.ts:97-210`（返回 pages[]、totalPages、viewUrl、fileType）                                                                                                                                                                                                                                   |
+| B4  | `routes/papernote-style.ts` 偏好管理 GET/POST/PATCH                                        | ✅ 已实现（等价覆盖）             | `server/src/routes/papernote-style.ts`：GET /、PUT /、POST /extract（关键词提取合并）；挂载于 `server/src/index.ts:49`                                                                                                                                                                                                   |
+| D1  | `papernote_style` 表                                                                       | ✅ 已建                           | `server/src/storage/database/shared/schema.ts:91`、`migrations/000_init.sql:99`、未提交的 `migrations/000_init_missing_tables.sql:51`。实际字段：id serial PK + user_id varchar(36) unique + `general_preference` text + `subject_preferences` jsonb（PRD 为 user_id UUID PK + preferences jsonb，实现更细分、功能等价） |
+| T1  | 从详情页 FAB 唤醒（默认选中当前笔记）                                                      | ✅                                | study-note-edit/material-edit 的 FAB + Panel 以当前 id 作为 sourceFiles                                                                                                                                                                                                                                                  |
+| T2  | 列表页多选唤醒（长按多选 → 底部「生成笔记」）                                              | ✅                                | control-center + knowledge 均已实现                                                                                                                                                                                                                                                                                      |
+| T3  | 下半平面实时流式渲染 + 全屏跳转                                                            | ✅                                | Panel 通过 `generateNoteStream`（XHR SSE）流式追加，done 后跳 `/note-helper-fullscreen`                                                                                                                                                                                                                                  |
+| T4  | 全屏页 ☰ 打开侧边栏，查看源文件，点击可预览原文                                           | ✅（PDF 仅整篇预览）              | Sidebar 文件列表 + 预览已实现；PDF 用 WebView/iframe，**不可翻页/跳页**                                                                                                                                                                                                                                                  |
+| T5  | 紫色引用标记 + 浮动卡片 + **PDF 直接跳转到对应页码**                                       | ⚠️ 部分实现                       | 标记 `[来源:N]` 渲染为紫色 `[N]` 可点击（fullscreen:158-169）、卡片弹出已实现；**页码跳转未实现**（ReferenceCard 只有「第N页」badge，PDF 从第 1 页开始）                                                                                                                                                                 |
+| T6  | 快捷修正键 + 自由输入修正生效                                                              | ✅                                | fullscreen QUICK_ACTIONS ×5 + 自由输入 → `refineNoteStream`                                                                                                                                                                                                                                                              |
+| T7  | 修正指令被提取为偏好                                                                       | ⚠️ 部分实现                       | refine-note 内 6 条关键词规则提取（详细/简洁/表格/例子/重点/通俗）存 `subject_preferences`；**非 PRD 所述「结构化偏好」深度，未按学科分层**                                                                                                                                                                              |
+| T8  | 保存后写入 `study_notes`，可作为普通学习纪要查看                                           | ✅                                | fullscreen `handleSave` → `api.createStudyNote`（title 为「源文件标题 + 综合笔记」）                                                                                                                                                                                                                                     |
+| T9  | 偏好下次生成自动应用                                                                       | ✅                                | generate-note 读 papernote_style 拼入 system prompt（ai.ts:1171-1184）                                                                                                                                                                                                                                                   |
+| T10 | 用户手动设置笔记风格                                                                       | ✅（PRD 外但 DESIGN.md 要求）     | `client/screens/profile/index.tsx`「笔记风格偏好」编辑 general_preference；debug 页也有 style modal + style memo                                                                                                                                                                                                         |
+| T11 | debug/full-app-test.html 测试载体                                                          | ✅                                | 3831 行，5 个 tab（主页/知识/AI/社区/我的）；已模拟 Note Helper 全流程（下半平面 `nh-panel`、全屏、侧边栏、引用卡片、快捷修正、自由输入、风格偏好、保存）、AI 对话、反思报告、文件上传、知识图谱                                                                                                                         |
 
 > 补充：仓库内无独立 PRD 文档（glob `*PRD*`/`*需求*` 无命中）；架构文档 `docs/PaperMind-Architecture.md` 覆盖 Tutor/Reflection 两大工作流（均已实现：三层检索、5 色引用卡片、反思报告 4 维度、问题日志闭环——证据 `server/src/routes/ai.ts` `/tutor`、`/generate-reflection` 及对应页面），与 Note Helper 无直接交集。
 

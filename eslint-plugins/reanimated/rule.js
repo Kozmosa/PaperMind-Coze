@@ -2,8 +2,7 @@ module.exports = {
   meta: {
     type: 'problem',
     docs: {
-      description:
-        'Disallow passing useAnimatedScrollHandler return value to ScrollView',
+      description: 'Disallow passing useAnimatedScrollHandler return value to ScrollView',
       recommended: 'error',
     },
     schema: [],
@@ -36,10 +35,7 @@ module.exports = {
 
         if (node.source.value === 'react-native') {
           for (const specifier of node.specifiers) {
-            if (
-              specifier.type === 'ImportSpecifier' &&
-              specifier.imported.name === 'ScrollView'
-            ) {
+            if (specifier.type === 'ImportSpecifier' && specifier.imported.name === 'ScrollView') {
               scrollViewImportName = specifier.local.name;
             }
           }
@@ -60,10 +56,7 @@ module.exports = {
       },
 
       JSXOpeningElement(node) {
-        if (
-          node.name.type === 'JSXIdentifier' &&
-          node.name.name === scrollViewImportName
-        ) {
+        if (node.name.type === 'JSXIdentifier' && node.name.name === scrollViewImportName) {
           for (const attr of node.attributes) {
             if (
               attr.type === 'JSXAttribute' &&

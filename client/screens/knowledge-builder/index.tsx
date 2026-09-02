@@ -111,8 +111,12 @@ export default function KnowledgeBuilderScreen() {
           setImageBase64(base64);
           const ext = (asset.fileName || asset.uri).split('.').pop()?.toLowerCase() || 'jpeg';
           const mimeMap: Record<string, string> = {
-            jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
-            gif: 'image/gif', webp: 'image/webp', bmp: 'image/bmp',
+            jpg: 'image/jpeg',
+            jpeg: 'image/jpeg',
+            png: 'image/png',
+            gif: 'image/gif',
+            webp: 'image/webp',
+            bmp: 'image/bmp',
           };
           setMediaType(mimeMap[ext] || 'image/jpeg');
         } catch (e) {
@@ -187,11 +191,13 @@ export default function KnowledgeBuilderScreen() {
       }
     };
 
-    xhr.send(JSON.stringify({
-      imageBase64,
-      mediaType,
-      rawContent: '',
-    }));
+    xhr.send(
+      JSON.stringify({
+        imageBase64,
+        mediaType,
+        rawContent: '',
+      }),
+    );
   };
 
   // Parse "PAPERCORE: ...\nTAGS: ..." from stream result
@@ -204,8 +210,8 @@ export default function KnowledgeBuilderScreen() {
       const rawTags = tagsMatch[1].trim();
       const parsed = rawTags
         .split(/[,，、]/)
-        .map(t => t.trim().replace(/^#/, ''))
-        .filter(t => t.length > 0);
+        .map((t) => t.trim().replace(/^#/, ''))
+        .filter((t) => t.length > 0);
       setTags(parsed);
     }
 
@@ -227,7 +233,7 @@ export default function KnowledgeBuilderScreen() {
   };
 
   const removeTag = (tag: string) => {
-    setTags(tags.filter(t => t !== tag));
+    setTags(tags.filter((t) => t !== tag));
   };
 
   // —— 4. Get relation suggestions ——
@@ -239,7 +245,10 @@ export default function KnowledgeBuilderScreen() {
 
     setLoadingRelations(true);
     try {
-      const res = await api.suggestRelations(papercore, tags.map(t => `#${t}`));
+      const res = await api.suggestRelations(
+        papercore,
+        tags.map((t) => `#${t}`),
+      );
       const all = (res.data as any)?.suggestions || [];
       setSuggestions(all);
       setConfirmedRelations(new Set());
@@ -254,12 +263,12 @@ export default function KnowledgeBuilderScreen() {
   };
 
   const toggleConfirm = (nodeId: number) => {
-    setConfirmedRelations(prev => {
+    setConfirmedRelations((prev) => {
       const next = new Set(prev);
       if (next.has(nodeId)) next.delete(nodeId);
       else next.add(nodeId);
       // Remove from ignored if confirming
-      setIgnoredRelations(prev2 => {
+      setIgnoredRelations((prev2) => {
         const n2 = new Set(prev2);
         n2.delete(nodeId);
         return n2;
@@ -269,12 +278,12 @@ export default function KnowledgeBuilderScreen() {
   };
 
   const toggleIgnore = (nodeId: number) => {
-    setIgnoredRelations(prev => {
+    setIgnoredRelations((prev) => {
       const next = new Set(prev);
       if (next.has(nodeId)) next.delete(nodeId);
       else next.add(nodeId);
       // Remove from confirmed if ignoring
-      setConfirmedRelations(prev2 => {
+      setConfirmedRelations((prev2) => {
         const n2 = new Set(prev2);
         n2.delete(nodeId);
         return n2;
@@ -292,8 +301,8 @@ export default function KnowledgeBuilderScreen() {
 
   // —— 5. Get confirmed relation nodes for preview ——
   const confirmedNodes: RelatedNode[] = suggestions
-    .filter(s => confirmedRelations.has(s.nodeId))
-    .map(s => ({
+    .filter((s) => confirmedRelations.has(s.nodeId))
+    .map((s) => ({
       id: s.nodeId,
       short_name: s.short_name || `节点${s.nodeId}`,
       relation_type: s.relation_type as RelatedNode['relation_type'],
@@ -312,8 +321,8 @@ export default function KnowledgeBuilderScreen() {
       // Build relations object
       const relations: Record<string, number[]> = {};
       suggestions
-        .filter(s => confirmedRelations.has(s.nodeId))
-        .forEach(s => {
+        .filter((s) => confirmedRelations.has(s.nodeId))
+        .forEach((s) => {
           const type = s.relation_type;
           if (!relations[type]) relations[type] = [];
           relations[type].push(s.nodeId);
@@ -322,7 +331,7 @@ export default function KnowledgeBuilderScreen() {
       await api.createKnowledgeNode({
         papercore: papercore.trim(),
         short_name: shortName.trim() || papercore.trim().substring(0, 8),
-        tags: tags.map(t => `#${t}`),
+        tags: tags.map((t) => `#${t}`),
         relations,
       });
 
@@ -340,19 +349,27 @@ export default function KnowledgeBuilderScreen() {
   // —— Relation type display ——
   const relationTypeLabel = (type: string): string => {
     switch (type) {
-      case 'prerequisite': return '前置知识';
-      case 'related': return '相关知识';
-      case 'parent': return '上层概念';
-      default: return type;
+      case 'prerequisite':
+        return '前置知识';
+      case 'related':
+        return '相关知识';
+      case 'parent':
+        return '上层概念';
+      default:
+        return type;
     }
   };
 
   const relationTypeColor = (type: string): string => {
     switch (type) {
-      case 'prerequisite': return '#FF6B6B';
-      case 'related': return '#4ECDC4';
-      case 'parent': return '#FFD93D';
-      default: return '#6B7280';
+      case 'prerequisite':
+        return '#FF6B6B';
+      case 'related':
+        return '#4ECDC4';
+      case 'parent':
+        return '#FFD93D';
+      default:
+        return '#6B7280';
     }
   };
 
@@ -375,18 +392,23 @@ export default function KnowledgeBuilderScreen() {
         {/* Step indicator */}
         <View style={styles.steps}>
           {(['upload', 'edit', 'relations'] as const).map((s, i) => {
-            const active = step === s || (s === 'edit' && (step === 'analyzing' || step === 'saving')) ||
-                           (s === 'relations' && step === 'saving');
-            const done = (i === 0 && (step !== 'upload')) ||
-                         (i === 1 && (step === 'relations' || step === 'saving')) ||
-                         (i === 2 && step === 'saving');
+            const active =
+              step === s ||
+              (s === 'edit' && (step === 'analyzing' || step === 'saving')) ||
+              (s === 'relations' && step === 'saving');
+            const done =
+              (i === 0 && step !== 'upload') ||
+              (i === 1 && (step === 'relations' || step === 'saving')) ||
+              (i === 2 && step === 'saving');
             return (
               <View key={s} style={styles.stepRow}>
-                <View style={[
-                  styles.stepDot,
-                  done && styles.stepDotDone,
-                  active && !done && styles.stepDotActive,
-                ]}>
+                <View
+                  style={[
+                    styles.stepDot,
+                    done && styles.stepDotDone,
+                    active && !done && styles.stepDotActive,
+                  ]}
+                >
                   {done ? (
                     <Feather name="check" size={12} color="#FFF" />
                   ) : (
@@ -413,7 +435,11 @@ export default function KnowledgeBuilderScreen() {
             <View style={styles.uploadSection}>
               <TouchableOpacity style={styles.uploadBox} onPress={handleSelectImage}>
                 {imageUri ? (
-                  <Image source={{ uri: imageUri }} style={styles.uploadImage} resizeMode="contain" />
+                  <Image
+                    source={{ uri: imageUri }}
+                    style={styles.uploadImage}
+                    resizeMode="contain"
+                  />
                 ) : (
                   <View style={styles.uploadPlaceholder}>
                     <Feather name="image" size={48} color={CC.textTertiary} />
@@ -431,9 +457,7 @@ export default function KnowledgeBuilderScreen() {
               )}
 
               <TouchableOpacity style={styles.retakeBtn} onPress={handleSelectImage}>
-                <Text style={styles.retakeText}>
-                  {imageUri ? '重新选择' : '从相册选择'}
-                </Text>
+                <Text style={styles.retakeText}>{imageUri ? '重新选择' : '从相册选择'}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -442,7 +466,11 @@ export default function KnowledgeBuilderScreen() {
           {step === 'analyzing' && (
             <View style={styles.analyzingSection}>
               {imageUri && (
-                <Image source={{ uri: imageUri }} style={styles.previewImage} resizeMode="contain" />
+                <Image
+                  source={{ uri: imageUri }}
+                  style={styles.previewImage}
+                  resizeMode="contain"
+                />
               )}
               <ActivityIndicator size="large" color={CC.primary} style={{ marginTop: 20 }} />
               <Text style={styles.analyzingText}>AI 正在分析图片内容...</Text>
@@ -455,7 +483,11 @@ export default function KnowledgeBuilderScreen() {
             <View style={styles.editSection}>
               {/* Preview image */}
               {imageUri && (
-                <Image source={{ uri: imageUri }} style={styles.previewImageSmall} resizeMode="contain" />
+                <Image
+                  source={{ uri: imageUri }}
+                  style={styles.previewImageSmall}
+                  resizeMode="contain"
+                />
               )}
 
               {/* Papercore */}
@@ -486,11 +518,7 @@ export default function KnowledgeBuilderScreen() {
               <Text style={styles.fieldLabel}>Tags</Text>
               <View style={styles.tagsContainer}>
                 {tags.map((tag) => (
-                  <TouchableOpacity
-                    key={tag}
-                    style={styles.tagChip}
-                    onPress={() => removeTag(tag)}
-                  >
+                  <TouchableOpacity key={tag} style={styles.tagChip} onPress={() => removeTag(tag)}>
                     <Text style={styles.tagText}>#{tag}</Text>
                     <Feather name="x" size={12} color={CC.primary} />
                   </TouchableOpacity>
@@ -555,8 +583,18 @@ export default function KnowledgeBuilderScreen() {
                   >
                     <View style={styles.relationInfo}>
                       <View style={styles.relationHeader}>
-                        <View style={[styles.relationBadge, { backgroundColor: relationTypeColor(s.relation_type) + '20' }]}>
-                          <Text style={[styles.relationBadgeText, { color: relationTypeColor(s.relation_type) }]}>
+                        <View
+                          style={[
+                            styles.relationBadge,
+                            { backgroundColor: relationTypeColor(s.relation_type) + '20' },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.relationBadgeText,
+                              { color: relationTypeColor(s.relation_type) },
+                            ]}
+                          >
                             {relationTypeLabel(s.relation_type)}
                           </Text>
                         </View>
@@ -567,7 +605,9 @@ export default function KnowledgeBuilderScreen() {
                         {s.papercore}
                       </Text>
                       {s.tags && s.tags.length > 0 && (
-                        <Text style={styles.relationTags}>{s.tags.map(t => `#${t}`).join(' ')}</Text>
+                        <Text style={styles.relationTags}>
+                          {s.tags.map((t) => `#${t}`).join(' ')}
+                        </Text>
                       )}
                     </View>
                     <View style={styles.relationActions}>
@@ -669,8 +709,12 @@ const styles = StyleSheet.create({
   },
   stepRow: { flexDirection: 'row', alignItems: 'center' },
   stepDot: {
-    width: 24, height: 24, borderRadius: 12,
-    backgroundColor: CC.border, justifyContent: 'center', alignItems: 'center',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: CC.border,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   stepDotDone: { backgroundColor: CC.success },
   stepDotActive: { backgroundColor: CC.primary },
@@ -686,8 +730,13 @@ const styles = StyleSheet.create({
   // Upload
   uploadSection: { alignItems: 'center' },
   uploadBox: {
-    width: '100%', height: 220, borderRadius: 16, borderWidth: 2,
-    borderColor: CC.border, borderStyle: 'dashed', overflow: 'hidden',
+    width: '100%',
+    height: 220,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: CC.border,
+    borderStyle: 'dashed',
+    overflow: 'hidden',
     backgroundColor: CC.card,
   },
   uploadImage: { width: '100%', height: '100%' },
@@ -695,9 +744,15 @@ const styles = StyleSheet.create({
   uploadText: { fontSize: 16, fontWeight: '600', color: CC.textSecondary, marginTop: 12 },
   uploadHint: { fontSize: 13, color: CC.textTertiary, marginTop: 4 },
   analyzeBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    marginTop: 16, paddingHorizontal: 32, paddingVertical: 14,
-    backgroundColor: CC.primary, borderRadius: 12, gap: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 16,
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    backgroundColor: CC.primary,
+    borderRadius: 12,
+    gap: 8,
   },
   analyzeBtnText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
   retakeBtn: { marginTop: 12, padding: 8 },
@@ -711,45 +766,93 @@ const styles = StyleSheet.create({
 
   // Edit
   editSection: {},
-  previewImageSmall: { width: '100%', height: 120, borderRadius: 12, marginBottom: 16, backgroundColor: CC.card },
-  fieldLabel: { fontSize: 13, fontWeight: '700', color: CC.textSecondary, marginBottom: 8, marginTop: 16 },
+  previewImageSmall: {
+    width: '100%',
+    height: 120,
+    borderRadius: 12,
+    marginBottom: 16,
+    backgroundColor: CC.card,
+  },
+  fieldLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: CC.textSecondary,
+    marginBottom: 8,
+    marginTop: 16,
+  },
   papercoreInput: {
-    backgroundColor: CC.card, borderRadius: 12, padding: 14,
-    fontSize: 15, color: CC.text, minHeight: 100,
-    borderWidth: 1, borderColor: CC.border,
+    backgroundColor: CC.card,
+    borderRadius: 12,
+    padding: 14,
+    fontSize: 15,
+    color: CC.text,
+    minHeight: 100,
+    borderWidth: 1,
+    borderColor: CC.border,
   },
   shortNameInput: {
-    backgroundColor: CC.card, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12,
-    fontSize: 15, color: CC.text, borderWidth: 1, borderColor: CC.border,
+    backgroundColor: CC.card,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: CC.text,
+    borderWidth: 1,
+    borderColor: CC.border,
   },
   tagsContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
   tagChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: CC.primaryLight, borderRadius: 16, paddingHorizontal: 10, paddingVertical: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: CC.primaryLight,
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
   tagText: { fontSize: 13, color: CC.primary, fontWeight: '600' },
   tagInputRow: { flexDirection: 'row', gap: 8 },
   tagInput: {
-    flex: 1, backgroundColor: CC.card, borderRadius: 12,
-    paddingHorizontal: 14, paddingVertical: 10,
-    fontSize: 14, color: CC.text, borderWidth: 1, borderColor: CC.border,
+    flex: 1,
+    backgroundColor: CC.card,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: CC.text,
+    borderWidth: 1,
+    borderColor: CC.border,
   },
   addTagBtn: {
-    width: 40, height: 40, borderRadius: 12,
-    backgroundColor: CC.primary, justifyContent: 'center', alignItems: 'center',
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: CC.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 
   // Action row
   actionRow: { flexDirection: 'row', gap: 12, marginTop: 24 },
   regenerateBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 20, paddingVertical: 12,
-    borderRadius: 12, backgroundColor: CC.primaryLight,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: CC.primaryLight,
   },
   regenerateBtnText: { color: CC.primary, fontSize: 14, fontWeight: '600' },
   nextBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    paddingVertical: 12, borderRadius: 12, backgroundColor: CC.primary,
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: CC.primary,
   },
   nextBtnText: { color: '#FFF', fontSize: 14, fontWeight: '700' },
   btnDisabled: { opacity: 0.6 },
@@ -760,9 +863,14 @@ const styles = StyleSheet.create({
   sectionHint: { fontSize: 13, color: CC.textTertiary, marginBottom: 16 },
 
   relationCard: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: CC.card, borderRadius: 14, padding: 14,
-    borderWidth: 1, borderColor: CC.border, marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: CC.card,
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: CC.border,
+    marginBottom: 10,
   },
   relationCardConfirmed: { borderColor: CC.success, backgroundColor: '#F0FFF8' },
   relationInfo: { flex: 1 },
@@ -775,21 +883,38 @@ const styles = StyleSheet.create({
   relationTags: { fontSize: 11, color: CC.primary },
   relationActions: { flexDirection: 'column', alignItems: 'center', gap: 6, marginLeft: 10 },
   confirmBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: CC.primary, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: CC.primary,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
   },
   confirmBtnText: { color: '#FFF', fontSize: 13, fontWeight: '600' },
   confirmedBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: '#F0FFF8', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8,
-    borderWidth: 1, borderColor: CC.success,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F0FFF8',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: CC.success,
   },
   confirmedBtnText: { color: CC.success, fontSize: 13, fontWeight: '600' },
   ignoreBtn: { padding: 8 },
   relationsBottomActions: { flexDirection: 'row', gap: 12, marginTop: 20 },
   saveBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    paddingVertical: 14, borderRadius: 12, backgroundColor: CC.success,
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: CC.success,
   },
   saveBtnText: { color: '#FFF', fontSize: 15, fontWeight: '700' },
 });

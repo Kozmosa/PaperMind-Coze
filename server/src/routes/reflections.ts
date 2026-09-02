@@ -25,10 +25,7 @@ router.get('/', async (req: Request, res: Response) => {
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const userId = (req as any).userId;
-    let query = client
-      .from('reflections')
-      .select('*')
-      .eq('id', req.params.id);
+    let query = client.from('reflections').select('*').eq('id', req.params.id);
     if (userId && userId !== 'guest') {
       query = query.eq('user_id', userId);
     }

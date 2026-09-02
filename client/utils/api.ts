@@ -15,10 +15,7 @@ async function getSessionToken(): Promise<string | null> {
   return null;
 }
 
-async function request<T = any>(
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<{ data: T }> {
+async function request<T = any>(endpoint: string, options: RequestInit = {}): Promise<{ data: T }> {
   const url = `${BASE_URL}/api/v1${endpoint}`;
   const token = await getSessionToken();
   const headers: Record<string, string> = {
@@ -93,8 +90,7 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
-  deleteKnowledgeNode: (id: number) =>
-    request<any>(`/knowledge-nodes/${id}`, { method: 'DELETE' }),
+  deleteKnowledgeNode: (id: number) => request<any>(`/knowledge-nodes/${id}`, { method: 'DELETE' }),
 
   // Draft Pool
   getDrafts: () => request<any[]>('/draft-pool'),
@@ -103,8 +99,7 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
-  deleteDraft: (id: number) =>
-    request<any>(`/draft-pool/${id}`, { method: 'DELETE' }),
+  deleteDraft: (id: number) => request<any>(`/draft-pool/${id}`, { method: 'DELETE' }),
   updateDraftStatus: (id: number, data: any) =>
     request<any>(`/draft-pool/${id}`, {
       method: 'PATCH',
@@ -119,8 +114,7 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
-  deleteStickynote: (id: number) =>
-    request<any>(`/stickynotes/${id}`, { method: 'DELETE' }),
+  deleteStickynote: (id: number) => request<any>(`/stickynotes/${id}`, { method: 'DELETE' }),
 
   // Forums
   getForums: () => request<any[]>('/forums'),
@@ -129,9 +123,13 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
-  getForumPosts: (forumId: number) =>
-    request<any[]>(`/forums/${forumId}/posts`),
-  createForumPost: (data: { forum_id: number; title: string; content: string; author_name?: string }) =>
+  getForumPosts: (forumId: number) => request<any[]>(`/forums/${forumId}/posts`),
+  createForumPost: (data: {
+    forum_id: number;
+    title: string;
+    content: string;
+    author_name?: string;
+  }) =>
     request<any>(`/forums/${data.forum_id}/posts`, {
       method: 'POST',
       body: JSON.stringify({
@@ -162,8 +160,7 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
-  deleteProblemLog: (id: number) =>
-    request<any>(`/problem-logs/${id}`, { method: 'DELETE' }),
+  deleteProblemLog: (id: number) => request<any>(`/problem-logs/${id}`, { method: 'DELETE' }),
 
   // Reflections
   getReflections: () => request<any[]>('/reflections'),
@@ -225,8 +222,11 @@ export const api = {
   }): Promise<string> => {
     const url = `${BASE_URL}/api/v1/ai/note-helper`;
     const token = await getSessionToken();
-    console.log('api.generateNote: calling API', { nodeId: nodeContext.nodeId, papercore: nodeContext.papercore });
-    
+    console.log('api.generateNote: calling API', {
+      nodeId: nodeContext.nodeId,
+      papercore: nodeContext.papercore,
+    });
+
     try {
       const response = await fetch(url, {
         method: 'POST',
@@ -249,7 +249,7 @@ export const api = {
 
       // 使用文本模式读取响应
       const text = await response.text();
-      
+
       // 解析SSE格式的响应
       let fullContent = '';
       const lines = text.split('\n');
@@ -267,7 +267,7 @@ export const api = {
           } catch {}
         }
       }
-      
+
       return fullContent.trim() || text;
     } catch (error) {
       console.error('generateNote error:', error);
@@ -287,8 +287,7 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
-  deleteStudyNote: (id: string) =>
-    request<any>(`/study-notes/${id}`, { method: 'DELETE' }),
+  deleteStudyNote: (id: string) => request<any>(`/study-notes/${id}`, { method: 'DELETE' }),
 
   // Materials (资料)
   getMaterials: () => request<any[]>('/materials'),
@@ -303,8 +302,7 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
-  deleteMaterial: (id: string) =>
-    request<any>(`/materials/${id}`, { method: 'DELETE' }),
+  deleteMaterial: (id: string) => request<any>(`/materials/${id}`, { method: 'DELETE' }),
 
   // Problem Solving Logs (问题解答日志)
   getProblemSolvingLogs: () => request<any[]>('/problem-solving-logs'),
@@ -314,7 +312,9 @@ export const api = {
       body: JSON.stringify(data),
     }),
   getProblemSolvingStats: (days?: number, endDate?: string) =>
-    request<any>(`/problem-solving-logs/stats?days=${days || 30}${endDate ? `&endDate=${encodeURIComponent(endDate)}` : ''}`),
+    request<any>(
+      `/problem-solving-logs/stats?days=${days || 30}${endDate ? `&endDate=${encodeURIComponent(endDate)}` : ''}`,
+    ),
 
   // Chat Sessions (聊天会话)
   getChatSessions: () => request<any[]>('/chat-sessions'),
@@ -325,15 +325,17 @@ export const api = {
     }),
   getChatSessionMessages: (sessionId: string) =>
     request<any[]>(`/chat-sessions/${sessionId}/messages`),
-  saveChatMessage: (sessionId: string, data: { role: string; content: string; citations?: any[] }) =>
+  saveChatMessage: (
+    sessionId: string,
+    data: { role: string; content: string; citations?: any[] },
+  ) =>
     request<any>(`/chat-sessions/${sessionId}/messages`, {
       method: 'POST',
       body: JSON.stringify(data),
     }),
 
   // Knowledge Builder
-  triggerKnowledgeBuilder: () =>
-    request<any>('/knowledge-builder/trigger', { method: 'POST' }),
+  triggerKnowledgeBuilder: () => request<any>('/knowledge-builder/trigger', { method: 'POST' }),
   reprocessMaterial: (id: string) =>
     request<any>('/knowledge-builder/reprocess-material', {
       method: 'POST',
@@ -492,16 +494,33 @@ export const api = {
 
   // Suggest relations for a new knowledge node
   suggestRelations: (papercore: string, tags?: string[], topK?: number) =>
-    request<{ suggestions: Array<{ nodeId: number; short_name: string; papercore: string; tags: string[]; relation_type: string; score: number }> }>(
-      '/ai/suggest-relations',
-      { method: 'POST', body: JSON.stringify({ papercore, tags, topK }) }
-    ),
+    request<{
+      suggestions: Array<{
+        nodeId: number;
+        short_name: string;
+        papercore: string;
+        tags: string[];
+        relation_type: string;
+        score: number;
+      }>;
+    }>('/ai/suggest-relations', {
+      method: 'POST',
+      body: JSON.stringify({ papercore, tags, topK }),
+    }),
 
   // Generate reflection report (SSE streaming)
   generateReflection: (
     period: string,
     onChunk: (text: string) => void,
-    onDone: (reflection: { id: number; period: string; learning_behavior: string; challenge_report: string; thinking_pattern: string; suggestion: string; created_at: string }) => void,
+    onDone: (reflection: {
+      id: number;
+      period: string;
+      learning_behavior: string;
+      challenge_report: string;
+      thinking_pattern: string;
+      suggestion: string;
+      created_at: string;
+    }) => void,
     onError?: (error: string) => void,
   ): Promise<void> => {
     return new Promise(async (resolve, reject) => {

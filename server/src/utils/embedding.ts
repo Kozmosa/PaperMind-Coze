@@ -37,7 +37,7 @@ export async function embed(text: string): Promise<number[]> {
 export async function embedBatch(texts: string[]): Promise<number[][]> {
   const pipe = await getPipeline();
   const results = await Promise.all(
-    texts.map(t => pipe(t, { pooling: 'mean', normalize: true }))
+    texts.map((t) => pipe(t, { pooling: 'mean', normalize: true })),
   );
   return results.map((r: any) => Array.from(r.data));
 }
@@ -58,11 +58,11 @@ export function findTopK(
   queryVec: number[],
   candidates: { id: string; name: string; vec: number[] }[],
   k: number,
-  threshold = 0.5
+  threshold = 0.5,
 ): { id: string; name: string; score: number }[] {
   const scored = candidates
-    .map(c => ({ id: c.id, name: c.name, score: cosineSimilarity(queryVec, c.vec) }))
-    .filter(c => c.score >= threshold)
+    .map((c) => ({ id: c.id, name: c.name, score: cosineSimilarity(queryVec, c.vec) }))
+    .filter((c) => c.score >= threshold)
     .sort((a, b) => b.score - a.score);
   return scored.slice(0, k);
 }

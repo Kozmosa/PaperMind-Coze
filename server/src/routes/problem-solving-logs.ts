@@ -9,7 +9,10 @@ const client = getSupabaseClient();
 router.get('/', async (req: Request, res: Response) => {
   try {
     const userId = (req as any).userId;
-    let query = client.from('problem_solving_logs').select('*').order('created_at', { ascending: false });
+    let query = client
+      .from('problem_solving_logs')
+      .select('*')
+      .order('created_at', { ascending: false });
     if (userId && userId !== 'guest') {
       query = query.eq('user_id', userId);
     }
@@ -25,7 +28,14 @@ router.get('/', async (req: Request, res: Response) => {
 router.post('/', async (req: Request, res: Response) => {
   try {
     const userId = (req as any).userId || 'guest';
-    const { question, answer, steps, related_knowledge_node_ids, related_draft_ids, citation_snippets } = req.body;
+    const {
+      question,
+      answer,
+      steps,
+      related_knowledge_node_ids,
+      related_draft_ids,
+      citation_snippets,
+    } = req.body;
 
     const { data, error } = await client
       .from('problem_solving_logs')

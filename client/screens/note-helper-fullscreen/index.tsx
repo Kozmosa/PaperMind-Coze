@@ -30,7 +30,11 @@ type SourceFile = {
 };
 
 const QUICK_ACTIONS = [
-  { label: '更详细', icon: 'align-left' as const, prompt: '请把内容写得更详细，补充更多解释和背景。' },
+  {
+    label: '更详细',
+    icon: 'align-left' as const,
+    prompt: '请把内容写得更详细，补充更多解释和背景。',
+  },
   { label: '更简洁', icon: 'minimize-2' as const, prompt: '请把内容精简，只保留最核心的知识点。' },
   { label: '表格对比', icon: 'grid' as const, prompt: '请用表格形式整理关键概念的对比。' },
   { label: '举例子', icon: 'zap' as const, prompt: '请为重要概念添加具体的例子帮助理解。' },
@@ -58,10 +62,18 @@ export default function NoteHelperFullscreenScreen() {
   // Parse params
   const initialContent = params.noteContent || '';
   const parsedCitations: Citation[] = (() => {
-    try { return JSON.parse(params.citations || '[]'); } catch { return []; }
+    try {
+      return JSON.parse(params.citations || '[]');
+    } catch {
+      return [];
+    }
   })();
   const parsedSourceFiles: SourceFile[] = (() => {
-    try { return JSON.parse(params.sourceFiles || '[]'); } catch { return []; }
+    try {
+      return JSON.parse(params.sourceFiles || '[]');
+    } catch {
+      return [];
+    }
   })();
 
   const [noteContent, setNoteContent] = useState(initialContent);
@@ -78,19 +90,22 @@ export default function NoteHelperFullscreenScreen() {
   const abortRef = useRef({ aborted: false });
 
   // Source files with metadata for sidebar
-  const sourceFilesMeta: SourceFileMeta[] = sourceFiles.map(f => ({
+  const sourceFilesMeta: SourceFileMeta[] = sourceFiles.map((f) => ({
     id: f.id,
     type: f.type,
     title: f.title,
   }));
 
   // Handle citation tap
-  const handleCitationTap = useCallback((citationIndex: number) => {
-    const cit = citations.find(c => c.index === citationIndex);
-    if (cit) {
-      setActiveCitation(cit);
-    }
-  }, [citations]);
+  const handleCitationTap = useCallback(
+    (citationIndex: number) => {
+      const cit = citations.find((c) => c.index === citationIndex);
+      if (cit) {
+        setActiveCitation(cit);
+      }
+    },
+    [citations],
+  );
 
   // Handle refinement
   const handleRefine = async (prompt: string) => {
@@ -130,9 +145,9 @@ export default function NoteHelperFullscreenScreen() {
         content,
       }));
 
-      const sourceLogicalPath = sourceFiles.find(f => f.logicalPath)?.logicalPath;
+      const sourceLogicalPath = sourceFiles.find((f) => f.logicalPath)?.logicalPath;
       const res = await api.createStudyNote({
-        title: sourceFiles.map(f => f.title).join(' + ') + ' 综合笔记',
+        title: sourceFiles.map((f) => f.title).join(' + ') + ' 综合笔记',
         content: noteContent,
         blocks,
         tags: [],
@@ -219,7 +234,9 @@ export default function NoteHelperFullscreenScreen() {
           contentContainerStyle={styles.noteContentInner}
           showsVerticalScrollIndicator={false}
         >
-          {noteContent ? renderContent() : (
+          {noteContent ? (
+            renderContent()
+          ) : (
             <View style={styles.emptyState}>
               <Feather name="file-text" size={48} color={COLORS.textMuted} />
               <Text style={styles.emptyText}>暂无笔记内容</Text>
@@ -243,7 +260,11 @@ export default function NoteHelperFullscreenScreen() {
                 onPress={() => handleRefine(action.prompt)}
                 disabled={refining}
               >
-                <Feather name={action.icon} size={14} color={refining ? COLORS.textMuted : COLORS.primary} />
+                <Feather
+                  name={action.icon}
+                  size={14}
+                  color={refining ? COLORS.textMuted : COLORS.primary}
+                />
                 <Text style={[styles.quickBtnText, refining && styles.quickBtnTextDisabled]}>
                   {action.label}
                 </Text>

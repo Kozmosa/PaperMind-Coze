@@ -136,7 +136,10 @@ function WebMarkdown({ content }: { content: string }) {
       // Block math $$...$$
       result = result.replace(/\$\$([\s\S]*?)\$\$/g, (_: string, formula: string) => {
         try {
-          const html = katex.renderToString(formula.trim(), { displayMode: true, throwOnError: false });
+          const html = katex.renderToString(formula.trim(), {
+            displayMode: true,
+            throwOnError: false,
+          });
           const ph = `%%MATH_BLOCK_${counter++}%%`;
           placeholders.push({ ph, html });
           return ph;
@@ -149,7 +152,10 @@ function WebMarkdown({ content }: { content: string }) {
       result = result.replace(/\$(?!\d)([^$\n]+)\$/g, (_: string, formula: string) => {
         if (formula.trim().length === 0) return `$${formula}$`;
         try {
-          const html = katex.renderToString(formula.trim(), { displayMode: false, throwOnError: false });
+          const html = katex.renderToString(formula.trim(), {
+            displayMode: false,
+            throwOnError: false,
+          });
           const ph = `%%MATH_INLINE_${counter++}%%`;
           placeholders.push({ ph, html });
           return ph;

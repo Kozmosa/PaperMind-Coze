@@ -25,27 +25,27 @@ Knowledge Builder 是 PaperMind 的「AI 知识构建」流程：用户上传学
 
 ## 一、实现现状表
 
-| # | 规格要点 | 状态 | 证据（文件:行号） |
-|---|---|---|---|
-| S1 | 文件上传（multer，20MB，14 种格式） | ✅ | `server/src/routes/upload.ts:37-63` |
-| S2 | 中文文件名 latin1→utf8 修复 | ✅ | `upload.ts:12-19`（未提交） |
-| S3 | 文本提取 PDF/DOCX/PPTX/XLSX/TXT/MD/CSV | ✅ | `server/src/utils/extract-text.ts:87-149` |
-| S4 | 图片 OCR / 视觉提取 | ❌ | `extract-text.ts:34-37` 直接返回空文本 |
-| S5 | .doc / .ppt 提取 | ❌ | fileFilter 放行（`upload.ts:44-45,57`）但 `extract-text.ts` 无 .doc/.ppt 分支，静默返回空；「旧版PPT」提示文案只存在于死代码 `knowledge-builder.ts:123` |
-| S6 | papercore 生成（80-150 字 + 降级文案） | ✅ | `knowledge-builder.ts:310-365` |
-| S7 | L1/L2 全局定位（学科树 + 精确匹配规则） | ⚠️ | `knowledge-builder.ts:425-478`；L1 守卫强制回落第一个已有 L1，有错分风险 |
-| S8 | L3 局部演化（强制复用 + 上限 3/4/5 + 字符重叠防爆） | ✅ | `knowledge-builder.ts:415-416, 483-567` |
-| S9 | 三重校验 + forced/degraded 强制分类 | ✅ | `knowledge-builder.ts:713-766` |
-| S10 | 用户指定 logical_path 保留 | ✅ | `knowledge-builder.ts:600-614, 781-804`（提交 21f6d57） |
-| S11 | 上传后同步分类（不再 fire-and-forget） | ⚠️ | `upload.ts:120-170`（未提交）；同步阻塞 + 与客户端重复建记录（见缺口 1） |
-| S12 | 写入 materials/study_notes | ✅ | `knowledge-builder.ts:807-824` |
-| S13 | 写入 knowledge_nodes（图谱节点自动生成） | ❌ | 上传流程不写 knowledge_nodes；graph-data 也不读它（:1171-1174），节点只能靠手动构建器逐张建（`client/screens/knowledge-builder/index.tsx:304-338`） |
-| S14 | 图谱聚合 + 标签节点 + 文件夹视图 | ✅ | `knowledge-builder.ts:1166-1514`；`client/screens/knowledge/index.tsx:135-232` |
-| S15 | 分类失败的用户反馈 | ❌ | 主路径 LLM 出错仍写 `ai_processed=true`（tags 可为空）；Expo 端 fire-and-forget `catch(()=>{})` 静默吞错（`client/screens/control-center/index.tsx:326`） |
-| S16 | 重试 / 重新分析入口 | ⚠️ | material 有「重新分析」（`client/screens/material-edit/index.tsx:116-135` → `/reprocess-material`）；study_note 无对应入口 |
-| S17 | 并发上传 / 队列 / 超时 | ❌ | 无队列、无超时、无并发控制；每次分类约 3 次 LLM + 11 次全表 tags 查询 |
-| S18 | 前端上传 UX（文件夹选择树、进度、分类结果回显） | ⚠️ | 仅 debug 页实现（`debug/full-app-test.html:2365-2393, 2464-2555`）；Expo 客户端只有简单文件选择 + 一句「AI 将在后台自动编排」 |
-| S19 | 数据表与迁移一致 | ⚠️ | `schema.ts` 缺 materials/study_notes 定义；`000_init_missing_tables.sql`（未提交）与 `000_init.sql` 重复建 12 表且缺 RLS |
+| #   | 规格要点                                            | 状态 | 证据（文件:行号）                                                                                                                                         |
+| --- | --------------------------------------------------- | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| S1  | 文件上传（multer，20MB，14 种格式）                 | ✅   | `server/src/routes/upload.ts:37-63`                                                                                                                       |
+| S2  | 中文文件名 latin1→utf8 修复                         | ✅   | `upload.ts:12-19`（未提交）                                                                                                                               |
+| S3  | 文本提取 PDF/DOCX/PPTX/XLSX/TXT/MD/CSV              | ✅   | `server/src/utils/extract-text.ts:87-149`                                                                                                                 |
+| S4  | 图片 OCR / 视觉提取                                 | ❌   | `extract-text.ts:34-37` 直接返回空文本                                                                                                                    |
+| S5  | .doc / .ppt 提取                                    | ❌   | fileFilter 放行（`upload.ts:44-45,57`）但 `extract-text.ts` 无 .doc/.ppt 分支，静默返回空；「旧版PPT」提示文案只存在于死代码 `knowledge-builder.ts:123`   |
+| S6  | papercore 生成（80-150 字 + 降级文案）              | ✅   | `knowledge-builder.ts:310-365`                                                                                                                            |
+| S7  | L1/L2 全局定位（学科树 + 精确匹配规则）             | ⚠️   | `knowledge-builder.ts:425-478`；L1 守卫强制回落第一个已有 L1，有错分风险                                                                                  |
+| S8  | L3 局部演化（强制复用 + 上限 3/4/5 + 字符重叠防爆） | ✅   | `knowledge-builder.ts:415-416, 483-567`                                                                                                                   |
+| S9  | 三重校验 + forced/degraded 强制分类                 | ✅   | `knowledge-builder.ts:713-766`                                                                                                                            |
+| S10 | 用户指定 logical_path 保留                          | ✅   | `knowledge-builder.ts:600-614, 781-804`（提交 21f6d57）                                                                                                   |
+| S11 | 上传后同步分类（不再 fire-and-forget）              | ⚠️   | `upload.ts:120-170`（未提交）；同步阻塞 + 与客户端重复建记录（见缺口 1）                                                                                  |
+| S12 | 写入 materials/study_notes                          | ✅   | `knowledge-builder.ts:807-824`                                                                                                                            |
+| S13 | 写入 knowledge_nodes（图谱节点自动生成）            | ❌   | 上传流程不写 knowledge_nodes；graph-data 也不读它（:1171-1174），节点只能靠手动构建器逐张建（`client/screens/knowledge-builder/index.tsx:304-338`）       |
+| S14 | 图谱聚合 + 标签节点 + 文件夹视图                    | ✅   | `knowledge-builder.ts:1166-1514`；`client/screens/knowledge/index.tsx:135-232`                                                                            |
+| S15 | 分类失败的用户反馈                                  | ❌   | 主路径 LLM 出错仍写 `ai_processed=true`（tags 可为空）；Expo 端 fire-and-forget `catch(()=>{})` 静默吞错（`client/screens/control-center/index.tsx:326`） |
+| S16 | 重试 / 重新分析入口                                 | ⚠️   | material 有「重新分析」（`client/screens/material-edit/index.tsx:116-135` → `/reprocess-material`）；study_note 无对应入口                                |
+| S17 | 并发上传 / 队列 / 超时                              | ❌   | 无队列、无超时、无并发控制；每次分类约 3 次 LLM + 11 次全表 tags 查询                                                                                     |
+| S18 | 前端上传 UX（文件夹选择树、进度、分类结果回显）     | ⚠️   | 仅 debug 页实现（`debug/full-app-test.html:2365-2393, 2464-2555`）；Expo 客户端只有简单文件选择 + 一句「AI 将在后台自动编排」                             |
+| S19 | 数据表与迁移一致                                    | ⚠️   | `schema.ts` 缺 materials/study_notes 定义；`000_init_missing_tables.sql`（未提交）与 `000_init.sql` 重复建 12 表且缺 RLS                                  |
 
 ## 二、缺口清单（P0/P1/P2，每条可独立验收）
 

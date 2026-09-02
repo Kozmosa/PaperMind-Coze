@@ -42,7 +42,8 @@ router.get('/', async (req: Request, res: Response) => {
 router.post('/', async (req: Request, res: Response) => {
   try {
     const userId = (req as any).userId || 'guest';
-    const { title, content, knowledge_node_id, tags, file_url, file_name, logical_path, blocks } = req.body;
+    const { title, content, knowledge_node_id, tags, file_url, file_name, logical_path, blocks } =
+      req.body;
 
     // 清理 tags 中的 # 前缀
     const cleanTags = (tags || []).map((t: string) => t.replace(/^#/, '').trim()).filter(Boolean);
@@ -62,11 +63,7 @@ router.post('/', async (req: Request, res: Response) => {
     if (logical_path !== undefined) insertData.logical_path = logical_path || null;
     if (blocks !== undefined) insertData.blocks = blocks;
 
-    const { data, error } = await client
-      .from('study_notes')
-      .insert(insertData)
-      .select()
-      .single();
+    const { data, error } = await client.from('study_notes').insert(insertData).select().single();
 
     if (error) throw new Error(error.message);
     res.json({ data });
@@ -79,7 +76,18 @@ router.post('/', async (req: Request, res: Response) => {
 router.put('/:id', async (req: Request, res: Response) => {
   try {
     const userId = (req as any).userId || 'guest';
-    const { title, content, knowledge_node_id, tags, processed, papercore, logical_path, ai_processed, viewed_after_process, blocks } = req.body;
+    const {
+      title,
+      content,
+      knowledge_node_id,
+      tags,
+      processed,
+      papercore,
+      logical_path,
+      ai_processed,
+      viewed_after_process,
+      blocks,
+    } = req.body;
 
     const cleanTags = (tags || []).map((t: string) => t.replace(/^#/, '').trim()).filter(Boolean);
 

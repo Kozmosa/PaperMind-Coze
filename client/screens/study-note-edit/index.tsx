@@ -49,7 +49,10 @@ type Block = TextBlock | ImageBlock | FileBlock;
 
 // ========== ID 生成 ==========
 let _counter = 0;
-const uid = () => { _counter++; return `b${Date.now()}_${_counter}`; };
+const uid = () => {
+  _counter++;
+  return `b${Date.now()}_${_counter}`;
+};
 
 // ========== 颜色 ==========
 const C = {
@@ -107,7 +110,7 @@ export default function StudyNoteEditScreen() {
           }
         }, 400);
       }
-    }, [id])
+    }, [id]),
   );
 
   // 用 ref 保持 blocks 最新值供回调使用
@@ -154,18 +157,21 @@ export default function StudyNoteEditScreen() {
           setMode('read');
         }
       }
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // ========== 块操作 ==========
   const insertBlockAfter = (afterId: string | null, block: Block) => {
-    setBlocks(prev => {
+    setBlocks((prev) => {
       if (!afterId) {
         // 未聚焦任何块 → 插入末尾
         return [...prev, block];
       }
-      const idx = prev.findIndex(b => b.id === afterId);
+      const idx = prev.findIndex((b) => b.id === afterId);
       if (idx === -1) return [...prev, block];
       const next = [...prev];
       next.splice(idx + 1, 0, block);
@@ -174,26 +180,38 @@ export default function StudyNoteEditScreen() {
   };
 
   const removeBlock = (blockId: string) => {
-    setBlocks(prev => {
+    setBlocks((prev) => {
       if (prev.length <= 1) return prev; // 至少保留一个块
-      return prev.filter(b => b.id !== blockId);
+      return prev.filter((b) => b.id !== blockId);
     });
   };
 
   const updateTextBlock = (blockId: string, content: string) => {
-    setBlocks(prev => prev.map(b => b.id === blockId && b.type === 'text' ? { ...b, content } : b));
+    setBlocks((prev) =>
+      prev.map((b) => (b.id === blockId && b.type === 'text' ? { ...b, content } : b)),
+    );
   };
 
   // ========== 附件选择 ==========
   const handlePickImage = async () => {
     try {
       const p = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!p.granted) { Alert.alert('权限不足', '需要相册访问权限'); return; }
-      const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: false, quality: 0.8 });
+      if (!p.granted) {
+        Alert.alert('权限不足', '需要相册访问权限');
+        return;
+      }
+      const r = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: false,
+        quality: 0.8,
+      });
       if (!r.canceled && r.assets?.[0]) {
         const a = r.assets[0];
         insertBlockAfter(focusedBlockId, {
-          id: uid(), type: 'image', uri: a.uri, name: a.fileName || '照片',
+          id: uid(),
+          type: 'image',
+          uri: a.uri,
+          name: a.fileName || '照片',
         });
       }
     } catch {}
@@ -205,7 +223,10 @@ export default function StudyNoteEditScreen() {
       if (!r.canceled && r.assets?.[0]) {
         const a = r.assets[0];
         insertBlockAfter(focusedBlockId, {
-          id: uid(), type: 'file', uri: a.uri, name: a.name || '文件',
+          id: uid(),
+          type: 'file',
+          uri: a.uri,
+          name: a.name || '文件',
         });
       }
     } catch {}
@@ -213,8 +234,10 @@ export default function StudyNoteEditScreen() {
 
   // ========== 保存 ==========
   const handleSave = async () => {
-    const textBlocks = blocks.filter(b => b.type === 'text');
-    const hasContent = textBlocks.some(b => b.content.trim()) || blocks.some(b => b.type === 'image' || b.type === 'file');
+    const textBlocks = blocks.filter((b) => b.type === 'text');
+    const hasContent =
+      textBlocks.some((b) => b.content.trim()) ||
+      blocks.some((b) => b.type === 'image' || b.type === 'file');
     if (!title.trim() && !hasContent) {
       Alert.alert('提示', '请填写内容');
       return;
@@ -228,7 +251,11 @@ export default function StudyNoteEditScreen() {
       for (const b of blocks) {
         if ((b.type === 'image' || b.type === 'file') && !b.uri.startsWith('http')) {
           try {
-            const up = await api.uploadFile(b.uri, b.name, b.type === 'image' ? 'image/jpeg' : 'application/octet-stream');
+            const up = await api.uploadFile(
+              b.uri,
+              b.name,
+              b.type === 'image' ? 'image/jpeg' : 'application/octet-stream',
+            );
             resolvedBlocks.push({ ...b, uri: up.fileUrl, name: up.fileName || b.name });
           } catch {
             resolvedBlocks.push(b); // 上传失败也保留
@@ -239,8 +266,8 @@ export default function StudyNoteEditScreen() {
       }
 
       const contentText = blocks
-        .filter(b => b.type === 'text')
-        .map(b => (b as TextBlock).content)
+        .filter((b) => b.type === 'text')
+        .map((b) => (b as TextBlock).content)
         .join('\n');
 
       const payload: any = {
@@ -257,10 +284,14 @@ export default function StudyNoteEditScreen() {
         const cr = await api.createStudyNote(payload);
         const newId = cr?.data?.id;
         if (newId) {
-          fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091'}/api/v1/knowledge-builder/process-content`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'study_note', id: newId }),
-          }).catch(() => {});
+          fetch(
+            `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091'}/api/v1/knowledge-builder/process-content`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ type: 'study_note', id: newId }),
+            },
+          ).catch(() => {});
         }
       }
 
@@ -268,7 +299,9 @@ export default function StudyNoteEditScreen() {
       setMode('read');
     } catch (e: any) {
       Alert.alert('错误', e.message || '保存失败');
-    } finally { setSaving(false); }
+    } finally {
+      setSaving(false);
+    }
   };
 
   // ========== 渲染辅助 ==========
@@ -281,14 +314,22 @@ export default function StudyNoteEditScreen() {
   // ========== 格式化工具栏 ==========
   // Note Helper generate handler
   const handleNoteHelperGenerate = async (signal: { aborted: boolean }) => {
-    const sourceFiles = id ? [{ id, type: 'study_note' as const, title: title || '学习纪要', logicalPath }] : [];
+    const sourceFiles = id
+      ? [{ id, type: 'study_note' as const, title: title || '学习纪要', logicalPath }]
+      : [];
     let fullContent = '';
     let extractedCitations: Citation[] = [];
 
     await api.generateNoteStream(
       sourceFiles,
-      (chunk) => { fullContent += chunk; setNoteHelperContent(fullContent); },
-      (citations) => { extractedCitations = citations; setNoteHelperCitations(citations); },
+      (chunk) => {
+        fullContent += chunk;
+        setNoteHelperContent(fullContent);
+      },
+      (citations) => {
+        extractedCitations = citations;
+        setNoteHelperCitations(citations);
+      },
       undefined,
       signal,
     );
@@ -309,23 +350,25 @@ export default function StudyNoteEditScreen() {
   ];
 
   const applyFormat = (mark: string, multiline?: boolean) => {
-    const targetId = focusedBlockId || blocks.find(b => b.type === 'text')?.id;
+    const targetId = focusedBlockId || blocks.find((b) => b.type === 'text')?.id;
     if (!targetId) {
       // No text block exists, create one
       const newBlock: TextBlock = { id: uid(), type: 'text', content: mark };
-      setBlocks(prev => [...prev, newBlock]);
+      setBlocks((prev) => [...prev, newBlock]);
       setFocusedBlockId(newBlock.id);
       setTimeout(() => inputRefs.current.get(newBlock.id)?.focus(), 100);
       return;
     }
-    setBlocks(prev => prev.map(b => {
-      if (b.id !== targetId || b.type !== 'text') return b;
-      const cur = b.content;
-      if (multiline) {
-        return { ...b, content: cur ? `${cur}\n${mark}${mark === '`' ? '' : ' '}` : mark };
-      }
-      return { ...b, content: cur ? `${cur}\n${mark}` : mark };
-    }));
+    setBlocks((prev) =>
+      prev.map((b) => {
+        if (b.id !== targetId || b.type !== 'text') return b;
+        const cur = b.content;
+        if (multiline) {
+          return { ...b, content: cur ? `${cur}\n${mark}${mark === '`' ? '' : ' '}` : mark };
+        }
+        return { ...b, content: cur ? `${cur}\n${mark}` : mark };
+      }),
+    );
     // Re-focus the block
     setTimeout(() => inputRefs.current.get(targetId)?.focus(), 100);
   };
@@ -334,15 +377,19 @@ export default function StudyNoteEditScreen() {
   const renderEditBlock = ({ item, drag, isActive }: RenderItemParams<Block>) => {
     if (item.type === 'text') {
       return (
-        <View style={{
-          flexDirection: 'row',
-          alignItems: 'flex-start',
-          paddingVertical: 6,
-          opacity: isActive ? 0.6 : 1,
-        }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'flex-start',
+            paddingVertical: 6,
+            opacity: isActive ? 0.6 : 1,
+          }}
+        >
           <View style={{ flex: 1 }}>
             <TextInput
-              ref={ref => { inputRefs.current.set(item.id, ref); }}
+              ref={(ref) => {
+                inputRefs.current.set(item.id, ref);
+              }}
               style={{
                 fontSize: 16,
                 lineHeight: 26,
@@ -355,16 +402,18 @@ export default function StudyNoteEditScreen() {
               placeholder="今天学到了什么？写下你的理解…"
               placeholderTextColor={C.placeholder}
               value={item.content}
-              onChangeText={text => updateTextBlock(item.id, text)}
+              onChangeText={(text) => updateTextBlock(item.id, text)}
               onFocus={() => setFocusedBlockId(item.id)}
-              onBlur={() => { if (focusedBlockId === item.id) setFocusedBlockId(null); }}
+              onBlur={() => {
+                if (focusedBlockId === item.id) setFocusedBlockId(null);
+              }}
               multiline
               textAlignVertical="top"
               scrollEnabled={false}
               onContentSizeChange={(e) => {
                 const h = e.nativeEvent.contentSize.height;
                 if (blockHeights[item.id] !== h) {
-                  setBlockHeights(prev => ({ ...prev, [item.id]: h }));
+                  setBlockHeights((prev) => ({ ...prev, [item.id]: h }));
                 }
               }}
             />
@@ -382,12 +431,14 @@ export default function StudyNoteEditScreen() {
 
     if (item.type === 'image') {
       return (
-        <View style={{
-          flexDirection: 'row',
-          alignItems: 'flex-start',
-          paddingVertical: 8,
-          opacity: isActive ? 0.6 : 1,
-        }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'flex-start',
+            paddingVertical: 8,
+            opacity: isActive ? 0.6 : 1,
+          }}
+        >
           <View style={{ flex: 1 }}>
             <Image
               source={{ uri: item.uri }}
@@ -403,10 +454,7 @@ export default function StudyNoteEditScreen() {
             <Text style={{ fontSize: 11, color: C.textSecondary, marginTop: 4 }}>{item.name}</Text>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-            <TouchableOpacity
-              onPress={() => removeBlock(item.id)}
-              style={{ padding: 8 }}
-            >
+            <TouchableOpacity onPress={() => removeBlock(item.id)} style={{ padding: 8 }}>
               <Feather name="x" size={18} color={C.danger} />
             </TouchableOpacity>
             <TouchableOpacity onLongPress={drag} delayLongPress={150} style={{ padding: 8 }}>
@@ -419,16 +467,18 @@ export default function StudyNoteEditScreen() {
 
     if (item.type === 'file') {
       return (
-        <View style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          paddingVertical: 8,
-          backgroundColor: C.fileBg,
-          borderRadius: 12,
-          paddingHorizontal: 14,
-          marginVertical: 4,
-          opacity: isActive ? 0.6 : 1,
-        }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingVertical: 8,
+            backgroundColor: C.fileBg,
+            borderRadius: 12,
+            paddingHorizontal: 14,
+            marginVertical: 4,
+            opacity: isActive ? 0.6 : 1,
+          }}
+        >
           <Feather name="file-text" size={24} color="#FF9F43" />
           <View style={{ flex: 1, marginLeft: 12 }}>
             <Text style={{ fontSize: 14, color: C.text, fontWeight: '500' }} numberOfLines={1}>
@@ -455,10 +505,12 @@ export default function StudyNoteEditScreen() {
   const renderReadBlock = ({ item, isActive }: RenderItemParams<Block>) => {
     if (item.type === 'text') {
       return (
-        <View style={{
-          paddingVertical: 6,
-          opacity: isActive ? 0.6 : 1,
-        }}>
+        <View
+          style={{
+            paddingVertical: 6,
+            opacity: isActive ? 0.6 : 1,
+          }}
+        >
           <MarkdownRenderer content={item.content || ' '} maxWidth={350} />
         </View>
       );
@@ -466,12 +518,14 @@ export default function StudyNoteEditScreen() {
 
     if (item.type === 'image') {
       return (
-        <View style={{
-          flexDirection: 'row',
-          alignItems: 'flex-start',
-          paddingVertical: 8,
-          opacity: isActive ? 0.6 : 1,
-        }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'flex-start',
+            paddingVertical: 8,
+            opacity: isActive ? 0.6 : 1,
+          }}
+        >
           <View style={{ flex: 1 }}>
             <Image
               source={{ uri: item.uri }}
@@ -492,16 +546,18 @@ export default function StudyNoteEditScreen() {
 
     if (item.type === 'file') {
       return (
-        <View style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          paddingVertical: 8,
-          backgroundColor: C.fileBg,
-          borderRadius: 12,
-          paddingHorizontal: 14,
-          marginVertical: 4,
-          opacity: isActive ? 0.6 : 1,
-        }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingVertical: 8,
+            backgroundColor: C.fileBg,
+            borderRadius: 12,
+            paddingHorizontal: 14,
+            marginVertical: 4,
+            opacity: isActive ? 0.6 : 1,
+          }}
+        >
           <Feather name="file-text" size={24} color="#FF9F43" />
           <View style={{ flex: 1, marginLeft: 12 }}>
             <Text style={{ fontSize: 14, color: C.text, fontWeight: '500' }} numberOfLines={1}>
@@ -534,16 +590,18 @@ export default function StudyNoteEditScreen() {
       <Screen backgroundColor={C.bg} safeAreaEdges={['left', 'right', 'bottom']}>
         <View style={{ flex: 1, backgroundColor: C.bg }}>
           {/* ======== 顶部导航 ======== */}
-          <View style={{
-            paddingTop: insets.top + 8,
-            paddingHorizontal: 16,
-            paddingBottom: 8,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            borderBottomWidth: 1,
-            borderBottomColor: C.border,
-          }}>
+          <View
+            style={{
+              paddingTop: insets.top + 8,
+              paddingHorizontal: 16,
+              paddingBottom: 8,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              borderBottomWidth: 1,
+              borderBottomColor: C.border,
+            }}
+          >
             {/* 左侧：返回 + 模式切换 */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <TouchableOpacity onPress={() => router.back()} style={{ padding: 8 }}>
@@ -552,7 +610,10 @@ export default function StudyNoteEditScreen() {
 
               {/* 编辑/阅读 切换按钮 */}
               <TouchableOpacity
-                onPress={() => { setMode(mode === 'edit' ? 'read' : 'edit'); setListKey(k => k + 1); }}
+                onPress={() => {
+                  setMode(mode === 'edit' ? 'read' : 'edit');
+                  setListKey((k) => k + 1);
+                }}
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',
@@ -570,10 +631,13 @@ export default function StudyNoteEditScreen() {
                   size={13}
                   color={mode === 'edit' ? C.primary : C.textSecondary}
                 />
-                <Text style={{
-                  fontSize: 13, fontWeight: '600',
-                  color: mode === 'edit' ? C.primary : C.textSecondary,
-                }}>
+                <Text
+                  style={{
+                    fontSize: 13,
+                    fontWeight: '600',
+                    color: mode === 'edit' ? C.primary : C.textSecondary,
+                  }}
+                >
                   {mode === 'edit' ? '编辑' : '阅读'}
                 </Text>
               </TouchableOpacity>
@@ -601,13 +665,15 @@ export default function StudyNoteEditScreen() {
           </View>
 
           {/* ======== 固定标题区（下滑时保持可见） ======== */}
-          <View style={{
-            paddingHorizontal: 20,
-            paddingBottom: 8,
-            borderBottomWidth: 1,
-            borderBottomColor: C.border,
-            backgroundColor: C.bg,
-          }}>
+          <View
+            style={{
+              paddingHorizontal: 20,
+              paddingBottom: 8,
+              borderBottomWidth: 1,
+              borderBottomColor: C.border,
+              backgroundColor: C.bg,
+            }}
+          >
             {mode === 'edit' ? (
               <TextInput
                 style={{
@@ -623,39 +689,53 @@ export default function StudyNoteEditScreen() {
                 onChangeText={setTitle}
               />
             ) : (
-              <Text style={{
-                fontSize: 20,
-                fontWeight: '700',
-                color: C.text,
-                paddingVertical: 12,
-                marginTop: 4,
-              }} numberOfLines={2}>
+              <Text
+                style={{
+                  fontSize: 20,
+                  fontWeight: '700',
+                  color: C.text,
+                  paddingVertical: 12,
+                  marginTop: 4,
+                }}
+                numberOfLines={2}
+              >
                 {title || '未命名纪要'}
               </Text>
             )}
 
             {/* 日期（阅读模式） */}
             {mode === 'read' && createdAt ? (
-              <Text style={{ fontSize: 12, color: C.textSecondary, marginTop: -4, marginBottom: 4 }}>
+              <Text
+                style={{ fontSize: 12, color: C.textSecondary, marginTop: -4, marginBottom: 4 }}
+              >
                 {formatDate(createdAt)}
               </Text>
             ) : null}
 
             {/* AI 编排 Banner（阅读模式） */}
             {mode === 'read' && tags.length > 0 && logicalPath ? (
-              <View style={{
-                backgroundColor: '#F0EDFF',
-                borderRadius: 10,
-                padding: 10,
-                marginBottom: 4,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 8,
-              }}>
+              <View
+                style={{
+                  backgroundColor: '#F0EDFF',
+                  borderRadius: 10,
+                  padding: 10,
+                  marginBottom: 4,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 8,
+                }}
+              >
                 <Text style={{ fontSize: 12 }}>✅</Text>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 11, fontWeight: '600', color: C.primary }}>AI 已自动编排</Text>
-                  <Text style={{ fontSize: 10, color: C.textSecondary, marginTop: 2 }} numberOfLines={1}>{logicalPath}</Text>
+                  <Text style={{ fontSize: 11, fontWeight: '600', color: C.primary }}>
+                    AI 已自动编排
+                  </Text>
+                  <Text
+                    style={{ fontSize: 10, color: C.textSecondary, marginTop: 2 }}
+                    numberOfLines={1}
+                  >
+                    {logicalPath}
+                  </Text>
                 </View>
               </View>
             ) : null}
@@ -687,79 +767,116 @@ export default function StudyNoteEditScreen() {
                 contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 20 }}
                 ListHeaderComponent={<View style={{ height: 8 }} />}
                 ListFooterComponent={
-                <View>
-                  {/* Papercore（阅读模式） */}
-                  {mode === 'read' && papercore ? (
-                    <View style={{
-                      backgroundColor: '#FFF8F0',
-                      borderRadius: 12,
-                      padding: 16,
-                      marginTop: 20,
-                      borderLeftWidth: 4,
-                      borderLeftColor: '#FF9F43',
-                    }}>
-                      <Text style={{ fontSize: 12, fontWeight: '700', color: '#FF9F43', marginBottom: 6 }}>Papercore 摘要</Text>
-                      <Text style={{ fontSize: 14, color: C.text, lineHeight: 22 }}>{papercore}</Text>
-                    </View>
-                  ) : null}
-
-                  {/* 标签（阅读模式） */}
-                  {mode === 'read' && tags.length > 0 ? (
-                    <View style={{ marginTop: 20 }}>
-                      <Text style={{ fontSize: 12, fontWeight: '700', color: C.textSecondary, marginBottom: 8 }}>知识标签</Text>
-                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                        {tags.map((tag, i) => {
-                          const levelColors = [
-                            { bg: '#6C63FF', fg: '#FFF' },
-                            { bg: 'rgba(108,99,255,0.2)', fg: '#6C63FF' },
-                            { bg: 'rgba(108,99,255,0.08)', fg: '#8B83FF' },
-                          ];
-                          const lc = levelColors[Math.min(i, 2)];
-                          return (
-                            <View key={i} style={{
-                              backgroundColor: lc.bg,
-                              paddingHorizontal: 12,
-                              paddingVertical: 6,
-                              borderRadius: 8,
-                            }}>
-                              <Text style={{ fontSize: 12, fontWeight: '600', color: lc.fg }}>
-                                {['📐 ', '📂 ', '📌 '][Math.min(i, 2)]}{tag}
-                              </Text>
-                            </View>
-                          );
-                        })}
+                  <View>
+                    {/* Papercore（阅读模式） */}
+                    {mode === 'read' && papercore ? (
+                      <View
+                        style={{
+                          backgroundColor: '#FFF8F0',
+                          borderRadius: 12,
+                          padding: 16,
+                          marginTop: 20,
+                          borderLeftWidth: 4,
+                          borderLeftColor: '#FF9F43',
+                        }}
+                      >
+                        <Text
+                          style={{
+                            fontSize: 12,
+                            fontWeight: '700',
+                            color: '#FF9F43',
+                            marginBottom: 6,
+                          }}
+                        >
+                          Papercore 摘要
+                        </Text>
+                        <Text style={{ fontSize: 14, color: C.text, lineHeight: 22 }}>
+                          {papercore}
+                        </Text>
                       </View>
-                    </View>
-                  ) : null}
+                    ) : null}
 
-                  {/* 逻辑路径（阅读模式） */}
-                  {mode === 'read' && logicalPath ? (
-                    <View style={{ marginTop: 16, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Feather name="folder" size={14} color="#FF9F43" />
-                      <Text style={{ fontSize: 12, color: '#FF9F43', fontWeight: '500' }}>{logicalPath}</Text>
-                    </View>
-                  ) : null}
+                    {/* 标签（阅读模式） */}
+                    {mode === 'read' && tags.length > 0 ? (
+                      <View style={{ marginTop: 20 }}>
+                        <Text
+                          style={{
+                            fontSize: 12,
+                            fontWeight: '700',
+                            color: C.textSecondary,
+                            marginBottom: 8,
+                          }}
+                        >
+                          知识标签
+                        </Text>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                          {tags.map((tag, i) => {
+                            const levelColors = [
+                              { bg: '#6C63FF', fg: '#FFF' },
+                              { bg: 'rgba(108,99,255,0.2)', fg: '#6C63FF' },
+                              { bg: 'rgba(108,99,255,0.08)', fg: '#8B83FF' },
+                            ];
+                            const lc = levelColors[Math.min(i, 2)];
+                            return (
+                              <View
+                                key={i}
+                                style={{
+                                  backgroundColor: lc.bg,
+                                  paddingHorizontal: 12,
+                                  paddingVertical: 6,
+                                  borderRadius: 8,
+                                }}
+                              >
+                                <Text style={{ fontSize: 12, fontWeight: '600', color: lc.fg }}>
+                                  {['📐 ', '📂 ', '📌 '][Math.min(i, 2)]}
+                                  {tag}
+                                </Text>
+                              </View>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    ) : null}
 
-                  {/* 底部留白：给操作栏让位 */}
-                  <View style={{ height: 40 }} />
-                </View>
-              }
-            />
+                    {/* 逻辑路径（阅读模式） */}
+                    {mode === 'read' && logicalPath ? (
+                      <View
+                        style={{
+                          marginTop: 16,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 6,
+                        }}
+                      >
+                        <Feather name="folder" size={14} color="#FF9F43" />
+                        <Text style={{ fontSize: 12, color: '#FF9F43', fontWeight: '500' }}>
+                          {logicalPath}
+                        </Text>
+                      </View>
+                    ) : null}
+
+                    {/* 底部留白：给操作栏让位 */}
+                    <View style={{ height: 40 }} />
+                  </View>
+                }
+              />
             )}
           </View>
 
           {/* ======== 底部操作栏（仅编辑模式） ======== */}
           {mode === 'edit' && (
-            <View style={{
-              position: 'absolute',
-              bottom: 0,
-              left: 0,
-              right: 0,
-              backgroundColor: C.bg,
-              borderTopWidth: 1,
-              borderTopColor: C.border,
-              paddingBottom: insets.bottom + 8,
-            }}>
+            <View
+              style={{
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                backgroundColor: C.bg,
+                borderTopWidth: 1,
+                borderTopColor: C.border,
+                paddingBottom: insets.bottom + 8,
+              }}
+            >
               {/* 格式化工具栏 */}
               <ScrollView
                 horizontal
@@ -791,12 +908,14 @@ export default function StudyNoteEditScreen() {
               </ScrollView>
 
               {/* 附件按钮行 */}
-              <View style={{
-                flexDirection: 'row',
-                gap: 20,
-                paddingHorizontal: 20,
-                paddingTop: 4,
-              }}>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  gap: 20,
+                  paddingHorizontal: 20,
+                  paddingTop: 4,
+                }}
+              >
                 <TouchableOpacity
                   style={{
                     flexDirection: 'row',
@@ -850,7 +969,9 @@ export default function StudyNoteEditScreen() {
       <NoteHelperPanel
         visible={noteHelperVisible}
         onClose={() => setNoteHelperVisible(false)}
-        sourceFiles={id ? [{ id, type: 'study_note', title: title || '学习纪要', logicalPath }] : []}
+        sourceFiles={
+          id ? [{ id, type: 'study_note', title: title || '学习纪要', logicalPath }] : []
+        }
         onGenerate={handleNoteHelperGenerate}
       />
     </GestureHandlerRootView>

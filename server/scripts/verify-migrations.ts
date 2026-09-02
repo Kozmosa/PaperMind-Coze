@@ -9,7 +9,7 @@ const client = new Client({ connectionString: process.env.SUPABASE_DB_URL });
 
 await client.connect();
 const { rows } = await client.query(
-  "SELECT table_name, column_name FROM information_schema.columns WHERE table_name IN ('problem_solving_logs','reflections') AND column_name IN ('related_draft_ids','raw_text') ORDER BY table_name"
+  "SELECT table_name, column_name FROM information_schema.columns WHERE table_name IN ('problem_solving_logs','reflections') AND column_name IN ('related_draft_ids','raw_text') ORDER BY table_name",
 );
 console.log('列验证:', JSON.stringify(rows));
 

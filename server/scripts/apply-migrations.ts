@@ -39,13 +39,13 @@ async function main() {
     `CREATE TABLE IF NOT EXISTS public.schema_migrations (
        filename text PRIMARY KEY,
        applied_at timestamptz DEFAULT now()
-     )`
+     )`,
   );
 
   for (const name of targets) {
     const { rowCount } = await client.query(
       'SELECT 1 FROM public.schema_migrations WHERE filename = $1',
-      [name]
+      [name],
     );
     if (rowCount) {
       console.log(`跳过（已应用）: ${name}`);

@@ -91,18 +91,24 @@ router.post('/tutor', async (req: Request, res: Response) => {
     res.setHeader('Connection', 'keep-alive');
 
     const hasImage = !!imageBase64;
-    const { systemPrompt, searchResults, allFileContents } = await buildTutorPrompt(context, message, hasImage);
+    const { systemPrompt, searchResults, allFileContents } = await buildTutorPrompt(
+      context,
+      message,
+      hasImage,
+    );
 
     // 构建消息：有图片时用 multipart content blocks，否则纯文本
     let messages: any[];
     if (hasImage) {
-      messages = [{
-        role: 'user',
-        content: [
-          { type: 'image', source: { type: 'base64', media_type: mediaType, data: imageBase64 } },
-          { type: 'text', text: message }
-        ]
-      }];
+      messages = [
+        {
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: mediaType, data: imageBase64 } },
+            { type: 'text', text: message },
+          ],
+        },
+      ];
     } else {
       messages = [{ role: 'user', content: message }];
     }
@@ -127,13 +133,19 @@ router.post('/tutor', async (req: Request, res: Response) => {
     // 流结束后，提取 citations 并发送元数据
     // 把 buildTutorPrompt 收集的节点关联文件原文注入 context.fileContents，
     // 打通架构规格 1.4 优先级 4（此前 allFileContents 从未传到这里，是死路径）
-    const citations = await extractCitations(fullContent, { ...context, fileContents: allFileContents }, searchResults);
+    const citations = await extractCitations(
+      fullContent,
+      { ...context, fileContents: allFileContents },
+      searchResults,
+    );
 
-    res.write(`data: ${JSON.stringify({
-      content: '',
-      done: true,
-      citations: citations
-    })}\n\n`);
+    res.write(
+      `data: ${JSON.stringify({
+        content: '',
+        done: true,
+        citations: citations,
+      })}\n\n`,
+    );
     res.write('data: [DONE]\n\n');
     res.end();
   } catch (error: any) {
@@ -159,7 +171,7 @@ interface Citation {
   fileName?: string;
   fileUrl?: string;
   draftId?: number;
-  label?: string;     // display fallback
+  label?: string; // display fallback
 }
 
 // 提取 citations 的辅助函数
@@ -194,9 +206,10 @@ async function extractCitations(
         papercore: r.papercore,
         tags: r.tags,
         pageNumber: r.pageNumber || null,
-        snippet: r.sourceType === 'file_content'
-          ? r.papercore // already snipped in index
-          : r.papercore?.substring(0, 200),
+        snippet:
+          r.sourceType === 'file_content'
+            ? r.papercore // already snipped in index
+            : r.papercore?.substring(0, 200),
         fileName: r.fileName,
         draftId: r.draftId,
       };
@@ -207,7 +220,7 @@ async function extractCitations(
   // ── Explicitly selected nodes ────────────────────────────────
   if (context?.nodeIds?.length && context?.nodeIds.length > 0) {
     const existingNodeIds = new Set(
-      citations.filter(c => c.type === 'knowledge_node').map(c => c.sourceId)
+      citations.filter((c) => c.type === 'knowledge_node').map((c) => c.sourceId),
     );
     for (const nodeId of context.nodeIds) {
       if (!existingNodeIds.has(nodeId)) {
@@ -225,7 +238,7 @@ async function extractCitations(
   // ── Fallback: explicit file contents from context ────────────
   if (context?.fileContents?.length && context.fileContents.length > 0) {
     const existingFcIds = new Set(
-      citations.filter(c => c.type === 'file_content').map(c => c.sourceId)
+      citations.filter((c) => c.type === 'file_content').map((c) => c.sourceId),
     );
     for (const fc of context.fileContents) {
       if (!existingFcIds.has(fc.draft_id)) {
@@ -245,8 +258,8 @@ async function extractCitations(
 
   // ── User-uploaded file (context.draftId) ─────────────────────
   if (context?.draftId) {
-    const hasDraft = citations.some(c =>
-      (c.type === 'file_content' || c.type === 'material') && c.draftId === context.draftId
+    const hasDraft = citations.some(
+      (c) => (c.type === 'file_content' || c.type === 'material') && c.draftId === context.draftId,
     );
     if (!hasDraft) {
       try {
@@ -346,12 +359,15 @@ TAGS: <标签列表>`;
       const contentBlocks: any[] = [];
       contentBlocks.push({
         type: 'image',
-        source: { type: 'base64', media_type: mediaType || 'image/jpeg', data: imageBase64 }
+        source: { type: 'base64', media_type: mediaType || 'image/jpeg', data: imageBase64 },
       });
       if (rawContent) {
         contentBlocks.push({ type: 'text', text: rawContent });
       } else {
-        contentBlocks.push({ type: 'text', text: '请分析这张图片，提取其中的知识概念，生成 Papercore 和 Tags。' });
+        contentBlocks.push({
+          type: 'text',
+          text: '请分析这张图片，提取其中的知识概念，生成 Papercore 和 Tags。',
+        });
       }
       messages = [{ role: 'user', content: contentBlocks }];
     } else {
@@ -405,9 +421,9 @@ router.post('/suggest', async (req: Request, res: Response) => {
         .in('draft_id', draft_ids.slice(0, 5));
 
       if (fileContents && fileContents.length > 0) {
-        fileText = fileContents.map((fc: any) =>
-          `[第${fc.page_number || '?'}页] ${fc.extracted_text || ''}`
-        ).join('\n\n');
+        fileText = fileContents
+          .map((fc: any) => `[第${fc.page_number || '?'}页] ${fc.extracted_text || ''}`)
+          .join('\n\n');
       }
     }
 
@@ -480,9 +496,12 @@ router.post('/suggest-relations', async (req: Request, res: Response) => {
     }
 
     // 2. 用 LLM 分类关系类型
-    const candidates = searchResults.map((r: any) =>
-      `[ID:${r.sourceId}] 名称:${r.title || ''} Papercore:${r.papercore?.substring(0, 80)} 标签:${(r.tags || []).join(',')}`
-    ).join('\n');
+    const candidates = searchResults
+      .map(
+        (r: any) =>
+          `[ID:${r.sourceId}] 名称:${r.title || ''} Papercore:${r.papercore?.substring(0, 80)} 标签:${(r.tags || []).join(',')}`,
+      )
+      .join('\n');
 
     const systemPrompt = `你是知识图谱关系分类助手。给定一个新的知识节点，判断它与现有节点的关系类型。
 
@@ -525,7 +544,9 @@ ${candidates}
 
     // 4. 合并语义分数和 LLM 分类
     const scoreMap: Record<number, number> = {};
-    searchResults.forEach((r: any) => { scoreMap[r.sourceId] = r.score; });
+    searchResults.forEach((r: any) => {
+      scoreMap[r.sourceId] = r.score;
+    });
 
     const suggestions = classified
       .filter((c: any) => scoreMap[c.nodeId] !== undefined)
@@ -627,7 +648,7 @@ async function buildTutorPrompt(
   let knowledgeContext = '';
   let fileContentsContext = '';
   let allFileContents: any[] = []; // for citations
-  let searchResults: any[] = [];   // returned for extractCitations
+  let searchResults: any[] = []; // returned for extractCitations
 
   // ── Layer 1: User-specified knowledge nodes ──────────────────
   if (context?.nodeIds && Array.isArray(context.nodeIds) && context.nodeIds.length > 0) {
@@ -637,9 +658,12 @@ async function buildTutorPrompt(
       .in('id', context.nodeIds);
 
     if (nodes && nodes.length > 0) {
-      const nodeList = nodes.map((n: any) =>
-        `[${n.short_name || '节点' + n.id}] ${n.papercore || '(暂无概述)'} 标签:${(n.tags || []).join(',')}`
-      ).join('\n');
+      const nodeList = nodes
+        .map(
+          (n: any) =>
+            `[${n.short_name || '节点' + n.id}] ${n.papercore || '(暂无概述)'} 标签:${(n.tags || []).join(',')}`,
+        )
+        .join('\n');
       knowledgeContext = `【相关知识节点 (${nodes.length}个)】\n${nodeList}`;
 
       // Build searchResults-like entries for citations
@@ -667,16 +691,16 @@ async function buildTutorPrompt(
 
     if (searchResults.length > 0) {
       // Collect knowledge_node IDs for DB lookup
-      const knResults = searchResults.filter(r => r.sourceType === 'knowledge_node');
-      const snResults = searchResults.filter(r => r.sourceType === 'study_note');
-      const mResults = searchResults.filter(r => r.sourceType === 'material');
-      const fcResults = searchResults.filter(r => r.sourceType === 'file_content');
+      const knResults = searchResults.filter((r) => r.sourceType === 'knowledge_node');
+      const snResults = searchResults.filter((r) => r.sourceType === 'study_note');
+      const mResults = searchResults.filter((r) => r.sourceType === 'material');
+      const fcResults = searchResults.filter((r) => r.sourceType === 'file_content');
 
       const contextLines: string[] = [];
 
       // ── knowledge_nodes ────────────────────────────────────
       if (knResults.length > 0) {
-        const nodeIds = knResults.map(r => r.sourceId);
+        const nodeIds = knResults.map((r) => r.sourceId);
         const { data: nodes } = await client
           .from('knowledge_nodes')
           .select('id, papercore, tags, short_name, attached_draft_ids')
@@ -684,12 +708,16 @@ async function buildTutorPrompt(
 
         if (nodes && nodes.length > 0) {
           const scoreMap: Record<number, number> = {};
-          knResults.forEach(r => { scoreMap[r.sourceId as number] = r.score; });
-          const sortedNodes = nodes.sort((a: any, b: any) =>
-            (scoreMap[b.id] || 0) - (scoreMap[a.id] || 0));
+          knResults.forEach((r) => {
+            scoreMap[r.sourceId as number] = r.score;
+          });
+          const sortedNodes = nodes.sort(
+            (a: any, b: any) => (scoreMap[b.id] || 0) - (scoreMap[a.id] || 0),
+          );
 
-          const nodeLines = sortedNodes.map((n: any) =>
-            `[知识节点: ${n.short_name || '节点' + n.id}] ${n.papercore || ''} 标签:${(n.tags || []).join(',')} [相关度: ${(scoreMap[n.id] || 0).toFixed(2)}]`
+          const nodeLines = sortedNodes.map(
+            (n: any) =>
+              `[知识节点: ${n.short_name || '节点' + n.id}] ${n.papercore || ''} 标签:${(n.tags || []).join(',')} [相关度: ${(scoreMap[n.id] || 0).toFixed(2)}]`,
           );
           contextLines.push(`【知识节点 (${sortedNodes.length}个)】\n${nodeLines.join('\n')}`);
 
@@ -706,15 +734,16 @@ async function buildTutorPrompt(
 
       // ── study_notes ────────────────────────────────────────
       if (snResults.length > 0) {
-        const snIds = snResults.map(r => r.sourceId);
+        const snIds = snResults.map((r) => r.sourceId);
         const { data: notes } = await client
           .from('study_notes')
           .select('id, papercore, tags, title, content')
           .in('id', snIds);
 
         if (notes && notes.length > 0) {
-          const noteLines = notes.map((n: any) =>
-            `[学习纪要: ${n.title || '纪要' + n.id}] ${n.papercore || ''} 标签:${(n.tags || []).join(',')}\n内容摘要: ${(n.content || '').substring(0, 200)}`
+          const noteLines = notes.map(
+            (n: any) =>
+              `[学习纪要: ${n.title || '纪要' + n.id}] ${n.papercore || ''} 标签:${(n.tags || []).join(',')}\n内容摘要: ${(n.content || '').substring(0, 200)}`,
           );
           contextLines.push(`\n【学习纪要 (${notes.length}个)】\n${noteLines.join('\n---\n')}`);
         }
@@ -722,15 +751,16 @@ async function buildTutorPrompt(
 
       // ── materials ──────────────────────────────────────────
       if (mResults.length > 0) {
-        const mIds = mResults.map(r => r.sourceId);
+        const mIds = mResults.map((r) => r.sourceId);
         const { data: materials } = await client
           .from('materials')
           .select('id, papercore, tags, name, file_path')
           .in('id', mIds);
 
         if (materials && materials.length > 0) {
-          const matLines = materials.map((m: any) =>
-            `[资料: ${m.name || '资料' + m.id}] ${m.papercore || ''} 标签:${(m.tags || []).join(',')}`
+          const matLines = materials.map(
+            (m: any) =>
+              `[资料: ${m.name || '资料' + m.id}] ${m.papercore || ''} 标签:${(m.tags || []).join(',')}`,
           );
           contextLines.push(`\n【学习资料 (${materials.length}个)】\n${matLines.join('\n')}`);
         }
@@ -772,9 +802,12 @@ async function buildTutorPrompt(
       .limit(100);
 
     if (nodes && nodes.length > 0) {
-      const nodeList = nodes.map((n: any) =>
-        `[${n.short_name || '节点' + n.id}] ${n.papercore || '(暂无概述)'} 标签:${(n.tags || []).join(',')}`
-      ).join('\n');
+      const nodeList = nodes
+        .map(
+          (n: any) =>
+            `[${n.short_name || '节点' + n.id}] ${n.papercore || '(暂无概述)'} 标签:${(n.tags || []).join(',')}`,
+        )
+        .join('\n');
       contextLines.push(`【知识库节点 (${nodes.length}个)】\n${nodeList}`);
       // Layer 3 降级结果仅作 Prompt 上下文，不进 searchResults：
       // 否则无匹配提问会渲染上百张引用卡片淹没正文（issue #5 Task 6）
@@ -789,9 +822,12 @@ async function buildTutorPrompt(
       .limit(50);
 
     if (sNotes && sNotes.length > 0) {
-      const snList = sNotes.map((n: any) =>
-        `[学习纪要: ${n.title || '纪要' + n.id}] ${n.papercore || ''} 标签:${(n.tags || []).join(',')}`
-      ).join('\n');
+      const snList = sNotes
+        .map(
+          (n: any) =>
+            `[学习纪要: ${n.title || '纪要' + n.id}] ${n.papercore || ''} 标签:${(n.tags || []).join(',')}`,
+        )
+        .join('\n');
       contextLines.push(`\n【学习纪要 (${sNotes.length}个)】\n${snList}`);
     }
 
@@ -804,9 +840,12 @@ async function buildTutorPrompt(
       .limit(50);
 
     if (mats && mats.length > 0) {
-      const mList = mats.map((m: any) =>
-        `[资料: ${m.name || '资料' + m.id}] ${m.papercore || ''} 标签:${(m.tags || []).join(',')}`
-      ).join('\n');
+      const mList = mats
+        .map(
+          (m: any) =>
+            `[资料: ${m.name || '资料' + m.id}] ${m.papercore || ''} 标签:${(m.tags || []).join(',')}`,
+        )
+        .join('\n');
       contextLines.push(`\n【学习资料 (${mats.length}个)】\n${mList}`);
     }
 
@@ -878,7 +917,9 @@ async function loadFileContents(draftIds: number[]): Promise<{
     .in('id', draftIds.slice(0, 20));
 
   const draftMap: Record<number, any> = {};
-  (drafts || []).forEach((d: any) => { draftMap[d.id] = d; });
+  (drafts || []).forEach((d: any) => {
+    draftMap[d.id] = d;
+  });
 
   const fileDetails = fileContents.map((fc: any) => {
     const draft = draftMap[fc.draft_id] || {};
@@ -951,24 +992,35 @@ async function buildReflectionPrompt(context?: any, period?: string): Promise<st
 
     // 规格 2.2：4 类数据并行采集
     const [logsRes, qaLogsRes, refsRes, nodesRes] = await Promise.all([
-      logsQuery, qaLogsQuery, refsQuery, nodesQuery,
+      logsQuery,
+      qaLogsQuery,
+      refsQuery,
+      nodesQuery,
     ]);
 
     const { data: logs } = logsRes;
-    if (logs && logs.length > 0) logsContext = `问题解决记录（${logs.length}条）：${JSON.stringify(logs)}`;
+    if (logs && logs.length > 0)
+      logsContext = `问题解决记录（${logs.length}条）：${JSON.stringify(logs)}`;
 
     const { data: qaLogs } = qaLogsRes;
-    if (qaLogs && qaLogs.length > 0) qaLogsContext = `问答日志（${qaLogs.length}条）：${JSON.stringify(qaLogs)}`;
+    if (qaLogs && qaLogs.length > 0)
+      qaLogsContext = `问答日志（${qaLogs.length}条）：${JSON.stringify(qaLogs)}`;
 
     const { data: refs } = refsRes;
-    if (refs && refs.length > 0) pastReflections = `往期反思（${refs.length}条）：${JSON.stringify(refs)}`;
+    if (refs && refs.length > 0)
+      pastReflections = `往期反思（${refs.length}条）：${JSON.stringify(refs)}`;
 
     const { data: nodes } = nodesRes;
-    if (nodes && nodes.length > 0) nodeActivity = `知识节点活动（${nodes.length}个）：${JSON.stringify(nodes)}`;
+    if (nodes && nodes.length > 0)
+      nodeActivity = `知识节点活动（${nodes.length}个）：${JSON.stringify(nodes)}`;
   }
 
   const periodLabel = period
-    ? (period.includes('3') ? '近三天' : period.includes('30') ? '近一个月' : '近一周')
+    ? period.includes('3')
+      ? '近三天'
+      : period.includes('30')
+        ? '近一个月'
+        : '近一周'
     : '近期';
 
   return `你是学习反思助手 Reflection_mind。
@@ -1016,10 +1068,10 @@ function parseReflectionSections(text: string): {
   };
 
   const sectionMap: Record<string, keyof typeof result> = {
-    '学习行为': 'learning_behavior',
-    '攻克问题': 'challenge_report',
-    '思维模式': 'thinking_pattern',
-    '学习建议': 'suggestion',
+    学习行为: 'learning_behavior',
+    攻克问题: 'challenge_report',
+    思维模式: 'thinking_pattern',
+    学习建议: 'suggestion',
   };
 
   // 用正则匹配 "## 标题\n内容" 直到下一个 "## " 或文本结束
@@ -1062,7 +1114,12 @@ router.post('/generate-reflection', async (req: Request, res: Response) => {
       model: DEFAULT_MODEL,
       max_tokens: 4096,
       system: systemPrompt,
-      messages: [{ role: 'user', content: `请根据我的${period.includes('3') ? '近三天' : period.includes('30') ? '近一个月' : '近一周'}的学习数据，生成学习反思报告。` }],
+      messages: [
+        {
+          role: 'user',
+          content: `请根据我的${period.includes('3') ? '近三天' : period.includes('30') ? '近一个月' : '近一周'}的学习数据，生成学习反思报告。`,
+        },
+      ],
     });
 
     let fullContent = '';
@@ -1101,19 +1158,21 @@ router.post('/generate-reflection', async (req: Request, res: Response) => {
       console.error('Failed to save reflection:', saveError);
       res.write(`data: ${JSON.stringify({ error: '保存反思报告失败' })}\n\n`);
     } else if (saved) {
-      res.write(`data: ${JSON.stringify({
-        done: true,
-        warning: parseFailed ? '部分维度解析失败，已保留原始全文（raw_text）' : null,
-        reflection: {
-          id: saved.id,
-          period: saved.period,
-          learning_behavior: saved.learning_behavior,
-          challenge_report: saved.challenge_report,
-          thinking_pattern: saved.thinking_pattern,
-          suggestion: saved.suggestion,
-          created_at: saved.created_at,
-        }
-      })}\n\n`);
+      res.write(
+        `data: ${JSON.stringify({
+          done: true,
+          warning: parseFailed ? '部分维度解析失败，已保留原始全文（raw_text）' : null,
+          reflection: {
+            id: saved.id,
+            period: saved.period,
+            learning_behavior: saved.learning_behavior,
+            challenge_report: saved.challenge_report,
+            thinking_pattern: saved.thinking_pattern,
+            suggestion: saved.suggestion,
+            created_at: saved.created_at,
+          },
+        })}\n\n`,
+      );
     }
 
     res.write('data: [DONE]\n\n');
@@ -1168,7 +1227,6 @@ router.post('/note-helper', async (req: Request, res: Response) => {
 
     res.write('data: [DONE]\n\n');
     res.end();
-
   } catch (error) {
     console.error('NoteHelper Error:', error);
     res.status(500).json({ error: '生成笔记失败' });
@@ -1209,8 +1267,9 @@ router.post('/generate-note', async (req: Request, res: Response) => {
     }
 
     // 2. 获取所有源文件内容
-    const sources: { id: string; type: string; title: string; content: string; }[] = [];
-    const citations: { index: number; sourceId: string; sourceType: string; fileName: string; }[] = [];
+    const sources: { id: string; type: string; title: string; content: string }[] = [];
+    const citations: { index: number; sourceId: string; sourceType: string; fileName: string }[] =
+      [];
     let citationIndex = 0;
 
     for (const src of sourceIds) {
@@ -1244,11 +1303,7 @@ router.post('/generate-note', async (req: Request, res: Response) => {
           });
         }
       } else if (src.type === 'material') {
-        const { data: mat } = await client
-          .from('materials')
-          .select('*')
-          .eq('id', src.id)
-          .single();
+        const { data: mat } = await client.from('materials').select('*').eq('id', src.id).single();
 
         if (mat) {
           let fileText = '';
@@ -1288,9 +1343,12 @@ router.post('/generate-note', async (req: Request, res: Response) => {
     }
 
     // 3. 构建 prompt
-    const sourcesText = sources.map((s, i) =>
-      `【来源${i + 1}】${s.title}（${s.type === 'study_note' ? '学习纪要' : '资料'}）\n${s.content}`
-    ).join('\n\n---\n\n');
+    const sourcesText = sources
+      .map(
+        (s, i) =>
+          `【来源${i + 1}】${s.title}（${s.type === 'study_note' ? '学习纪要' : '资料'}）\n${s.content}`,
+      )
+      .join('\n\n---\n\n');
 
     const systemPrompt = `你是笔记助手 note_helper。根据用户提供的多份学习资料生成一份结构化的综合笔记。
 
@@ -1325,7 +1383,7 @@ ${sourcesText}
     }
 
     // Post-process: extract context snippets around each [来源:N] marker
-    const citationsWithContext = citations.map(cit => {
+    const citationsWithContext = citations.map((cit) => {
       let snippet = '';
       // Find text around citation marker — extract surrounding sentence/paragraph
       const idx = fullContent.indexOf(`[来源:${cit.index}]`);
@@ -1341,7 +1399,6 @@ ${sourcesText}
     res.write(`data: ${JSON.stringify({ citations: citationsWithContext, done: true })}\n\n`);
     res.write('data: [DONE]\n\n');
     res.end();
-
   } catch (error: any) {
     console.error('GenerateNote Error:', error);
     if (!res.headersSent) {
@@ -1377,19 +1434,22 @@ router.post('/refine-note', async (req: Request, res: Response) => {
       .eq('user_id', uid)
       .limit(1);
 
-    const existingPrefs = (styles && styles.length > 0)
-      ? (styles[0].subject_preferences || {})
-      : {};
+    const existingPrefs = styles && styles.length > 0 ? styles[0].subject_preferences || {} : {};
 
     // 2. 从修正指令中提取偏好关键词
     const extractedPrefs: Record<string, any> = {};
     const prompt = refinementPrompt.toLowerCase();
-    if (prompt.includes('详细') || prompt.includes('展开') || prompt.includes('更多')) extractedPrefs.detail_level = 'high';
-    if (prompt.includes('简洁') || prompt.includes('简短') || prompt.includes('概括')) extractedPrefs.detail_level = 'concise';
+    if (prompt.includes('详细') || prompt.includes('展开') || prompt.includes('更多'))
+      extractedPrefs.detail_level = 'high';
+    if (prompt.includes('简洁') || prompt.includes('简短') || prompt.includes('概括'))
+      extractedPrefs.detail_level = 'concise';
     if (prompt.includes('表格') || prompt.includes('对比')) extractedPrefs.prefer_tables = true;
-    if (prompt.includes('例子') || prompt.includes('示例') || prompt.includes('举例')) extractedPrefs.prefer_examples = true;
-    if (prompt.includes('重点') || prompt.includes('突出') || prompt.includes('强调')) extractedPrefs.emphasize_keypoints = true;
-    if (prompt.includes('通俗') || prompt.includes('简单') || prompt.includes('易懂')) extractedPrefs.language_style = 'plain';
+    if (prompt.includes('例子') || prompt.includes('示例') || prompt.includes('举例'))
+      extractedPrefs.prefer_examples = true;
+    if (prompt.includes('重点') || prompt.includes('突出') || prompt.includes('强调'))
+      extractedPrefs.emphasize_keypoints = true;
+    if (prompt.includes('通俗') || prompt.includes('简单') || prompt.includes('易懂'))
+      extractedPrefs.language_style = 'plain';
 
     // 3. 保存提取的偏好
     if (Object.keys(extractedPrefs).length > 0) {
@@ -1410,12 +1470,10 @@ router.post('/refine-note', async (req: Request, res: Response) => {
             })
             .eq('id', existingRecord[0].id);
         } else {
-          await client
-            .from('papernote_style')
-            .insert({
-              user_id: uid,
-              subject_preferences: mergedPrefs,
-            });
+          await client.from('papernote_style').insert({
+            user_id: uid,
+            subject_preferences: mergedPrefs,
+          });
         }
         res.write(`data: ${JSON.stringify({ preferences_extracted: extractedPrefs })}\n\n`);
       } catch (e) {
@@ -1437,7 +1495,10 @@ router.post('/refine-note', async (req: Request, res: Response) => {
           if (note) {
             let content = note.content || '';
             if (note.blocks && Array.isArray(note.blocks)) {
-              content = note.blocks.filter((b: any) => b.type === 'text').map((b: any) => b.content || '').join('\n');
+              content = note.blocks
+                .filter((b: any) => b.type === 'text')
+                .map((b: any) => b.content || '')
+                .join('\n');
             }
             sourcesTexts.push(`【${note.title || '纪要'}】${content.substring(0, 2000)}`);
           }
@@ -1488,7 +1549,6 @@ ${sourcesContext}
     res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
     res.write('data: [DONE]\n\n');
     res.end();
-
   } catch (error: any) {
     console.error('RefineNote Error:', error);
     if (!res.headersSent) {
@@ -1506,11 +1566,11 @@ ${sourcesContext}
 router.post('/refresh-index', async (_req: Request, res: Response) => {
   try {
     // 同时重建标签库（新增标签在重启前也要参与加成）
-    await import('../utils/vector-store.js').then((m) =>
-      m.tagVectorStore.buildFromDatabase()
-    ).catch((err: any) => {
-      console.warn('[Index] TagVectorStore rebuild failed:', err?.message);
-    });
+    await import('../utils/vector-store.js')
+      .then((m) => m.tagVectorStore.buildFromDatabase())
+      .catch((err: any) => {
+        console.warn('[Index] TagVectorStore rebuild failed:', err?.message);
+      });
     await unifiedVectorIndex.buildIndex();
     res.json({
       success: true,

@@ -21,7 +21,6 @@
   --opacity-disabled: 0.5;
 }
 
-
 @layer theme {
   :root {
     /* Force light color scheme — disables browser dark mode auto-styling */
@@ -29,7 +28,7 @@
 
     @variant light {
       /* Base Colors */
-      --background: #FAF5F0;
+      --background: #faf5f0;
       --foreground: var(--eclipse);
 
       /* Surface: Used for non-overlay components (cards, accordions, disclosure groups) */
@@ -206,10 +205,22 @@
   --color-danger-hover: color-mix(in oklab, var(--danger) 90%, var(--danger-foreground) 10%);
 
   /* Form Field Colors */
-  --color-field-hover: color-mix(in oklab, var(--field-background, var(--default)) 90%, var(--field-foreground, var(--foreground)) 2%);
+  --color-field-hover: color-mix(
+    in oklab,
+    var(--field-background, var(--default)) 90%,
+    var(--field-foreground, var(--foreground)) 2%
+  );
   --color-field-focus: var(--field-background, var(--default));
-  --color-field-border-hover: color-mix(in oklab, var(--field-border, var(--border)) 88%, var(--field-foreground, var(--foreground)) 10%);
-  --color-field-border-focus: color-mix(in oklab, var(--field-border, var(--border)) 74%, var(--field-foreground, var(--foreground)) 22%);
+  --color-field-border-hover: color-mix(
+    in oklab,
+    var(--field-border, var(--border)) 88%,
+    var(--field-foreground, var(--foreground)) 10%
+  );
+  --color-field-border-focus: color-mix(
+    in oklab,
+    var(--field-border, var(--border)) 74%,
+    var(--field-foreground, var(--foreground)) 22%
+  );
 
   /* Soft Colors */
   --color-accent-soft: color-mix(in oklab, var(--accent) 15%, transparent);
@@ -239,20 +250,52 @@
   --color-on-surface-focus: color-mix(in oklab, var(--surface) 93%, var(--surface-foreground) 7%);
 
   /* On Surface Colors - Secondary (on secondary surface) */
-  --color-on-surface-secondary: color-mix(in oklab, var(--surface) 87%, var(--surface-foreground) 13%);
+  --color-on-surface-secondary: color-mix(
+    in oklab,
+    var(--surface) 87%,
+    var(--surface-foreground) 13%
+  );
   --color-on-surface-secondary-foreground: var(--surface-foreground);
-  --color-on-surface-secondary-hover: color-mix(in oklab, var(--surface) 85%, var(--surface-foreground) 15%);
-  --color-on-surface-secondary-focus: color-mix(in oklab, var(--surface) 87%, var(--surface-foreground) 13%);
+  --color-on-surface-secondary-hover: color-mix(
+    in oklab,
+    var(--surface) 85%,
+    var(--surface-foreground) 15%
+  );
+  --color-on-surface-secondary-focus: color-mix(
+    in oklab,
+    var(--surface) 87%,
+    var(--surface-foreground) 13%
+  );
 
-   /* On Surface Colors - Tertiary (on tertiary surface) */
-  --color-on-surface-tertiary: color-mix(in oklab, var(--surface) 85%, var(--surface-foreground) 15%);
+  /* On Surface Colors - Tertiary (on tertiary surface) */
+  --color-on-surface-tertiary: color-mix(
+    in oklab,
+    var(--surface) 85%,
+    var(--surface-foreground) 15%
+  );
   --color-on-surface-tertiary-foreground: var(--surface-foreground);
-  --color-on-surface-tertiary-hover: color-mix(in oklab, var(--surface) 84%, var(--surface-foreground) 16%);
-  --color-on-surface-tertiary-focus: color-mix(in oklab, var(--surface) 85%, var(--surface-foreground) 15%);
+  --color-on-surface-tertiary-hover: color-mix(
+    in oklab,
+    var(--surface) 84%,
+    var(--surface-foreground) 16%
+  );
+  --color-on-surface-tertiary-focus: color-mix(
+    in oklab,
+    var(--surface) 85%,
+    var(--surface-foreground) 15%
+  );
 
   /* Separator Colors - Levels */
-  --color-separator-secondary: color-mix(in oklab, var(--surface) 85%, var(--surface-foreground) 15%);
-  --color-separator-tertiary: color-mix(in oklab, var(--surface) 81%, var(--surface-foreground) 19%);
+  --color-separator-secondary: color-mix(
+    in oklab,
+    var(--surface) 85%,
+    var(--surface-foreground) 15%
+  );
+  --color-separator-tertiary: color-mix(
+    in oklab,
+    var(--surface) 81%,
+    var(--surface-foreground) 19%
+  );
 
   /* Border Colors - Levels (progressive contrast: default → secondary → tertiary) */
   /* Light mode: lighter → darker | Dark mode: darker → lighter */

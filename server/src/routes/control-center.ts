@@ -45,13 +45,17 @@ router.get('/recent-records', async (req: Request, res: Response) => {
     const [notesRes, materialsRes] = await Promise.all([
       supabase
         .from('study_notes')
-        .select('id, title, content, tags, logical_path, papercore, ai_processed, viewed_after_process, created_at, updated_at')
+        .select(
+          'id, title, content, tags, logical_path, papercore, ai_processed, viewed_after_process, created_at, updated_at',
+        )
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(50),
       supabase
         .from('materials')
-        .select('id, name, tags, logical_path, papercore, ai_processed, viewed_after_process, created_at, updated_at')
+        .select(
+          'id, name, tags, logical_path, papercore, ai_processed, viewed_after_process, created_at, updated_at',
+        )
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(50),
@@ -61,11 +65,14 @@ router.get('/recent-records', async (req: Request, res: Response) => {
     if (materialsRes.error) throw new Error(materialsRes.error.message);
 
     const notes = (notesRes.data || []).map((n: any) => ({ ...n, record_type: 'study_note' }));
-    const materials = (materialsRes.data || []).map((m: any) => ({ ...m, record_type: 'material' }));
+    const materials = (materialsRes.data || []).map((m: any) => ({
+      ...m,
+      record_type: 'material',
+    }));
 
     // Merge and sort by created_at descending
     const combined = [...notes, ...materials].sort(
-      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
     );
 
     res.json({ data: combined });

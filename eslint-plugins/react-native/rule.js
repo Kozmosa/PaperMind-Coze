@@ -7,7 +7,8 @@ module.exports = {
     },
     schema: [],
     messages: {
-      noSiblings: '禁止带有 props.horizontal: true 的 ScrollView 单独使用，需要在 ScrollView 外层使用一个单独的 View 组件进行包裹',
+      noSiblings:
+        '禁止带有 props.horizontal: true 的 ScrollView 单独使用，需要在 ScrollView 外层使用一个单独的 View 组件进行包裹',
     },
   },
   create(context) {
@@ -19,7 +20,7 @@ module.exports = {
           return;
         }
 
-        const hasHorizontalProp = node.openingElement.attributes.some(attr => {
+        const hasHorizontalProp = node.openingElement.attributes.some((attr) => {
           if (attr.type === 'JSXAttribute' && attr.name.name === 'horizontal') {
             if (!attr.value) {
               return true;
@@ -43,12 +44,9 @@ module.exports = {
 
         const parent = node.parent;
 
-        if (
-          parent.type === 'JSXFragment' ||
-          parent.type === 'JSXElement'
-        ) {
+        if (parent.type === 'JSXFragment' || parent.type === 'JSXElement') {
           const siblings = parent.children.filter(
-            child => child.type === 'JSXElement' && child !== node
+            (child) => child.type === 'JSXElement' && child !== node,
           );
 
           if (siblings.length > 0) {
@@ -61,4 +59,4 @@ module.exports = {
       },
     };
   },
-}
+};

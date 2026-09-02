@@ -42,7 +42,7 @@ try {
   ];
 
   // 过滤包：排除内部别名和只被模板文件引用的包
-  const missingPackages = Object.keys(missing).filter(pkg => {
+  const missingPackages = Object.keys(missing).filter((pkg) => {
     // 排除内部路径别名
     if (pkg.startsWith('@api/') || pkg.startsWith('@/') || pkg === '@api') {
       return false;
@@ -52,8 +52,8 @@ try {
     const referencingFiles = missing[pkg] || [];
 
     // 过滤掉模板配置文件
-    const nonTemplateFiles = referencingFiles.filter(file => {
-      return !ignoreFilePatterns.some(pattern => pattern.test(file));
+    const nonTemplateFiles = referencingFiles.filter((file) => {
+      return !ignoreFilePatterns.some((pattern) => pattern.test(file));
     });
 
     // 只有当存在非模板文件引用时才保留该包
@@ -69,9 +69,7 @@ try {
   missingPackages.forEach((pkg, index) => {
     const files = missing[pkg];
     console.log(`  ${index + 1}. ${pkg}`);
-    console.log(
-      `     被引用于: ${files.slice(0, 2).join(', ')}${files.length > 2 ? ' ...' : ''}`,
-    );
+    console.log(`     被引用于: ${files.slice(0, 2).join(', ')}${files.length > 2 ? ' ...' : ''}`);
   });
 
   console.log('\n开始安装...\n');

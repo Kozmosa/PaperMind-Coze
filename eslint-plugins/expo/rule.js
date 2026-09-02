@@ -1,10 +1,10 @@
 function normalizeFilename(filename) {
   // ESLint may provide Windows paths; normalize to forward slashes for suffix checks.
-  return typeof filename === 'string' ? filename.replace(/\\/g, '/') : ''
+  return typeof filename === 'string' ? filename.replace(/\\/g, '/') : '';
 }
 
 function isTargetLayoutFile(context) {
-  return normalizeFilename(context.getFilename()).endsWith('/app/_layout.tsx')
+  return normalizeFilename(context.getFilename()).endsWith('/app/_layout.tsx');
 }
 
 function isSideEffectImportOf(node, sourceValue) {
@@ -16,7 +16,7 @@ function isSideEffectImportOf(node, sourceValue) {
     node.source.value === sourceValue &&
     Array.isArray(node.specifiers) &&
     node.specifiers.length === 0
-  )
+  );
 }
 
 function getProviderImportLocalName(node) {
@@ -27,19 +27,19 @@ function getProviderImportLocalName(node) {
     node.source.type !== 'Literal' ||
     node.source.value !== '@/components/Provider'
   ) {
-    return null
+    return null;
   }
 
-  const specifiers = Array.isArray(node.specifiers) ? node.specifiers : []
-  if (specifiers.length !== 1) return null
-  const [specifier] = specifiers
-  if (specifier.type !== 'ImportSpecifier') return null
-  if (!specifier.imported || specifier.imported.type !== 'Identifier') return null
-  if (!specifier.local || specifier.local.type !== 'Identifier') return null
+  const specifiers = Array.isArray(node.specifiers) ? node.specifiers : [];
+  if (specifiers.length !== 1) return null;
+  const [specifier] = specifiers;
+  if (specifier.type !== 'ImportSpecifier') return null;
+  if (!specifier.imported || specifier.imported.type !== 'Identifier') return null;
+  if (!specifier.local || specifier.local.type !== 'Identifier') return null;
 
   // Allow `import { Provider } ...` and `import { Provider as XXX } ...`
-  if (specifier.imported.name !== 'Provider') return null
-  return specifier.local.name
+  if (specifier.imported.name !== 'Provider') return null;
+  return specifier.local.name;
 }
 
 module.exports = {
@@ -59,47 +59,47 @@ module.exports = {
 
   create(context) {
     if (!isTargetLayoutFile(context)) {
-      return {}
+      return {};
     }
 
-    let hasGlobalCssImport = false
-    let providerImportLocalName = null
-    let hasProviderJsxUsage = false
+    let hasGlobalCssImport = false;
+    let providerImportLocalName = null;
+    let hasProviderJsxUsage = false;
 
     return {
       Program(node) {
-        const body = Array.isArray(node.body) ? node.body : []
+        const body = Array.isArray(node.body) ? node.body : [];
         for (const stmt of body) {
           if (isSideEffectImportOf(stmt, '../global.css')) {
-            hasGlobalCssImport = true
+            hasGlobalCssImport = true;
           }
-          const localName = getProviderImportLocalName(stmt)
+          const localName = getProviderImportLocalName(stmt);
           if (localName) {
-            providerImportLocalName = localName
+            providerImportLocalName = localName;
           }
         }
       },
 
       JSXOpeningElement(node) {
-        if (!node || !node.name) return
+        if (!node || !node.name) return;
         if (
           providerImportLocalName &&
           node.name.type === 'JSXIdentifier' &&
           node.name.name === providerImportLocalName
         ) {
-          hasProviderJsxUsage = true
+          hasProviderJsxUsage = true;
         }
       },
 
       'Program:exit'(node) {
         if (!hasGlobalCssImport) {
-          context.report({ node, messageId: 'missingGlobalCssImport' })
+          context.report({ node, messageId: 'missingGlobalCssImport' });
         }
 
         if (!providerImportLocalName || !hasProviderJsxUsage) {
-          context.report({ node, messageId: 'requireProviderImportAndUsage' })
+          context.report({ node, messageId: 'requireProviderImportAndUsage' });
         }
       },
-    }
+    };
   },
-}
+};

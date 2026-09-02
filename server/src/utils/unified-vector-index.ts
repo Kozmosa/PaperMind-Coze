@@ -23,8 +23,8 @@ export interface UnifiedSearchResult {
   pageNumber?: number;
   draftId?: number;
   fileName?: string;
-  rawScore: number;   // cosine similarity score
-  score: number;      // final score after tag boosting
+  rawScore: number; // cosine similarity score
+  score: number; // final score after tag boosting
 }
 
 interface IndexRecord {
@@ -41,8 +41,8 @@ interface IndexRecord {
 
 // ── Constants ──────────────────────────────────────────────────────
 
-const TAG_BOOST_FACTOR = 0.30;   // max score boost from tag matching
-const TAG_BOOST_PER_MATCH = 0.10; // per matched tag boost
+const TAG_BOOST_FACTOR = 0.3; // max score boost from tag matching
+const TAG_BOOST_PER_MATCH = 0.1; // per matched tag boost
 
 // ── Index Class ────────────────────────────────────────────────────
 
@@ -100,7 +100,9 @@ class UnifiedVectorIndex {
               });
             }
           }
-          console.log(`[UnifiedVectorIndex]   → ${records.filter(r => r.sourceType === 'knowledge_node').length} knowledge_nodes`);
+          console.log(
+            `[UnifiedVectorIndex]   → ${records.filter((r) => r.sourceType === 'knowledge_node').length} knowledge_nodes`,
+          );
         }
 
         // ── 2. Load study_notes (ai_processed=true, papercore non-empty) ─
@@ -128,7 +130,9 @@ class UnifiedVectorIndex {
               });
             }
           }
-          console.log(`[UnifiedVectorIndex]   → ${records.filter(r => r.sourceType === 'study_note').length} study_notes`);
+          console.log(
+            `[UnifiedVectorIndex]   → ${records.filter((r) => r.sourceType === 'study_note').length} study_notes`,
+          );
         }
 
         // ── 3. Load materials (ai_processed=true, papercore non-empty) ─
@@ -156,7 +160,9 @@ class UnifiedVectorIndex {
               });
             }
           }
-          console.log(`[UnifiedVectorIndex]   → ${records.filter(r => r.sourceType === 'material').length} materials`);
+          console.log(
+            `[UnifiedVectorIndex]   → ${records.filter((r) => r.sourceType === 'material').length} materials`,
+          );
         }
 
         // ── 4. Load file_contents (attached to drafts / uploaded files) ─
@@ -179,7 +185,9 @@ class UnifiedVectorIndex {
               .from('draft_pool')
               .select('id, file_name')
               .in('id', draftIds);
-            (drafts || []).forEach((d: any) => { draftMap[d.id] = d.file_name || ''; });
+            (drafts || []).forEach((d: any) => {
+              draftMap[d.id] = d.file_name || '';
+            });
           }
 
           for (const row of fileContents) {
@@ -200,7 +208,9 @@ class UnifiedVectorIndex {
               vec: [], // placeholder
             });
           }
-          console.log(`[UnifiedVectorIndex]   → ${records.filter(r => r.sourceType === 'file_content').length} file_contents`);
+          console.log(
+            `[UnifiedVectorIndex]   → ${records.filter((r) => r.sourceType === 'file_content').length} file_contents`,
+          );
         }
 
         if (records.length === 0) {
@@ -212,7 +222,7 @@ class UnifiedVectorIndex {
 
         // ── 5. Embed all papercores ──────────────────────────────
         console.log(`[UnifiedVectorIndex] Embedding ${records.length} records...`);
-        const texts = records.map(r => r.papercore);
+        const texts = records.map((r) => r.papercore);
         const vectors = await embedBatch(texts);
 
         for (let i = 0; i < records.length; i++) {
@@ -221,7 +231,9 @@ class UnifiedVectorIndex {
 
         this.records = records;
         this.ready = true;
-        console.log(`[UnifiedVectorIndex] Index built: ${this.records.length} records (kn:${records.filter(r => r.sourceType === 'knowledge_node').length} sn:${records.filter(r => r.sourceType === 'study_note').length} m:${records.filter(r => r.sourceType === 'material').length} fc:${records.filter(r => r.sourceType === 'file_content').length})`);
+        console.log(
+          `[UnifiedVectorIndex] Index built: ${this.records.length} records (kn:${records.filter((r) => r.sourceType === 'knowledge_node').length} sn:${records.filter((r) => r.sourceType === 'study_note').length} m:${records.filter((r) => r.sourceType === 'material').length} fc:${records.filter((r) => r.sourceType === 'file_content').length})`,
+        );
       } catch (err) {
         console.error('[UnifiedVectorIndex] Build failed:', err);
       } finally {
@@ -277,12 +289,9 @@ class UnifiedVectorIndex {
       if (tagVectorStore.isReady && tagVectorStore.count > 0) {
         // Approach A: semantic tag matching (lowered threshold)
         const semL1 = tagVectorStore.searchL1(queryVec, 3, 0.25);
-        const semL2 = tagVectorStore.searchL2(queryVec, 5, 0.20);
+        const semL2 = tagVectorStore.searchL2(queryVec, 5, 0.2);
 
-        const queryTags = new Set([
-          ...semL1.map(t => t.name),
-          ...semL2.map(t => t.name),
-        ]);
+        const queryTags = new Set([...semL1.map((t) => t.name), ...semL2.map((t) => t.name)]);
 
         // Approach B: literal word-level matching — if the query
         // contains a tag name as a substring, also treat it as matched.
@@ -298,39 +307,41 @@ class UnifiedVectorIndex {
             const recordTags = item.record.tags;
             if (recordTags.length === 0) continue;
 
-            const overlapCount = recordTags.filter(t => queryTags.has(t)).length;
+            const overlapCount = recordTags.filter((t) => queryTags.has(t)).length;
             if (overlapCount > 0) {
-              const boost = Math.min(
-                overlapCount * TAG_BOOST_PER_MATCH,
-                TAG_BOOST_FACTOR,
-              );
+              const boost = Math.min(overlapCount * TAG_BOOST_PER_MATCH, TAG_BOOST_FACTOR);
               item.score = item.rawScore * (1 + boost);
               boostedCount++;
             }
           }
           if (boostedCount > 0) {
-            console.log(`[UnifiedVectorIndex] Tag-boosted ${boostedCount}/${scored.length} records (query tags: ${[...queryTags].join(', ')})`);
+            console.log(
+              `[UnifiedVectorIndex] Tag-boosted ${boostedCount}/${scored.length} records (query tags: ${[...queryTags].join(', ')})`,
+            );
           }
         }
       }
 
       // ── Step 3: Filter by minScore, sort, top-K ───────────────
       const results = scored
-        .filter(r => r.score >= minScore)
+        .filter((r) => r.score >= minScore)
         .sort((a, b) => b.score - a.score)
         .slice(0, topK)
-        .map(({ record, rawScore, score }) => ({
-          sourceType: record.sourceType,
-          sourceId: record.sourceId,
-          title: record.title,
-          papercore: record.papercore,
-          tags: record.tags,
-          pageNumber: record.pageNumber,
-          draftId: record.draftId,
-          fileName: record.fileName,
-          rawScore,
-          score,
-        } as UnifiedSearchResult));
+        .map(
+          ({ record, rawScore, score }) =>
+            ({
+              sourceType: record.sourceType,
+              sourceId: record.sourceId,
+              title: record.title,
+              papercore: record.papercore,
+              tags: record.tags,
+              pageNumber: record.pageNumber,
+              draftId: record.draftId,
+              fileName: record.fileName,
+              rawScore,
+              score,
+            }) as UnifiedSearchResult,
+        );
 
       return results;
     } catch (err) {

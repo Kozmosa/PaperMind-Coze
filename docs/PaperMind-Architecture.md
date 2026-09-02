@@ -12,12 +12,12 @@
 
 2. **UnifiedVectorIndex.buildIndex()** — 跨 4 表构建统一向量索引
 
-| 表 | 筛选条件 | 向量化内容 |
-|---|---|---|
-| `knowledge_nodes` | papercore 非空 | papercore 全文 |
-| `study_notes` | ai_processed=true, papercore 非空 | papercore 全文 |
-| `materials` | ai_processed=true, papercore 非空 | papercore 全文 |
-| `file_contents` | extracted_text 非空（≤500 条） | 前 300 字符 |
+| 表                | 筛选条件                          | 向量化内容     |
+| ----------------- | --------------------------------- | -------------- |
+| `knowledge_nodes` | papercore 非空                    | papercore 全文 |
+| `study_notes`     | ai_processed=true, papercore 非空 | papercore 全文 |
+| `materials`       | ai_processed=true, papercore 非空 | papercore 全文 |
+| `file_contents`   | extracted_text 非空（≤500 条）    | 前 300 字符    |
 
 ### 1.2 用户提问 → 三层检索
 
@@ -62,6 +62,7 @@
 - **file_contents** → 直接使用索引中的 snippet（前 300 字），标注 fileName + pageNumber
 
 组装为 System Prompt，包含：
+
 - 知识图谱上下文（节点 papercore + 标签 + 语义相关度分数）
 - 原文片段（文件名 + 页码 + 文本）
 - 图片分析指令（如用户上传图片）
@@ -72,13 +73,13 @@
 - 通过 Anthropic 兼容 API 流式生成回答（SSE）
 - 流结束后调用 `extractCitations()`，按优先级提取引用：
 
-| 优先级 | 来源 | 类型 |
-|---|---|---|
-| 1 | 用户上传图片 | `image` |
-| 2 | UnifiedVectorIndex 检索结果 | `knowledge_node` / `study_note` / `material` / `file_content` |
-| 3 | 用户指定节点 ID | `knowledge_node` |
-| 4 | 上下文中的 fileContents | `file_content` |
-| 5 | 用户上传的 draftId | `file_content` |
+| 优先级 | 来源                        | 类型                                                          |
+| ------ | --------------------------- | ------------------------------------------------------------- |
+| 1      | 用户上传图片                | `image`                                                       |
+| 2      | UnifiedVectorIndex 检索结果 | `knowledge_node` / `study_note` / `material` / `file_content` |
+| 3      | 用户指定节点 ID             | `knowledge_node`                                              |
+| 4      | 上下文中的 fileContents     | `file_content`                                                |
+| 5      | 用户上传的 draftId          | `file_content`                                                |
 
 每条 Citation 携带：`type`、`sourceId`、`title`、`papercore`、`tags`、`pageNumber`、`snippet`、`fileName`
 
@@ -87,13 +88,13 @@
 - Markdown 渲染（KaTeX 公式 + 代码块）
 - 5 色引用卡片：
 
-| 类型 | 颜色 | 展示内容 |
-|---|---|---|
-| `image` | 🟡 黄色 | 图片名称 + 分析摘要 |
-| `knowledge_node` | 🟣 紫色 | Papercore + 关联知识库节点 |
-| `study_note` | 🟢 绿色 | Title + Papercore + Tags |
-| `material` | 🟠 橙色 | Name + Papercore + Tags |
-| `file_content` | ⬜ 灰色 | 文件名 + 蓝色页码 badge + 原文 snippet |
+| 类型             | 颜色    | 展示内容                               |
+| ---------------- | ------- | -------------------------------------- |
+| `image`          | 🟡 黄色 | 图片名称 + 分析摘要                    |
+| `knowledge_node` | 🟣 紫色 | Papercore + 关联知识库节点             |
+| `study_note`     | 🟢 绿色 | Title + Papercore + Tags               |
+| `material`       | 🟠 橙色 | Name + Papercore + Tags                |
+| `file_content`   | ⬜ 灰色 | 文件名 + 蓝色页码 badge + 原文 snippet |
 
 ### 1.6 学习闭环
 
@@ -107,21 +108,21 @@
 
 ### 2.1 触发方式
 
-| 入口 | 路径 |
-|---|---|
-| 专用反思页 `/reflection` | 选择时间窗口（3天/7天/30天）→ 生成报告 |
-| AI 聊天 `reflection_mind` | 点击「生成学习反思报告」按钮 |
+| 入口                      | 路径                                   |
+| ------------------------- | -------------------------------------- |
+| 专用反思页 `/reflection`  | 选择时间窗口（3天/7天/30天）→ 生成报告 |
+| AI 聊天 `reflection_mind` | 点击「生成学习反思报告」按钮           |
 
 ### 2.2 数据采集
 
 服务端并行采集 4 类数据（均按时间窗口过滤 `created_at`）：
 
-| 数据源 | 数量 | 用途 |
-|---|---|---|
-| `paper_problem_logs` | 最近 20 条 | 问题解决记录（`/problem-logs` 路由） |
+| 数据源                 | 数量       | 用途                                           |
+| ---------------------- | ---------- | ---------------------------------------------- |
+| `paper_problem_logs`   | 最近 20 条 | 问题解决记录（`/problem-logs` 路由）           |
 | `problem_solving_logs` | 最近 30 条 | Tutor 问答日志（`/problem-solving-logs` 路由） |
-| `reflections` | 最近 5 份 | 往期反思（避免重复建议） |
-| `knowledge_nodes` | 最近 50 个 | 知识节点活动 |
+| `reflections`          | 最近 5 份  | 往期反思（避免重复建议）                       |
+| `knowledge_nodes`      | 最近 50 个 | 知识节点活动                                   |
 
 ### 2.3 LLM 生成与解析
 
@@ -139,29 +140,29 @@ System Prompt：你是学习反思助手。分析用户{N}天的学习行为，�
 
 ### 2.4 反思详情页
 
-| 区域 | 内容 |
-|---|---|
+| 区域              | 内容                                                           |
+| ----------------- | -------------------------------------------------------------- |
 | 4 张 Section 卡片 | 学习行为（紫）、攻克问题（绿）、思维模式（粉）、学习建议（黄） |
-| Q&A 活跃度折线图 | `react-native-chart-kit` LineChart，bezier 曲线 |
-| 摘要统计 | 提问总数 + 活跃天数 |
-| 系统生成时间戳 | 反思报告的创建时间 |
+| Q&A 活跃度折线图  | `react-native-chart-kit` LineChart，bezier 曲线                |
+| 摘要统计          | 提问总数 + 活跃天数                                            |
+| 系统生成时间戳    | 反思报告的创建时间                                             |
 
 ---
 
 ## 三、与市面产品的创新点对比
 
-| 维度 | 现有产品（Notion AI / ChatPDF / 传统 RAG） | PaperMind |
-|---|---|---|
-| **检索源** | 单一文档或单一数据库 | **4 表统一向量索引**（知识节点 + 学习纪要 + 资料 + 原文片段），跨来源检索 |
-| **检索策略** | 纯语义向量 OR 纯关键词 | **双路融合**：Papercore 语义 + Tags 分层（L1/L2/L3）标签匹配 boosting |
-| **引用溯源** | 引用文档名或段落 | **结构化 Citations**：5 种类型 + papercore 摘要 + 标签脉络 + PDF 页码 + 原文 snippet |
-| **知识组织** | 文档/文件夹扁平面 | **三层标签体系**（L1 学科 → L2 领域 → L3 章节/概念），AI 自动分类 |
-| **学习闭环** | 问答即终点 | **问答 → 「我明白了」→ problem_solving_logs → 反思报告**，完整学习循环 |
-| **反思总结** | 无 | **多数据源反思引擎**：融合问题日志 + 问答记录 + 往期反思 + 节点活动 |
-| **图片理解** | 分开处理 | **图片 + 知识库联合推理**：上传图片同时向量检索相关知识 |
-| **运行模式** | 云端 API | **本地嵌入**（BGE ONNX）+ **云端 LLM**（Anthropic 兼容网关） |
-| **嵌入模型** | 通用英文模型 | **BGE-small-zh-v1.5**，中文优化，本地运行无网络依赖 |
-| **标签匹配** | 无或简单文本匹配 | **语义 + 字面双通道标签匹配**，低阈值余弦 + 子串直击 |
+| 维度         | 现有产品（Notion AI / ChatPDF / 传统 RAG） | PaperMind                                                                            |
+| ------------ | ------------------------------------------ | ------------------------------------------------------------------------------------ |
+| **检索源**   | 单一文档或单一数据库                       | **4 表统一向量索引**（知识节点 + 学习纪要 + 资料 + 原文片段），跨来源检索            |
+| **检索策略** | 纯语义向量 OR 纯关键词                     | **双路融合**：Papercore 语义 + Tags 分层（L1/L2/L3）标签匹配 boosting                |
+| **引用溯源** | 引用文档名或段落                           | **结构化 Citations**：5 种类型 + papercore 摘要 + 标签脉络 + PDF 页码 + 原文 snippet |
+| **知识组织** | 文档/文件夹扁平面                          | **三层标签体系**（L1 学科 → L2 领域 → L3 章节/概念），AI 自动分类                    |
+| **学习闭环** | 问答即终点                                 | **问答 → 「我明白了」→ problem_solving_logs → 反思报告**，完整学习循环               |
+| **反思总结** | 无                                         | **多数据源反思引擎**：融合问题日志 + 问答记录 + 往期反思 + 节点活动                  |
+| **图片理解** | 分开处理                                   | **图片 + 知识库联合推理**：上传图片同时向量检索相关知识                              |
+| **运行模式** | 云端 API                                   | **本地嵌入**（BGE ONNX）+ **云端 LLM**（Anthropic 兼容网关）                         |
+| **嵌入模型** | 通用英文模型                               | **BGE-small-zh-v1.5**，中文优化，本地运行无网络依赖                                  |
+| **标签匹配** | 无或简单文本匹配                           | **语义 + 字面双通道标签匹配**，低阈值余弦 + 子串直击                                 |
 
 ### 核心差异化
 
@@ -175,12 +176,12 @@ PaperMind 不是一个通用问答机器人，而是一个**以知识图谱为�
 
 ## 四、技术栈
 
-| 层 | 技术 |
-|---|---|
-| 客户端 | Expo (React Native) + Expo Router + KaTeX |
-| 服务端 | Express.js + TypeScript |
-| 数据库 | Supabase (PostgreSQL) + Drizzle ORM |
-| AI 网关 | Anthropic 兼容 API（`kimi-for-coding` 模型） |
+| 层       | 技术                                                                  |
+| -------- | --------------------------------------------------------------------- |
+| 客户端   | Expo (React Native) + Expo Router + KaTeX                             |
+| 服务端   | Express.js + TypeScript                                               |
+| 数据库   | Supabase (PostgreSQL) + Drizzle ORM                                   |
+| AI 网关  | Anthropic 兼容 API（`kimi-for-coding` 模型）                          |
 | 嵌入模型 | `Xenova/bge-small-zh-v1.5`（HuggingFace Transformers + ONNX Runtime） |
-| 向量维度 | 512 |
-| 包管理 | pnpm workspace monorepo |
+| 向量维度 | 512                                                                   |
+| 包管理   | pnpm workspace monorepo                                               |
