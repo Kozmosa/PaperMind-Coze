@@ -25,7 +25,7 @@ function getProviderImportLocalName(node) {
     node.type !== 'ImportDeclaration' ||
     !node.source ||
     node.source.type !== 'Literal' ||
-    node.source.value !== '@/components/Provider'
+    node.source.value !== '@/components/layout/Provider'
   ) {
     return null
   }
@@ -53,7 +53,7 @@ module.exports = {
     messages: {
       missingGlobalCssImport: `app/_layout.tsx 必须引入 global.css 文件（参考写法：import '../global.css'）`,
       requireProviderImportAndUsage:
-        "app/_layout.tsx 必须从 @/components/Provider 导入 Provider（参考写法：import { Provider } from '@/components/Provider'），并使用导入的 Provider 包裹其余组件",
+        "app/_layout.tsx 必须从 @/components/layout/Provider 导入 Provider（参考写法：import { Provider } from '@/components/layout/Provider'），并使用导入的 Provider 包裹其余组件",
     },
   },
 

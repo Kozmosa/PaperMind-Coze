@@ -5,17 +5,18 @@
 当前仓库是一个 monorepo（基于 pnpm 的 workspace）
 
 - Expo 代码在 client 目录，Express.js 代码在 server 目录
-- 本模板默认无 Tab Bar，可按需改造
+- 当前项目使用 `(tabs)` 路由分组实现底部 Tab Bar（见下方方案二）
 
 ├── client/                     # React Native 前端代码
 │   ├── app/                    # Expo Router 路由目录（仅路由配置）
 │   │   ├── _layout.tsx         # 根布局文件（必需，务必阅读）
-│   │   └── index.tsx           # 首页
+│   │   └── (tabs)/             # Tab 路由分组
 │   ├── screens/                # 页面实现目录（与 app/ 路由对应）
 │   │   └── demo/               # 示例页面
 │   │       └── index.tsx
 │   ├── components/             # 可复用组件
-│   │   └── Screen.tsx          # 页面容器组件（必用）
+│   │   └── layout/
+│   │       └── Screen.tsx      # 页面容器组件（必用）
 │   ├── hooks/                  # 自定义 Hooks
 │   ├── contexts/               # React Context 代码
 │   ├── utils/                  # 工具函数
@@ -65,7 +66,7 @@ pnpm -w lint:server
 
 ## 如何修改主题模式（跟随系统、固定暗色、固定亮色）
 
-默认为跟随系统，如果用户明确指定为“暗色”或“亮色”，需要修改 `client/components/ColorSchemeUpdater.tsx` 的 `DEFAULT_THEME` 变量为合适的值
+当前为固定亮色。修改 `client/components/layout/ColorSchemeUpdater.tsx` 的 `DEFAULT_THEME` 变量（`'system' | 'light' | 'dark'`）即可切换主题模式；同步修改 `client/app.config.ts` 的 `userInterfaceStyle`。
 
 ## 如何定制主题 design tokens
 
@@ -140,7 +141,7 @@ export { default } from "@/screens/home";
 import { Tabs } from 'expo-router';
 import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { FontAwesome6 } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import { useCSSVariable } from 'uniwind';
 
 export default function TabLayout() {
@@ -181,7 +182,7 @@ export default function TabLayout() {
         options={{
           title: '首页',
           tabBarIcon: ({ color }) => (
-            <FontAwesome6 name="house" size={20} color={color} />
+            <Feather name="home" size={20} color={color} />
           ),
         }}
       />
@@ -190,7 +191,7 @@ export default function TabLayout() {
         options={{
           title: '发现',
           tabBarIcon: ({ color }) => (
-            <FontAwesome6 name="compass" size={20} color={color} />
+            <Feather name="compass" size={20} color={color} />
           ),
         }}
       />
@@ -199,7 +200,7 @@ export default function TabLayout() {
         options={{
           title: '我的',
           tabBarIcon: ({ color }) => (
-            <FontAwesome6 name="user" size={20} color={color} />
+            <Feather name="user" size={20} color={color} />
           ),
         }}
       />
@@ -244,16 +245,26 @@ cd server && pnpm add axios cors
 
 ## Expo 开发规范
 
+### 图标
+
+默认使用 `@expo/vector-icons` 的 **Feather** 图标集：
+
+```tsx
+import { Feather } from '@expo/vector-icons';
+
+<Feather name="home" size={20} color={color} />
+```
+
 ### 路径别名
 
 Expo 配置了 `@/` 路径别名指向 `client/` 目录：
 
 ```tsx
 // 正确
-import { Screen } from '@/components/Screen';
+import { Screen } from '@/components/layout/Screen';
 
 // 避免相对路径
-import { Screen } from '../../../components/Screen';
+import { Screen } from '../../../components/layout/Screen';
 ```
 
 ## 本地开发
