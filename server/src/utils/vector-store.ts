@@ -1,4 +1,4 @@
-import { embed, embedBatch, findTopK, cosineSimilarity } from './embedding.js';
+import { embed, embedBatch, findTopK } from './embedding.js';
 import { getSupabaseClient } from '../storage/database/supabase-client.js';
 
 interface TagEntry {

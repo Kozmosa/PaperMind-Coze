@@ -8,7 +8,7 @@
  * Replaces the old KnowledgeVectorIndex which only indexed knowledge_nodes.
  */
 
-import { embed, embedBatch, cosineSimilarity, findTopK } from './embedding.js';
+import { embed, embedBatch, cosineSimilarity } from './embedding.js';
 import { getSupabaseClient } from '../storage/database/supabase-client.js';
 import { tagVectorStore } from './vector-store.js';
 

@@ -10,7 +10,9 @@
     "lint:client": "npm run lint --prefix ./client",
     "lint:server": "npm run lint --prefix ./server",
     "lint:all": "npm run lint --prefix ./client; npm run lint --prefix ./server",
-    "validate": "pnpm run --parallel '/^(lint:client|lint:server)$/'"
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "validate": "pnpm run --parallel '/^(lint:client|lint:server|format:check)$/'"
   },
   "packageManager": "pnpm@9.0.0",
   "engines": {
@@ -23,5 +25,9 @@
     "patchedDependencies": {
       "expo@54.0.33": "patches/expo@54.0.33.patch"
     }
+  },
+  "devDependencies": {
+    "prettier": "^3.9.6",
+    "prettier-plugin-tailwindcss": "^0.8.1"
   }
 }

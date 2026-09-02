@@ -1,0 +1,21 @@
+# 依赖与构建产物
+node_modules
+dist
+build
+.expo
+coverage
+
+# 平台脚手架与补丁(禁止/无需格式化)
+.cozeproj
+.coze
+patches
+
+# 数据与运行时产物
+debug
+test_data
+logs
+server/uploads
+server/nohup.out
+
+# 锁文件
+pnpm-lock.yaml

@@ -3,12 +3,8 @@
  * 支持: PDF, DOCX, PPTX, TXT, MD, CSV
  */
 
-// @ts-ignore
 import * as fs from 'fs';
-// @ts-ignore
-import * as path from 'path';
 import mammoth from 'mammoth';
-// @ts-ignore
 import AdmZip from 'adm-zip';
 
 export interface ExtractedContent {

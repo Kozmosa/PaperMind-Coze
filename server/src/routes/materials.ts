@@ -28,7 +28,7 @@ router.get('/', async (req: Request, res: Response) => {
 router.post('/', async (req: Request, res: Response) => {
   try {
     const userId = (req as any).userId || 'guest';
-    const { title, name, tags, logical_path, file_url, file_name, mime_type, file_size } = req.body;
+    const { title, name, tags, logical_path, file_url, mime_type } = req.body;
 
     const cleanTags = (tags || []).map((t: string) => t.replace(/^#/, '').trim()).filter(Boolean);
 

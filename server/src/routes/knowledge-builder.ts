@@ -83,76 +83,6 @@ function extractText(record: any): string {
   return '';
 }
 
-// ==========================================
-// Helper: Extract text from file buffers (PDF, PPTX)
-// ==========================================
-async function extractFileContent(
-  buffer: Buffer,
-  ext: string
-): Promise<{ text: string; status: 'ok' | 'unsupported' | 'empty' }> {
-  if (ext === '.pdf') {
-    try {
-      const { PDFParse } = await import('pdf-parse');
-      const parser = new PDFParse({ data: buffer });
-      const result = await parser.getText();
-      const text = (result.text || '').trim();
-      return { text, status: text.length > 0 ? 'ok' : 'empty' };
-    } catch {
-      return { text: '', status: 'empty' };
-    }
-  }
-
-  if (ext === '.pptx') {
-    try {
-      const AdmZip = (await import('adm-zip')).default;
-      const { parseStringPromise } = await import('xml2js');
-
-      const zip = new AdmZip(buffer);
-      const entries = zip.getEntries();
-      const slideFiles = entries
-        .filter(e => e.entryName.match(/ppt\/slides\/slide\d+\.xml/i))
-        .sort((a, b) => a.entryName.localeCompare(b.entryName));
-
-      const allTexts: string[] = [];
-      for (const slide of slideFiles) {
-        const xml = slide.getData().toString('utf8');
-        const parsed = await parseStringPromise(xml);
-
-        function collectText(obj: any) {
-          if (!obj || typeof obj !== 'object') return;
-          if (Array.isArray(obj)) { obj.forEach(collectText); return; }
-          if (obj['a:t']) {
-            const values = Array.isArray(obj['a:t']) ? obj['a:t'] : [obj['a:t']];
-            values.forEach((v: any) => {
-              if (typeof v === 'string') allTexts.push(v);
-              else if (v && typeof v === 'object' && v._) allTexts.push(v._);
-            });
-          }
-          Object.values(obj).forEach(collectText);
-        }
-        collectText(parsed);
-      }
-      const text = allTexts.join(' ').replace(/\s+/g, ' ').trim();
-      return { text, status: text.length > 0 ? 'ok' : 'empty' };
-    } catch {
-      return { text: '', status: 'empty' };
-    }
-  }
-
-  if (ext === '.ppt') {
-    return {
-      text: '该文件为旧版PPT二进制格式，无法自动提取文本。建议另存为PPTX格式后重新上传。',
-      status: 'unsupported',
-    };
-  }
-
-  if (ext === '.md' || ext === '.txt') {
-    const text = buffer.toString('utf-8').replace(/^\uFEFF/, '').trim();
-    return { text, status: text.length > 0 ? 'ok' : 'empty' };
-  }
-
-  return { text: '', status: 'unsupported' };
-}
 
 // ==========================================
 // Helper: Strip TOC (table of contents) from extracted PDF text
@@ -214,7 +144,7 @@ function isReadableText(text: string): boolean {
   }
 
   // Count overall readable characters (CJK, ASCII letters, digits, common punctuation)
-  const readable = text.match(/[\u4e00-\u9fff\u3000-\u303f\uff00-\uffefa-zA-Z0-9\s.,;:!?()\[\]{}\-+=_"'<>/\\@#$%^&*]/g);
+  const readable = text.match(/[\u4e00-\u9fff\u3000-\u303f\uff00-\uffefa-zA-Z0-9\s.,;:!?()[\]\]{}\-+=_"'<>/\\@#$%^&*]/g);
   if (!readable) return false;
   return readable.length / text.length > 0.15;
 }
@@ -379,7 +309,7 @@ async function generatePapercore(
 function buildDegradedPapercore(fileName?: string, folderName?: string): string {
   const source = fileName || folderName;
   if (source) {
-    const keyword = source.replace(/\.[^.]+$/, '').replace(/[_\-]/g, ' ').trim();
+    const keyword = source.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ').trim();
     return `该文档以公式/图表为主，根据文件名及上下文推断，核心内容定位为：${keyword}。`;
   }
   return '该文档以公式/图表为主，核心主题未识别，建议手动补充摘要。';
@@ -521,7 +451,6 @@ ${papercore.slice(0, 800)}
       countL3sUnderL2(userId, l1, l2),
     ]);
 
-    const maxTotal = l2TotalL3 + l3NewLimit;
     const topL3Text = topL3s.length > 0
       ? topL3s.map((t, i) => `${i + 1}. "${t.name}"\n   摘要：${t.papercore.slice(0, 150)}`).join('\n')
       : '(该学科下暂无已有标签)';
@@ -604,11 +533,6 @@ ${papercore.slice(0, 600)}
 
   console.log(`[tags-result] L1="${l1}" L2="${l2}" l2IsNew=${l2IsNew} L3=[${filteredL3s.join(', ')}]`);
   return { L1: l1, L2: l2, l2IsNew, tags: filteredL3s };
-}
-
-// Build DB-safe payload
-async function safePayload(base: Record<string, any>): Promise<Record<string, any>> {
-  return { ...base };
 }
 
 /**
@@ -756,7 +680,7 @@ export async function handleProcessContent(req: Request, res: Response) {
     // Extract text: use file_content if provided (for materials with actual file content),
     // otherwise fall back to extracting from the DB record
     // For materials without file_content, try reading file from disk
-    let dbExtractedText = extractText(record);
+    const dbExtractedText = extractText(record);
     let text: string;
 
     if (file_content && file_content.trim().length >= 5) {
@@ -830,7 +754,7 @@ export async function handleProcessContent(req: Request, res: Response) {
         if (table === 'materials') await syncKnowledgeNodeForMaterial(userId, record, [L1, L2, ...kps].filter(Boolean), degradedPapercore);
         scheduleIndexRebuild();
         return res.json({ data: { id, status: 'processed', papercore: degradedPapercore, tags: [L1, L2, ...kps], logical_path: finalLps, reason: 'forced-degraded' } });
-      } catch (e: any) {
+      } catch {
         const userPath = getUserSetLogicalPath(record);
         // 失败不伪装已处理：保持 ai_processed=false 供批次重试，标记 failed
         await supabase.from(table).update({
@@ -855,7 +779,7 @@ export async function handleProcessContent(req: Request, res: Response) {
     const hierarchicalTags = [L1, L2, ...knowledgePoints].filter(Boolean);
 
     // Respect user-set logical_path from upload form (don't overwrite with AI)
-    let existingLogicalPath = (record as any).logical_path;
+    const existingLogicalPath = (record as any).logical_path;
     let finalLogicalPath: string;
     if (existingLogicalPath && typeof existingLogicalPath === 'string' && existingLogicalPath.trim()) {
       try {
@@ -1496,7 +1420,7 @@ router.get('/graph-data', async (req: Request, res: Response) => {
       for (let i = 0; i < simEntries.length; i++) {
         for (let j = i + 1; j < simEntries.length; j++) {
           const a = simEntries[i], b = simEntries[j];
-          let dx = b.x - a.x, dy = b.y - a.y;
+          const dx = b.x - a.x, dy = b.y - a.y;
           const dist = Math.sqrt(dx * dx + dy * dy) || 0.1;
 
           // Different L2 clusters → much stronger repulsion and larger safety distance
@@ -1534,7 +1458,7 @@ router.get('/graph-data', async (req: Request, res: Response) => {
         for (let j = i + 1; j < l2Nodes.length; j++) {
           const a = simNodes.get(l2Nodes[i].id), b = simNodes.get(l2Nodes[j].id);
           if (!a || !b) continue;
-          let dx = b.x - a.x, dy = b.y - a.y;
+          const dx = b.x - a.x, dy = b.y - a.y;
           const dist = Math.sqrt(dx * dx + dy * dy) || 0.1;
           const minDist = a.radius + b.radius + 120;
           if (dist < minDist) {
@@ -2016,7 +1940,6 @@ ${papercore.slice(0, 600)}
           const parsed = JSON.parse(m2[0]);
           const newL1 = (parsed.L1 || entry.L1).trim();
           const newL2 = (parsed.L2 || entry.L2).trim();
-          const changed = parsed.changed === true || parsed.changed === 'true';
           if (INVALID.has(newL1) || INVALID.has(newL2)) continue;
 
           // Validate against final tree
@@ -2029,7 +1952,6 @@ ${papercore.slice(0, 600)}
 
             // Update DB
             const table = entry.type === 'study_note' ? 'study_notes' : 'materials';
-            const oldTags = [entry.L1, entry.L2, ...(entry.L3s || [])];
             const newTags = [validL1, validL2, ...(entry.L3s || [])].filter(Boolean);
             const newLogicalPaths = buildLogicalPaths(validL1, validL2, entry.L3s || []);
             await (supabase as any).from(table).update({

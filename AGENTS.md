@@ -50,17 +50,21 @@
 
 Uniwind 官方文档：https://docs.uniwind.dev/llms.txt
 
-## 如何进行静态校验（TSC + ESLint）
+## 如何进行静态校验（TSC + ESLint + Prettier）
 
 ```bash
-# 对 client 和 server 目录同时进行校验
-pnpm -w lint:all
+# 全量校验(client lint + server lint + 格式检查),提交前必跑
+pnpm -w validate
 
-# 对 client 目录进行校验
+# 单独跑某一端
 pnpm -w lint:client
-
-# 对 server 目录进行校验
 pnpm -w lint:server
+
+# 代码格式化(prettier,含 tailwind class 排序)
+pnpm -w format
+
+# 只检查格式不写入
+pnpm -w format:check
 ```
 
 ## 如何修改主题模式（跟随系统、固定暗色、固定亮色）

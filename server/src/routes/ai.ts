@@ -29,7 +29,7 @@ router.post('/chat', async (req: Request, res: Response) => {
 
     switch (agent) {
       case 'knowledge_builder':
-        systemPrompt = await buildKnowledgeBuilderPrompt(context);
+        systemPrompt = await buildKnowledgeBuilderPrompt();
         break;
       case 'note_helper':
         systemPrompt = await buildNoteHelperPrompt(context);
@@ -411,17 +411,6 @@ router.post('/suggest', async (req: Request, res: Response) => {
       }
     }
 
-    // 获取现有知识图谱节点
-    const { data: existingNodes } = await client
-      .from('knowledge_nodes')
-      .select('id, papercore, tags, short_name')
-      .order('created_at', { ascending: false })
-      .limit(50);
-
-    const nodesList = (existingNodes || []).map((n: any) =>
-      `ID:${n.id} | 名称:${n.short_name || n.papercore?.substring(0, 15) || '无'} | 标签:${(n.tags || []).join(',')}`
-    ).join('\n');
-
     // 构建 prompt
     let systemPrompt = '';
     switch (field) {
@@ -455,10 +444,8 @@ router.post('/suggest', async (req: Request, res: Response) => {
       messages: [{ role: 'user', content: userContent }],
     });
 
-    let fullContent = '';
     for await (const event of stream) {
       if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-        fullContent += event.delta.text;
         res.write(`data: ${JSON.stringify({ content: event.delta.text })}\n\n`);
       }
     }
@@ -532,7 +519,7 @@ ${candidates}
       if (jsonMatch) {
         classified = JSON.parse(jsonMatch[0]);
       }
-    } catch (parseErr) {
+    } catch {
       console.warn('[suggest-relations] LLM JSON parse failed, falling back to vector-only');
     }
 
@@ -576,7 +563,7 @@ ${candidates}
   }
 });
 
-async function buildKnowledgeBuilderPrompt(context?: any): Promise<string> {
+async function buildKnowledgeBuilderPrompt(): Promise<string> {
   const { data: nodes } = await client
     .from('knowledge_nodes')
     .select('id, papercore, tags')
@@ -751,7 +738,7 @@ async function buildTutorPrompt(
 
       // ── file_contents ──────────────────────────────────────
       if (fcResults.length > 0) {
-        const fcLines = fcResults.map((r, i) => {
+        const fcLines = fcResults.map((r) => {
           const pageInfo = r.pageNumber ? `第${r.pageNumber}页` : '';
           const fName = r.fileName || '文件';
           return `[原文片段: ${fName} ${pageInfo}] ${r.papercore?.substring(0, 300) || ''}`;
@@ -1339,7 +1326,6 @@ ${sourcesText}
 
     // Post-process: extract context snippets around each [来源:N] marker
     const citationsWithContext = citations.map(cit => {
-      const markerPattern = new RegExp(`\\[来源:${cit.index}\\]([^\\[]*)`, 'g');
       let snippet = '';
       // Find text around citation marker — extract surrounding sentence/paragraph
       const idx = fullContent.indexOf(`[来源:${cit.index}]`);
@@ -1493,10 +1479,8 @@ ${sourcesContext}
       messages: [{ role: 'user', content: `当前笔记：\n\n${currentNote}\n\n请按修正指令修改。` }],
     });
 
-    let fullContent = '';
     for await (const event of stream) {
       if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-        fullContent += event.delta.text;
         res.write(`data: ${JSON.stringify({ content: event.delta.text })}\n\n`);
       }
     }

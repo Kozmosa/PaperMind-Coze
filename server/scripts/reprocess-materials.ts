@@ -27,7 +27,7 @@ async function extractFileContent(
       const result = await parser.getText();
       const text = (result.text || '').trim();
       return { text, status: text.length > 0 ? 'ok' : 'empty' };
-    } catch (e: any) {
+    } catch {
       return { text: '', status: 'empty' };
     }
   }

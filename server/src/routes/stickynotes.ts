@@ -8,7 +8,7 @@ const client = getSupabaseClient();
 // 获取便利贴列表（支持按可见范围过滤）
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const { visibility, search } = req.query;
+    const { visibility } = req.query;
     let query = client
       .from('stickynotes')
       .select('*')

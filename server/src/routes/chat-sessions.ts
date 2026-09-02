@@ -48,7 +48,6 @@ router.post('/', async (req, res) => {
 // Get messages for a session
 router.get('/:sessionId/messages', async (req, res) => {
   try {
-    const userId = (req as any).userId || 'temp_user';
     const { sessionId } = req.params;
     const supabase = getSupabaseClient();
 

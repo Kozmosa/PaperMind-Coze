@@ -250,7 +250,6 @@ async function main() {
     try {
       // 提取文件内容
       let fileContent = '';
-      let fileNameForApi = fileName;
       if (ext === '.pdf') {
         console.log(`   📑 [${i + 1}/${materialFiles.length}] ${fileName} — 解析PDF...`);
         fileContent = await extractPdfText(filePath);

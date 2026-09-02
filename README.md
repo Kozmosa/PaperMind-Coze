@@ -101,8 +101,9 @@ pnpm dev          # 启动开发环境（自动清理端口占用并重启前后
 pnpm build        # 生产构建
 pnpm start        # 生产模式运行
 pnpm -w lint:client   # client 静态校验（TSC + ESLint）
-pnpm -w lint:server   # server 静态校验（TSC）
-pnpm -w lint:all      # 两者同时校验
+pnpm -w lint:server   # server 静态校验（TSC + ESLint）
+pnpm -w validate      # 全量校验（两端 lint + 格式检查）
+pnpm -w format        # 代码格式化（prettier，含 tailwind class 排序）
 ```
 
 ## 调试工具
