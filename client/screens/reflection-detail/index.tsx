@@ -30,6 +30,12 @@ function getDaysFromPeriod(period: string): number {
   return 7;
 }
 
+function periodLabel(period?: string): string {
+  if (period?.includes('3')) return '近三天';
+  if (period?.includes('30')) return '近一个月';
+  return '近一周';
+}
+
 function formatStatsForChart(daily: Record<string, number>, period: string): DailyCount[] {
   const days = getDaysFromPeriod(period);
   const result: DailyCount[] = [];
@@ -93,8 +99,9 @@ export default function ReflectionDetailScreen() {
   const activeDays = dailyCounts.filter(d => d.count > 0).length;
 
   const chartData = {
-    labels: dailyCounts.map(d => {
-      // Show every Nth label to avoid crowding
+    labels: dailyCounts.map((d, i) => {
+      // 标签抽稀：超过 15 个点时每 5 天显示一个（30 天窗口不再拥挤）
+      if (dailyCounts.length > 15 && i % 5 !== 0) return '';
       const parts = d.date.split('-');
       return `${parts[1]}/${parts[2]}`;
     }),
@@ -137,7 +144,7 @@ export default function ReflectionDetailScreen() {
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 24, fontWeight: '800', color: '#2D3436' }}>学习反思报告</Text>
             <Text style={{ fontSize: 13, color: '#636E72', marginTop: 2 }}>
-              {reflection.period} · {new Date(reflection.created_at).toLocaleDateString()}
+              {periodLabel(reflection.period)} · {new Date(reflection.created_at).toLocaleDateString()}
             </Text>
           </View>
         </View>

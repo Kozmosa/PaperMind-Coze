@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator, Modal, TextInput, Alert } from 'react-native';
 import { useCallback, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { Feather, AntDesign } from '@expo/vector-icons';
@@ -29,6 +29,36 @@ export default function ProblemSolvingLogsScreen() {
   const [dailyCounts, setDailyCounts] = useState<DailyCount[]>([]);
   const [statsTotal, setStatsTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [recordModal, setRecordModal] = useState(false);
+  const [problemText, setProblemText] = useState('');
+  const [processText, setProcessText] = useState('');
+  const [solutionText, setSolutionText] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  // 手动录入问题解决记录（feed paper_problem_logs，反思数据源 #1）
+  const handleSubmitProblemLog = async () => {
+    if (!problemText.trim()) {
+      Alert.alert('提示', '请填写问题描述');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await api.createProblemLog({
+        problem: problemText.trim(),
+        process: processText.trim() || null,
+        solution: solutionText.trim() || null,
+      });
+      Alert.alert('已记录', '问题解决记录已保存，将参与后续反思报告');
+      setProblemText('');
+      setProcessText('');
+      setSolutionText('');
+      setRecordModal(false);
+    } catch (e: any) {
+      Alert.alert('保存失败', e.message || '请重试');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -71,6 +101,12 @@ export default function ProblemSolvingLogsScreen() {
         <Text style={{ marginLeft: 12, fontSize: 18, fontWeight: '700', color: '#2D3436', flex: 1 }}>
           问题解答日志
         </Text>
+        <TouchableOpacity
+          onPress={() => setRecordModal(true)}
+          style={{ backgroundColor: '#6C63FF1A', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 }}
+        >
+          <Text style={{ color: '#6C63FF', fontSize: 13, fontWeight: '600' }}>＋ 记录问题</Text>
+        </TouchableOpacity>
       </View>
 
       {loading ? (
@@ -192,6 +228,61 @@ export default function ProblemSolvingLogsScreen() {
           </View>
         </ScrollView>
       )}
+
+      {/* 问题解决记录录入弹窗 */}
+      <Modal visible={recordModal} transparent animationType="slide" onRequestClose={() => setRecordModal(false)}>
+        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.35)' }}>
+          <View style={{ backgroundColor: '#FFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 32 }}>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: '#2D3436', marginBottom: 16 }}>记录问题解决</Text>
+            <Text style={{ fontSize: 13, color: '#636E72', marginBottom: 6 }}>问题描述 *</Text>
+            <TextInput
+              style={{ backgroundColor: '#F0F0F3', borderRadius: 12, padding: 12, fontSize: 14, color: '#2D3436', marginBottom: 12 }}
+              placeholder="遇到了什么问题？"
+              placeholderTextColor="#B2BEC3"
+              value={problemText}
+              onChangeText={setProblemText}
+              multiline
+            />
+            <Text style={{ fontSize: 13, color: '#636E72', marginBottom: 6 }}>解决过程（可选）</Text>
+            <TextInput
+              style={{ backgroundColor: '#F0F0F3', borderRadius: 12, padding: 12, fontSize: 14, color: '#2D3436', marginBottom: 12 }}
+              placeholder="你是怎么一步步解决的？"
+              placeholderTextColor="#B2BEC3"
+              value={processText}
+              onChangeText={setProcessText}
+              multiline
+            />
+            <Text style={{ fontSize: 13, color: '#636E72', marginBottom: 6 }}>解决方案（可选）</Text>
+            <TextInput
+              style={{ backgroundColor: '#F0F0F3', borderRadius: 12, padding: 12, fontSize: 14, color: '#2D3436', marginBottom: 20 }}
+              placeholder="最终方案 / 结论"
+              placeholderTextColor="#B2BEC3"
+              value={solutionText}
+              onChangeText={setSolutionText}
+              multiline
+            />
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <TouchableOpacity
+                onPress={() => setRecordModal(false)}
+                style={{ flex: 1, backgroundColor: '#F0F0F3', borderRadius: 14, paddingVertical: 12, alignItems: 'center' }}
+              >
+                <Text style={{ color: '#636E72', fontWeight: '600' }}>取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleSubmitProblemLog}
+                disabled={submitting}
+                style={{ flex: 1, backgroundColor: '#6C63FF', borderRadius: 14, paddingVertical: 12, alignItems: 'center' }}
+              >
+                {submitting ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <Text style={{ color: '#FFF', fontWeight: '700' }}>保存</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }

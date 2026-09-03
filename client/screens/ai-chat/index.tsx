@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, KeyboardAvoidingView, Platform, ActivityIndicator, Alert } from 'react-native';
 import { Screen } from '@/components/layout/Screen';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
 import RNSSE from 'react-native-sse';
@@ -96,9 +96,90 @@ export default function AIChatScreen() {
     });
   };
 
-  // 自动生成反思
+  // 生成反思报告：选择时间窗口 → 调 /generate-reflection 流式生成 → 完成后跳详情页
   const handleGenerateReflection = () => {
-    handleSend('请根据我的学习数据，生成本周的学习反思报告。');
+    Alert.alert('选择反思时间范围', '基于你的学习数据生成 4 维度反思报告', [
+      { text: '近三天', onPress: () => startReflection('3days') },
+      { text: '近一周', onPress: () => startReflection('7days') },
+      { text: '近一个月', onPress: () => startReflection('30days') },
+      { text: '取消', style: 'cancel' },
+    ]);
+  };
+
+  const startReflection = (period: string) => {
+    if (isLoading) return;
+    setIsLoading(true);
+    setMessages(prev => [
+      ...prev,
+      { role: 'user', content: `生成本周期的学习反思报告（${period}）` },
+      { role: 'assistant', content: '' },
+    ]);
+
+    const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
+    const es = new RNSSE(`${BASE_URL}/api/v1/ai/generate-reflection`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ period }),
+    });
+
+    let fullContent = '';
+
+    es.addEventListener('message', (event: any) => {
+      if (event.data === '[DONE]') {
+        es.close();
+        setIsLoading(false);
+        return;
+      }
+      try {
+        const parsed = JSON.parse(event.data);
+        if (parsed.error) {
+          es.close();
+          setIsLoading(false);
+          setMessages(prev => {
+            const updated = [...prev];
+            updated[updated.length - 1] = { role: 'assistant', content: `生成失败：${parsed.error}` };
+            return updated;
+          });
+          return;
+        }
+        if (parsed.content) {
+          fullContent += parsed.content;
+          setMessages(prev => {
+            const updated = [...prev];
+            updated[updated.length - 1] = { role: 'assistant', content: fullContent };
+            return updated;
+          });
+        }
+        if (parsed.done && parsed.reflection?.id) {
+          if (parsed.warning) {
+            setMessages(prev => {
+              const updated = [...prev];
+              updated[updated.length - 1] = {
+                role: 'assistant',
+                content: fullContent + `\n\n⚠️ ${parsed.warning}`,
+              };
+              return updated;
+            });
+          }
+          // 报告已落库，跳转详情页查看完整 4 维度 + 图表
+          setTimeout(() => {
+            router.push(`/reflection-detail?id=${parsed.reflection.id}`);
+          }, 600);
+        }
+      } catch {}
+    });
+
+    es.addEventListener('error', () => {
+      es.close();
+      setIsLoading(false);
+      setMessages(prev => {
+        const updated = [...prev];
+        if (updated.length > 0 && updated[updated.length - 1].content === '') {
+          updated[updated.length - 1] = { role: 'assistant', content: '抱歉，反思生成出错，请重试。' };
+        }
+        return updated;
+      });
+    });
   };
 
   const renderMessage = ({ item, index }: { item: ChatMessage; index: number }) => {
