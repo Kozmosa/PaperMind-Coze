@@ -2491,58 +2491,29 @@ async function submitUploadMaterial() {
     const formData = new FormData();
     formData.append('file', _selectedFile);
 
-    // Step 1: Upload file to server
+    // title / logical_path 随上传一并提交：服务端 /upload 建 material 时写入，
+    // 避免上传后再 POST /materials 造成一条文件两条记录（issue #7）
+    const title = document.getElementById('um-title').value.trim();
+    const selPath = document.getElementById('um-path').value.trim();
+    if (title) formData.append('title', title);
+    if (selPath) formData.append('logical_path', JSON.stringify([selPath.endsWith('/') ? selPath : selPath + '/']));
+
+    // 上传：服务端同步创建 material 并完成分类（阻塞到分类结束）
     const uploadRes = await safeFetch(API + '/upload', { method: 'POST', body: formData });
     if (!uploadRes.ok) {
       const errText = await uploadRes.text().catch(() => '');
       throw new Error('文件上传失败 HTTP ' + uploadRes.status + (errText ? ' — ' + errText.slice(0, 120) : ''));
     }
     const uploadJson = await uploadRes.json();
-    const { fileUrl, fileName, mimeType } = uploadJson.data || uploadJson;
+    const { fileUrl, materialId, classification } = uploadJson.data || uploadJson;
     if (!fileUrl) throw new Error('上传成功但未返回文件路径');
 
-    document.getElementById('um-progress-bar').style.width = '60%';
-    document.getElementById('um-progress-text').textContent = '创建记录...';
-
-    // Step 2: Create material record
-    const title = document.getElementById('um-title').value.trim() || _selectedFile.name;
-    const selPath = document.getElementById('um-path').value.trim();
-
-    const body = { title, name: fileName, file_url: fileUrl, file_name: fileName, mime_type: mimeType };
-    if (selPath) body.logical_path = JSON.stringify([selPath.endsWith('/') ? selPath : selPath + '/']);
-
-    const matRes = await safeFetch(API + '/materials', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
-    });
-    if (!matRes.ok) {
-      const errText = await matRes.text().catch(() => '');
-      throw new Error('创建材料记录失败 HTTP ' + matRes.status + (errText ? ' — ' + errText.slice(0, 120) : ''));
-    }
-    const matJson = await matRes.json();
-    const matId = matJson.data?.id || matJson.id;
-    if (!matId) throw new Error('创建成功但未返回记录ID');
-
     document.getElementById('um-progress-bar').style.width = '100%';
-    document.getElementById('um-progress-text').textContent = '上传成功，正在分类...';
+    document.getElementById('um-progress-text').textContent = '上传成功';
 
-    // Step 3: 触发知识分类 — 等待结果，失败时给出明确提示
-    if (matId) {
-      try {
-        const clsRes = await safeFetch(API + '/knowledge-builder/process-content', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ type: 'material', id: matId })
-        });
-        if (!clsRes.ok) {
-          const t = await clsRes.text().catch(() => '');
-          throw new Error('HTTP ' + clsRes.status + (t ? ' — ' + t.slice(0, 120) : ''));
-        }
-        const clsJson = await clsRes.json().catch(() => null);
-        console.log('[upload] classification result:', clsJson);
-      } catch (clsErr) {
-        console.error('[upload] classification failed:', clsErr.message);
-        appToast('分类失败（文件已上传）：' + clsErr.message, 'error');
-      }
+    if (classification?.error) {
+      console.error('[upload] classification failed:', classification.error);
+      appToast('分类失败（文件已上传，可稍后在资料页重新分析）：' + classification.error, 'error');
     }
 
     setTimeout(() => { closeUploadMaterial(); refreshCurrentTab(); }, 600);

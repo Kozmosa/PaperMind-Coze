@@ -118,20 +118,27 @@ router.post('/', async (req: Request, res: Response) => {
       }
 
       // ====== 同步触发知识分类（不再 fire-and-forget）======
+      // 可选表单字段：title（自定义标题）、logical_path（用户选择的文件夹路径，JSON 字符串数组）
+      // 由客户端直接随上传提交，避免上传后再 POST /materials 造成重复记录（issue #7）
+      const title = req.body?.title;
+      const logicalPath = req.body?.logical_path;
       let materialId: string | null = null;
       let classification: any = null;
       try {
+        const materialInsert: Record<string, any> = {
+          user_id: userId,
+          name: title || originalName,
+          file_path: `/uploads/${file.filename}`,
+          file_type: file.mimetype,
+          tags: [],
+          ai_processed: false,
+          viewed_after_process: false,
+        };
+        if (logicalPath) materialInsert.logical_path = logicalPath;
+
         const { data: material, error: matErr } = await client
           .from('materials')
-          .insert({
-            user_id: userId,
-            name: originalName,
-            file_path: `/uploads/${file.filename}`,
-            file_type: file.mimetype,
-            tags: [],
-            ai_processed: false,
-            viewed_after_process: false,
-          })
+          .insert(materialInsert)
           .select()
           .single();
         if (matErr) throw new Error(matErr.message);

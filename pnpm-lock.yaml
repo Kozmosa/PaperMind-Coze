@@ -342,9 +342,6 @@ importers:
       multer:
         specifier: ^2.0.2
         version: 2.0.2
-      openai:
-        specifier: ^6.9.0
-        version: 6.42.0(ws@8.19.0)(zod@4.3.6)
       pdf-parse:
         specifier: ^2.4.5
         version: 2.4.5
