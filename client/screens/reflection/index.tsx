@@ -5,6 +5,7 @@ import { Feather, AntDesign } from '@expo/vector-icons';
 import { Screen } from '@/components/layout/Screen';
 import { api } from '@/utils/api';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
+import Toast from 'react-native-toast-message';
 
 type Reflection = {
   id: number;
@@ -80,11 +81,13 @@ export default function ReflectionIndexScreen() {
         (error) => {
           setGenerating(false);
           console.error('Generate reflection error:', error);
+          Toast.show({ type: 'error', text1: '反思生成失败', text2: error || '请重试' });
         }
       );
     } catch (e) {
       console.error('Failed to generate report', e);
       setGenerating(false);
+      Toast.show({ type: 'error', text1: '反思生成失败', text2: '网络错误，请重试' });
     }
   };
 

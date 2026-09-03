@@ -1829,14 +1829,61 @@ async function generateReflectionFromModal(){
     if(genBtn){genBtn.style.opacity='1';genBtn.textContent='🤖 生成反思报告';}
   }
 }
+function getDaysFromPeriod(period){
+  if(period&&period.includes('3'))return 3;
+  if(period&&period.includes('30'))return 30;
+  return 7;
+}
 function viewReflectionDetail(id){
   safeFetch(API+'/reflections/'+id).then(r=>r.ok?r.json():Promise.reject()).then(json=>{
     const r=json.data||json;
-    showAppModal(`<h3>📊 反思报告</h3>
-      <div style="margin-bottom:12px;"><span class="tag" style="background:var(--pri-pale);color:var(--primary);">${esc(r.period||'')}</span><span class="tag" style="margin-left:6px;background:var(--bg);color:var(--text3);">${fmtDate(r.created_at)}</span></div>
-      <div class="body-text" style="background:var(--surface);border-radius:14px;padding:14px;max-height:400px;overflow-y:auto;line-height:1.8;">${simpleMarkdown(r.learning_behavior||'')}</div>
-      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;"><button class="btn btn-neu" onclick="closeAppModal()">关闭</button></div>`);
+    const days=getDaysFromPeriod(r.period||'7days');
+    // 统计锚定报告生成时间，与 App 详情页一致
+    return safeFetch(API+'/problem-solving-logs/stats?days='+days+'&endDate='+encodeURIComponent(r.created_at||Date.now()))
+      .then(sr=>sr.ok?sr.json():Promise.resolve({data:{daily:{},total:0}}))
+      .then(statsJson=>{
+        const stats=statsJson.data||{daily:{},total:0};
+        renderReflectionDetail(r, stats, days);
+      });
   }).catch(()=>showAppModal('<h3>📊 反思报告</h3><div style="text-align:center;padding:20px;color:var(--text3);">加载失败</div>'));
+}
+function renderReflectionDetail(r, stats, days){
+  const periodLabel=r.period&&r.period.includes('3')?'近三天':r.period&&r.period.includes('30')?'近一个月':'近一周';
+  const daily=stats.daily||{};
+  const sections=[
+    {t:'学习行为', c:r.learning_behavior, color:'#6C63FF', icon:'🧠'},
+    {t:'攻克问题', c:r.challenge_report, color:'#00B894', icon:'✅'},
+    {t:'思维模式', c:r.thinking_pattern, color:'#FF6B9D', icon:'💭'},
+    {t:'学习建议', c:r.suggestion, color:'#FDCB6E', icon:'💡'},
+  ];
+  const bars=[];
+  for(let i=days-1;i>=0;i--){
+    const d=new Date(r.created_at||Date.now());d.setDate(d.getDate()-i);
+    const key=d.toISOString().split('T')[0];
+    bars.push({key:key.slice(5), count:daily[key]||0});
+  }
+  const max=Math.max(1,...bars.map(b=>b.count));
+  const showLabel = (i) => days <= 7 || i % 5 === 0;
+  const barsHtml=bars.map((b,i)=>`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0;">
+    <div style="width:100%;max-width:16px;height:${Math.max(3,Math.round((b.count/max)*58))}px;background:${b.count>0?'var(--primary)':'var(--border)'};border-radius:4px 4px 2px 2px;" title="${b.key}: ${b.count}"></div>
+    ${showLabel(i)?`<div style="font-size:8px;color:var(--text3);white-space:nowrap;">${b.key}</div>`:''}
+  </div>`).join('');
+  const activeDays=Object.values(daily).filter(v=>v>0).length;
+  showAppModal(`<h3>📊 反思报告</h3>
+    <div style="margin-bottom:12px;"><span class="tag" style="background:var(--pri-pale);color:var(--primary);">${periodLabel}</span><span class="tag" style="margin-left:6px;background:var(--bg);color:var(--text3);">${fmtDate(r.created_at)}</span></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+      <div class="stat-card"><div class="num" style="color:var(--primary);">${stats.total||0}</div><div class="label">${periodLabel}提问</div></div>
+      <div class="stat-card"><div class="num" style="color:var(--success);">${activeDays}</div><div class="label">活跃天数</div></div>
+    </div>
+    <div style="background:var(--surface);border-radius:14px;padding:12px;margin-bottom:14px;box-shadow:var(--neu-raised-sm);">
+      <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px;">Q&A 活跃度</div>
+      <div style="display:flex;align-items:flex-end;gap:3px;height:76px;">${barsHtml}</div>
+    </div>
+    ${sections.map(s=>`<div style="background:var(--surface);border-radius:14px;padding:14px;margin-bottom:10px;border-left:4px solid ${s.color};box-shadow:var(--neu-raised-sm);">
+      <div style="font-size:14px;font-weight:700;color:${s.color};margin-bottom:6px;">${s.icon} ${s.t}</div>
+      <div class="body-text" style="line-height:1.8;">${simpleMarkdown(s.c||'（内容缺失）')}</div>
+    </div>`).join('')}
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;"><button class="btn btn-neu" onclick="closeAppModal()">关闭</button></div>`);
 }
 function selectReflPeriod(period,btn){
   document.querySelectorAll('#refl-period button').forEach(b=>b.classList.remove('active'));

@@ -96,6 +96,14 @@ export default function ProfileScreen() {
         router.push('/reflection');
       },
     },
+    {
+      key: 'reflection_chat',
+      icon: 'message-circle' as const,
+      title: '反思助手对话',
+      onPress: () => {
+        router.push('/ai-chat', { agent: 'reflection_mind' } as any);
+      },
+    },
   ];
 
   return (
