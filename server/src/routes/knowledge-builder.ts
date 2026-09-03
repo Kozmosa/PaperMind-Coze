@@ -9,6 +9,26 @@ import { scheduleIndexRebuild } from '../utils/index-refresh.js';
 const router = Router();
 
 // ==========================================
+// 不可读扫描件（乱码/无文本）的文件名 → 课程映射（issue #7 Task 6）
+// 新增课程只需在此追加条目，批处理分类与 L3 合并自动生效
+// ==========================================
+const UNREADABLE_FILE_COURSE_MAP: {
+  pattern: RegExp;
+  L1: string;
+  L2: string;
+  courseSystem: string;
+  topicHint: string;
+}[] = [
+  {
+    pattern: /^Bi_/i,
+    L1: '数学',
+    L2: '运筹学',
+    courseSystem: '线性规划、单纯形法、对偶理论、灵敏度分析、运输问题、指派问题、网络优化、动态规划、整数规划、博弈论、决策分析、排队论、库存论、非线性规划',
+    topicHint: 'Bi_ORC{N} 中 N 对应课程模块，week{X} 对应教学周，据此推断话题',
+  },
+];
+
+// ==========================================
 // Helper: Extract existing hierarchical tags for a user
 // ==========================================
 async function getExistingTagHierarchy(userId: string): Promise<{
@@ -466,16 +486,28 @@ ${papercore.slice(0, 800)}
   if (INVALID.has(l1)) l1 = '';
   if (INVALID.has(l2)) l2 = '';
 
-  // Determine if L2 is new
+  // Determine if L2 is new（含字符重叠去重：>75% 相似视为同一 L2，防近重复标签）
   if (l2 && existingHierarchy.L2.length > 0 && !existingHierarchy.L2.includes(l2)) {
-    l2IsNew = true;
-    console.log(`[global-position] L2="${l2}" is NEW`);
+    const similar = existingHierarchy.L2.find((e: string) => charOverlapRatio(e, l2) > 0.75);
+    if (similar) {
+      console.log(`[global-position] L2="${l2}" 与已有 "${similar}" 高度相似（>75%），复用已有`);
+      l2 = similar;
+    } else {
+      l2IsNew = true;
+      console.log(`[global-position] L2="${l2}" is NEW`);
+    }
   }
 
-  // L1 guard: if existing L1s exist, must match one exactly
+  // L1 guard（issue #7 Task 6）：允许新建 L1（不再强制回落第一个已有 L1），
+  // 仅在与已有 L1 字符重叠 >75% 时复用已有，防近重复标签爆炸
   if (l1 && existingHierarchy.L1.length > 0 && !existingHierarchy.L1.includes(l1)) {
-    console.log(`[global-position] L1="${l1}" not in existing list [${existingHierarchy.L1.join(', ')}], falling back to first`);
-    l1 = existingHierarchy.L1[0];
+    const similar = existingHierarchy.L1.find((e: string) => charOverlapRatio(e, l1) > 0.75);
+    if (similar) {
+      console.log(`[global-position] L1="${l1}" 与已有 "${similar}" 高度相似（>75%），复用已有`);
+      l1 = similar;
+    } else {
+      console.log(`[global-position] L1="${l1}" 为新建学科（保留，不再强制回落）`);
+    }
   }
 
   // ==========================================
@@ -614,6 +646,41 @@ function getUserSetLogicalPath(record: any): string | null {
   return null;
 }
 
+// Helper: 资料分类完成后同步 knowledge_nodes（issue #7 Task 5）
+// 图谱此前只聚合 materials/study_notes，上传的资料在知识节点侧不可见
+async function syncKnowledgeNodeForMaterial(userId: string, material: any, tags: string[], papercore: string): Promise<void> {
+  try {
+    const supabase = getSupabaseClient();
+    const shortName = (material.name || '资料').slice(0, 50);
+    const { data: existing } = await supabase
+      .from('knowledge_nodes')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('original_file', material.name || null)
+      .limit(1);
+    if (existing && existing.length > 0) {
+      await supabase.from('knowledge_nodes').update({
+        papercore,
+        short_name: shortName,
+        tags,
+        updated_at: new Date().toISOString(),
+      }).eq('id', existing[0].id);
+    } else {
+      await supabase.from('knowledge_nodes').insert({
+        user_id: userId,
+        original_file: material.name || null,
+        papercore,
+        short_name: shortName,
+        tags,
+        relations: {},
+        attached_draft_ids: [],
+      });
+    }
+  } catch (e: any) {
+    console.warn('[sync-knode] failed:', e?.message);
+  }
+}
+
 // Helper: Read material file content from disk (for uploaded materials)
 async function readMaterialFileFromDisk(material: any): Promise<string> {
   try {
@@ -730,6 +797,7 @@ export async function handleProcessContent(req: Request, res: Response) {
           logical_path: JSON.stringify(finalLps), tags: [L1, L2, ...kps].filter(Boolean),
           process_status: 'processed',
         }).eq('id', id).eq('user_id', userId);
+        if (table === 'materials') await syncKnowledgeNodeForMaterial(userId, record, [L1, L2, ...kps].filter(Boolean), forcePapercore);
         scheduleIndexRebuild();
         return res.json({ data: { id, status: 'processed', papercore: forcePapercore, tags: [L1, L2, ...kps], logical_path: finalLps, reason: 'forced' } });
       } catch (e: any) {
@@ -759,6 +827,7 @@ export async function handleProcessContent(req: Request, res: Response) {
           logical_path: JSON.stringify(finalLps), tags: [L1, L2, ...kps].filter(Boolean),
           process_status: 'processed',
         }).eq('id', id).eq('user_id', userId);
+        if (table === 'materials') await syncKnowledgeNodeForMaterial(userId, record, [L1, L2, ...kps].filter(Boolean), degradedPapercore);
         scheduleIndexRebuild();
         return res.json({ data: { id, status: 'processed', papercore: degradedPapercore, tags: [L1, L2, ...kps], logical_path: finalLps, reason: 'forced-degraded' } });
       } catch (e: any) {
@@ -831,6 +900,7 @@ export async function handleProcessContent(req: Request, res: Response) {
 
     if (updateError) throw new Error(updateError.message);
 
+    if (table === 'materials') await syncKnowledgeNodeForMaterial(userId, record, hierarchicalTags, papercore);
     scheduleIndexRebuild();
     res.json({
       data: {
@@ -1217,12 +1287,14 @@ router.get('/graph-data', async (req: Request, res: Response) => {
     const userId = (req as any).userId || 'guest';
     const supabase = getSupabaseClient();
 
-    const [notesRes, materialsRes] = await Promise.all([
+    const [notesRes, materialsRes, nodesRes] = await Promise.all([
       supabase.from('study_notes').select('id, title, tags, papercore, logical_path, created_at').eq('user_id', userId).eq('ai_processed', true).order('created_at', { ascending: false }).limit(100),
       supabase.from('materials').select('id, name, tags, papercore, logical_path, created_at').eq('user_id', userId).eq('ai_processed', true).order('created_at', { ascending: false }).limit(100),
+      // knowledge_nodes 也参与图谱聚合（issue #7 Task 5）
+      supabase.from('knowledge_nodes').select('id, short_name, tags, papercore, created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(100),
     ]);
 
-    console.log(`[graph-data] notes: ${notesRes.data?.length || 0}, materials: ${materialsRes.data?.length || 0}`);
+    console.log(`[graph-data] notes: ${notesRes.data?.length || 0}, materials: ${materialsRes.data?.length || 0}, nodes: ${nodesRes.data?.length || 0}`);
 
     const notes: any[] = (notesRes.data || []).map((n: any) => ({
       ...n, type: 'note' as const, title: n.title || '未命名纪要',
@@ -1230,7 +1302,10 @@ router.get('/graph-data', async (req: Request, res: Response) => {
     const materials: any[] = (materialsRes.data || []).map((m: any) => ({
       ...m, type: 'material' as const, title: m.name || '未命名资料',
     }));
-    const allRecords = [...notes, ...materials];
+    const knodes: any[] = (nodesRes.data || []).map((n: any) => ({
+      ...n, type: 'node' as const, title: n.short_name || '知识节点',
+    }));
+    const allRecords = [...notes, ...materials, ...knodes];
 
     // ====== Build Tag nodes ======
     interface TagNode {
@@ -1861,9 +1936,10 @@ router.post('/rebuild-all', async (req: Request, res: Response) => {
         }
         if (!isReadableText(text)) {
           const matName = material.name || '';
-          // Defer Bi_ORC files for batch processing after main loop
-          if (/^Bi_/i.test(matName)) {
-            perFileLog.push({ id: material.id, name: matName.slice(0,60), type: 'material', L1: '', L2: '', L3s: [], papercore: '', paths: [], skipped: 'degraded_bi_orc' });
+          // 不可读扫描件：命中课程映射的延迟到批处理强制分类
+          const courseIdx = UNREADABLE_FILE_COURSE_MAP.findIndex(c => c.pattern.test(matName));
+          if (courseIdx >= 0) {
+            perFileLog.push({ id: material.id, name: matName.slice(0,60), type: 'material', L1: '', L2: '', L3s: [], papercore: '', paths: [], skipped: `degraded_course_${courseIdx}` });
             processed++; continue;
           }
           const degradedPapercore = buildDegradedPapercore(matName);
@@ -1979,27 +2055,29 @@ ${papercore.slice(0, 600)}
     console.log(`[l2-reassign] Complete: ${reassigned} documents reassigned`);
 
     // ==========================================
-    // Bi_ORC batch processing pass
-    // Force-classify unreadable Bi_* PDFs under 运筹学
+    // 不可读扫描件批处理：按课程映射逐课程强制分类（issue #7 Task 6 泛化）
     // ==========================================
-    const biOrcEntries = perFileLog.filter(e => e.skipped === 'degraded_bi_orc');
-    if (biOrcEntries.length > 0) {
-      console.log(`[bi-orc] Batch processing ${biOrcEntries.length} Bi_ORC files...`);
-      const orcExistingL3s = await getAllL3NamesUnderL2(userId, '数学', '运筹学');
-      const biOrcFilenames = biOrcEntries.map(e => e.name).join('\n');
+    for (let ci = 0; ci < UNREADABLE_FILE_COURSE_MAP.length; ci++) {
+      const course = UNREADABLE_FILE_COURSE_MAP[ci];
+      const courseEntries = perFileLog.filter(e => e.skipped === `degraded_course_${ci}`);
+      if (courseEntries.length === 0) continue;
 
-      const biOrcPrompt = `你是运筹学（Operations Research）课程专家。以下是一批运筹学课程PDF的文件名，由于PDF编码问题无法提取文本，请根据文件名推断每个文件的核心话题。
+      console.log(`[course-batch] Processing ${courseEntries.length} unreadable files for ${course.L1} > ${course.L2}...`);
+      const existingL3s = await getAllL3NamesUnderL2(userId, course.L1, course.L2);
+      const filenames = courseEntries.map(e => e.name).join('\n');
+
+      const coursePrompt = `你是${course.L2}课程专家。以下是一批${course.L2}课程PDF的文件名，由于PDF编码问题无法提取文本，请根据文件名推断每个文件的核心话题。
 
 文件名列表：
-${biOrcFilenames}
+${filenames}
 
-运筹学下已有L3标签：${orcExistingL3s.join(', ') || '(尚无)'}
+${course.L2}下已有L3标签：${existingL3s.join(', ') || '(尚无)'}
 
-标准运筹学课程体系参考：线性规划、单纯形法、对偶理论、灵敏度分析、运输问题、指派问题、网络优化、动态规划、整数规划、博弈论、决策分析、排队论、库存论、非线性规划。
+标准课程体系参考：${course.courseSystem}。
 
 规则：
-1. Bi_ORC{N} 中 N 对应课程模块，week{X} 对应教学周，据此推断话题
-2. L3标签必须使用大类名称（如"对偶理论"而非"互补松弛定理"），优先复用已有标签
+1. ${course.topicHint}
+2. L3标签必须使用大类名称，优先复用已有标签
 3. 同模块不同周可能有不同话题，请区分
 4. 每个文件最多3个L3标签
 
@@ -2011,18 +2089,18 @@ ${biOrcFilenames}
           model: DEFAULT_MODEL,
           max_tokens: 2048,
           temperature: 0.3,
-          messages: [{ role: 'user', content: biOrcPrompt }],
+          messages: [{ role: 'user', content: coursePrompt }],
         });
         const content = resp.content.filter((c: any) => c.type === 'text').map((c: any) => c.text).join('').trim();
         const jsonMatch = content.match(/\[[\s\S]*\]/);
         if (jsonMatch) {
           const parsed = JSON.parse(jsonMatch[0]);
           for (const entry of parsed) {
-            const logEntry = biOrcEntries.find(e => e.name === entry.filename);
+            const logEntry = courseEntries.find(e => e.name === entry.filename);
             if (!logEntry) continue;
             const l3s = (entry.l3s || []).slice(0, 3);
-            const L1 = '数学', L2 = '运筹学';
-            const papercore = entry.topic || `运筹学课程：${entry.filename}`;
+            const L1 = course.L1, L2 = course.L2;
+            const papercore = entry.topic || `${L2}课程：${entry.filename}`;
             const logicalPaths = buildLogicalPaths(L1, L2, l3s);
 
             await (supabase as any).from('materials').update({
@@ -2036,34 +2114,35 @@ ${biOrcFilenames}
             logEntry.papercore = papercore.slice(0, 120); logEntry.paths = logicalPaths;
             delete logEntry.skipped; (logEntry as any).forced = true;
             updateHierarchy(L1, L2, l3s);
-            console.log(`[bi-orc] ${entry.filename}: ${l3s.join(', ')}`);
+            console.log(`[course-batch] ${entry.filename}: ${l3s.join(', ')}`);
           }
         }
       } catch (e) {
-        console.error('[bi-orc] Batch LLM error:', e);
+        console.error(`[course-batch] ${course.L2} batch LLM error:`, e);
       }
     }
 
     const { merged } = await consolidateTags(userId);
 
     // ==========================================
-    // L3 consolidation for 运筹学 — merge fine-grained L3s into broad categories
+    // 课程 L3 合并：按课程映射逐课程把细碎 L3 合并为宽类别（issue #7 Task 6 泛化）
     // ==========================================
-    const orcL3s = await getAllL3NamesUnderL2(userId, '数学', '运筹学');
-    if (orcL3s.length > 3) {
-      console.log(`[l3-consolidate] 运筹学 has ${orcL3s.length} L3s, checking consolidation...`);
+    for (const course of UNREADABLE_FILE_COURSE_MAP) {
+      const courseL3s = await getAllL3NamesUnderL2(userId, course.L1, course.L2);
+      if (courseL3s.length <= 3) continue;
+      console.log(`[l3-consolidate] ${course.L2} has ${courseL3s.length} L3s, checking consolidation...`);
 
-      const l3ConsolidatePrompt = `你是运筹学标签管理专家。以下是运筹学下的所有L3标签，其中有些过于细碎，需合并为更宽的类别。
+      const l3ConsolidatePrompt = `你是${course.L2}标签管理专家。以下是${course.L2}下的所有L3标签，其中有些过于细碎，需合并为更宽的类别。
 
-当前L3标签（${orcL3s.length}个）：
-${orcL3s.join('\n')}
+当前L3标签（${courseL3s.length}个）：
+${courseL3s.join('\n')}
 
 规则：
-1. 细碎标签合并：将过细的子标签合并到其所属的大类（如"互补松弛定理"→"对偶理论"，"退化现象"→"运输问题"）
-2. 保留核心大类独立：对偶理论、动态规划、运输问题等大类各自独立
+1. 细碎标签合并：将过细的子标签合并到其所属的大类
+2. 保留核心大类独立
 3. 不合并不同学科方向
 4. 若标签已是合适的大类粒度则保留
-5. 运筹学标准大类参考：线性规划、单纯形法、对偶理论、运输问题、动态规划、整数规划、博弈论、决策分析、网络优化、非线性规划、排队论、库存论
+5. ${course.L2}标准大类参考：${course.courseSystem}
 
 输出JSON（无变化则[]）：
 [{"merge":"细碎标签", "into":"大类标签"}, ...]`;
@@ -2081,13 +2160,13 @@ ${orcL3s.join('\n')}
           const merges: { merge: string; into: string }[] = JSON.parse(jsonMatch[0]);
           let l3Merged = 0;
           for (const { merge: from, into: to } of merges) {
-            if (from === to || !orcL3s.includes(from)) continue;
-            console.log(`[l3-consolidate] 运筹学 L3: "${from}" → "${to}"`);
+            if (from === to || !courseL3s.includes(from)) continue;
+            console.log(`[l3-consolidate] ${course.L2} L3: "${from}" → "${to}"`);
             for (const table of ['study_notes', 'materials']) {
               const { data: records } = await (supabase as any).from(table).select('id, tags, logical_path').eq('user_id', userId);
               for (const r of (records || [])) {
                 const tags: string[] = r.tags || [];
-                if (tags.length >= 3 && tags[1] === '运筹学' && tags.includes(from)) {
+                if (tags.length >= 3 && tags[1] === course.L2 && tags.includes(from)) {
                   const updated = tags.map(t => t === from ? to : t);
                   const deduped = updated.filter((t, i) => updated.indexOf(t) === i);
                   const rawPath = r.logical_path || '[]';
@@ -2103,10 +2182,10 @@ ${orcL3s.join('\n')}
             }
             l3Merged++;
           }
-          if (l3Merged > 0) console.log(`[l3-consolidate] 运筹学: ${l3Merged} L3 merges completed`);
+          if (l3Merged > 0) console.log(`[l3-consolidate] ${course.L2}: ${l3Merged} L3 merges completed`);
         }
       } catch (e) {
-        console.error('[l3-consolidate] LLM error:', e);
+        console.error(`[l3-consolidate] ${course.L2} LLM error:`, e);
       }
     }
 
