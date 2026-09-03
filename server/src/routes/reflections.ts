@@ -21,14 +21,18 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
-// 获取单个反思
+// 获取单个反思（用户隔离：仅本人可读，防止越权访问他人反思）
 router.get('/:id', async (req: Request, res: Response) => {
   try {
-    const { data, error } = await client
+    const userId = (req as any).userId;
+    let query = client
       .from('reflections')
       .select('*')
-      .eq('id', req.params.id)
-      .maybeSingle();
+      .eq('id', req.params.id);
+    if (userId && userId !== 'guest') {
+      query = query.eq('user_id', userId);
+    }
+    const { data, error } = await query.maybeSingle();
     if (error) throw new Error(error.message);
     if (!data) return res.status(404).json({ error: '反思不存在' });
     res.json({ data });
