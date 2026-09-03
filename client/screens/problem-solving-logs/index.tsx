@@ -27,6 +27,7 @@ export default function ProblemSolvingLogsScreen() {
   const router = useSafeRouter();
   const [logs, setLogs] = useState<ProblemLog[]>([]);
   const [dailyCounts, setDailyCounts] = useState<DailyCount[]>([]);
+  const [statsTotal, setStatsTotal] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useFocusEffect(
@@ -49,6 +50,8 @@ export default function ProblemSolvingLogsScreen() {
         .map(([date, count]) => ({ date, count: count as number }))
         .sort((a, b) => a.date.localeCompare(b.date));
       setDailyCounts(counts);
+      // 总数与折线图/活跃天数统一为近 30 天窗口
+      setStatsTotal(statsRes.data?.total || 0);
     } catch (e) {
       console.error('Failed to load data', e);
     } finally {
@@ -56,7 +59,7 @@ export default function ProblemSolvingLogsScreen() {
     }
   };
 
-  const totalCount = logs.length;
+  const totalCount = statsTotal;
 
   return (
     <Screen statusBarStyle="dark" safeAreaEdges={['left', 'right', 'top']}>
@@ -86,14 +89,14 @@ export default function ProblemSolvingLogsScreen() {
               <View style={{ flexDirection: 'row', marginBottom: 20 }}>
                 <View style={{ flex: 1, backgroundColor: '#F0F0F3', borderRadius: 12, padding: 16, alignItems: 'center' }}>
                   <Text style={{ fontSize: 32, fontWeight: '800', color: '#6C63FF' }}>{totalCount}</Text>
-                  <Text style={{ fontSize: 13, color: '#636E72', marginTop: 4 }}>解决问题总数</Text>
+                  <Text style={{ fontSize: 13, color: '#636E72', marginTop: 4 }}>近30天解决</Text>
                 </View>
                 <View style={{ width: 12 }} />
                 <View style={{ flex: 1, backgroundColor: '#F0F0F3', borderRadius: 12, padding: 16, alignItems: 'center' }}>
                   <Text style={{ fontSize: 32, fontWeight: '800', color: '#00B894' }}>
                     {dailyCounts.length > 0 ? dailyCounts.length : 0}
                   </Text>
-                  <Text style={{ fontSize: 13, color: '#636E72', marginTop: 4 }}>活跃天数</Text>
+                  <Text style={{ fontSize: 13, color: '#636E72', marginTop: 4 }}>活跃天数（近30天）</Text>
                 </View>
               </View>
 
@@ -163,7 +166,8 @@ export default function ProblemSolvingLogsScreen() {
                 key={log.id}
                 style={{ backgroundColor: '#FFF', borderRadius: 16, padding: 16, marginBottom: 12 }}
                 onPress={() => {
-                  router.push('/ai-chat');
+                  // 回跳完整 Tutor 对话页（主 Tab），不再进入无引用卡片的 /ai-chat 降级页
+                  router.push('/');
                 }}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>

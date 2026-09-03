@@ -257,13 +257,33 @@ async function extractCitations(
           .single();
 
         if (draft) {
+          // 联查 file_contents 取原文片段与页码（issue #5 Task 8），
+          // 引用卡片不再只显示「用户当前上传的参考文件」
+          let snippet = '用户当前上传的参考文件';
+          let pageNumber: number | null = null;
+          try {
+            const { data: fcs } = await client
+              .from('file_contents')
+              .select('extracted_text, page_number')
+              .eq('draft_id', draft.id)
+              .order('page_number', { ascending: true, nullsFirst: true })
+              .limit(1);
+            if (fcs && fcs.length > 0) {
+              snippet = (fcs[0].extracted_text || snippet).substring(0, 200);
+              pageNumber = fcs[0].page_number ?? 1;
+            }
+          } catch {
+            // 非关键，保留兜底文案
+          }
+
           citations.push({
             type: 'file_content',
             sourceId: draft.id,
             sourceType: 'file_content',
             title: draft.file_name || '上传文件',
             fileName: draft.file_name || '上传文件',
-            snippet: '用户当前上传的参考文件',
+            snippet,
+            pageNumber,
             draftId: draft.id,
           });
         }
@@ -769,14 +789,8 @@ async function buildTutorPrompt(
         `[${n.short_name || '节点' + n.id}] ${n.papercore || '(暂无概述)'} 标签:${(n.tags || []).join(',')}`
       ).join('\n');
       contextLines.push(`【知识库节点 (${nodes.length}个)】\n${nodeList}`);
-
-      searchResults = nodes.map((n: any) => ({
-        sourceType: 'knowledge_node' as const,
-        sourceId: n.id,
-        title: n.short_name || `节点${n.id}`,
-        papercore: n.papercore,
-        tags: n.tags || [],
-      }));
+      // Layer 3 降级结果仅作 Prompt 上下文，不进 searchResults：
+      // 否则无匹配提问会渲染上百张引用卡片淹没正文（issue #5 Task 6）
     }
 
     // study_notes
