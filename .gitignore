@@ -100,3 +100,6 @@ expo-env.d.ts
 *.tsbuildinfo
 node-compile-cache/
 server/nohup.out
+
+# debug 调试产物（API 响应抓包）
+debug/*.json
