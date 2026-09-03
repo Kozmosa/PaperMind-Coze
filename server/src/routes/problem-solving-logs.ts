@@ -48,17 +48,21 @@ router.post('/', async (req: Request, res: Response) => {
   }
 });
 
-// 获取统计数据（按时间段）
+// 获取统计数据（按时间段，支持 endDate 锚定窗口终点，如反思报告生成时间）
 router.get('/stats', async (req: Request, res: Response) => {
   try {
     const userId = (req as any).userId;
     const days = parseInt(req.query.days as string) || 30;
-    const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    const endDateRaw = req.query.endDate as string | undefined;
+    const end = endDateRaw ? new Date(endDateRaw) : new Date();
+    const startDate = new Date(end.getTime() - days * 24 * 60 * 60 * 1000).toISOString();
+    const endISO = end.toISOString();
 
     let query = client
       .from('problem_solving_logs')
       .select('created_at')
-      .gte('created_at', startDate);
+      .gte('created_at', startDate)
+      .lte('created_at', endISO);
     if (userId && userId !== 'guest') {
       query = query.eq('user_id', userId);
     }

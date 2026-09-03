@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { getSupabaseClient } from '../storage/database/supabase-client.js';
 import { anthropic, DEFAULT_MODEL } from '../config/ai.js';
+import { scheduleIndexRebuild } from '../utils/index-refresh.js';
 
 const router = Router();
 
@@ -728,6 +729,7 @@ export async function handleProcessContent(req: Request, res: Response) {
           ai_processed: true, papercore: forcePapercore,
           logical_path: JSON.stringify(finalLps), tags: [L1, L2, ...kps].filter(Boolean),
         }).eq('id', id).eq('user_id', userId);
+        scheduleIndexRebuild();
         return res.json({ data: { id, status: 'processed', papercore: forcePapercore, tags: [L1, L2, ...kps], logical_path: finalLps, reason: 'forced' } });
       } catch (e: any) {
         console.error('[forced-classify] error:', e.message);
@@ -736,6 +738,7 @@ export async function handleProcessContent(req: Request, res: Response) {
           ai_processed: true, papercore: forcePapercore,
           logical_path: userPath ? userPath : '/未分类/',
         }).eq('id', id).eq('user_id', userId);
+        scheduleIndexRebuild();
         return res.json({ data: { id, status: 'skipped', reason: 'forced classification failed' } });
       }
     }
@@ -754,6 +757,7 @@ export async function handleProcessContent(req: Request, res: Response) {
           ai_processed: true, papercore: degradedPapercore,
           logical_path: JSON.stringify(finalLps), tags: [L1, L2, ...kps].filter(Boolean),
         }).eq('id', id).eq('user_id', userId);
+        scheduleIndexRebuild();
         return res.json({ data: { id, status: 'processed', papercore: degradedPapercore, tags: [L1, L2, ...kps], logical_path: finalLps, reason: 'forced-degraded' } });
       } catch (e: any) {
         const userPath = getUserSetLogicalPath(record);
@@ -761,6 +765,7 @@ export async function handleProcessContent(req: Request, res: Response) {
           ai_processed: true, papercore: degradedPapercore,
           logical_path: userPath ? userPath : JSON.stringify(['/未分类/']),
         }).eq('id', id).eq('user_id', userId);
+        scheduleIndexRebuild();
         return res.json({ data: { id, status: 'skipped', reason: 'degraded classification failed' } });
       }
     }
@@ -823,6 +828,7 @@ export async function handleProcessContent(req: Request, res: Response) {
 
     if (updateError) throw new Error(updateError.message);
 
+    scheduleIndexRebuild();
     res.json({
       data: {
         id,
@@ -959,10 +965,12 @@ router.post('/reprocess-material', async (req: Request, res: Response) => {
 
     if (!isReadableText(fileContent)) {
       const degradedPapercore = buildDegradedPapercore(materialFileName);
+      // 与 process-content 的 forced-degraded 路径一致：保留用户设置的 logical_path
+      const userPath = getUserSetLogicalPath(material);
       await supabase.from('materials').update({
         ai_processed: true,
         papercore: degradedPapercore,
-        logical_path: JSON.stringify(['/未分类/']),
+        logical_path: userPath ? userPath : JSON.stringify(['/未分类/']),
       }).eq('id', id).eq('user_id', userId);
       return res.json({ data: { id, status: 'processed', papercore: degradedPapercore, reason: 'degraded' } });
     }
@@ -989,6 +997,7 @@ router.post('/reprocess-material', async (req: Request, res: Response) => {
     const { error: updateError } = await supabase.from('materials').update(updatePayload).eq('id', id).eq('user_id', userId);
     if (updateError) throw new Error(updateError.message);
 
+    scheduleIndexRebuild();
     res.json({
       data: {
         id,
@@ -1007,16 +1016,21 @@ router.post('/reprocess-material', async (req: Request, res: Response) => {
 // ==========================================
 // POST /process-study-notes (batch, backward compat)
 // ==========================================
-router.post('/process-study-notes', async (_req, res) => {
+router.post('/process-study-notes', async (req, res) => {
   try {
     const supabase = getSupabaseClient();
+    const userId = (req as any).userId;
 
-    const { data: unprocessed, error: fetchError } = await supabase
+    let query = supabase
       .from('study_notes')
       .select('*')
       .eq('ai_processed', false)
       .order('created_at', { ascending: false })
       .limit(10);
+    // 多用户安全：仅处理本人记录（guest 保持旧行为）
+    if (userId && userId !== 'guest') query = query.eq('user_id', userId);
+
+    const { data: unprocessed, error: fetchError } = await query;
 
     if (fetchError) throw fetchError;
     if (!unprocessed || unprocessed.length === 0) {
@@ -1065,6 +1079,7 @@ router.post('/process-study-notes', async (_req, res) => {
       }
     }
 
+    scheduleIndexRebuild();
     res.json({ data: results });
   } catch (e: any) {
     console.error('Process study notes error:', e);
@@ -1075,16 +1090,21 @@ router.post('/process-study-notes', async (_req, res) => {
 // ==========================================
 // POST /process-materials (batch, backward compat)
 // ==========================================
-router.post('/process-materials', async (_req, res) => {
+router.post('/process-materials', async (req, res) => {
   try {
     const supabase = getSupabaseClient();
+    const userId = (req as any).userId;
 
-    const { data: unprocessed, error: fetchError } = await supabase
+    let query = supabase
       .from('materials')
       .select('*')
       .eq('ai_processed', false)
       .order('created_at', { ascending: false })
       .limit(10);
+    // 多用户安全：仅处理本人记录（guest 保持旧行为）
+    if (userId && userId !== 'guest') query = query.eq('user_id', userId);
+
+    const { data: unprocessed, error: fetchError } = await query;
 
     if (fetchError) throw fetchError;
     if (!unprocessed || unprocessed.length === 0) {
@@ -1119,10 +1139,12 @@ router.post('/process-materials', async (_req, res) => {
 
         if (!isReadableText(text)) {
           const degradedPapercore = buildDegradedPapercore(materialFileName);
+          // 与 process-content 的 forced-degraded 路径一致：保留用户设置的 logical_path
+          const userPath = getUserSetLogicalPath(material);
           await supabase.from('materials').update({
             ai_processed: true,
             papercore: degradedPapercore,
-            logical_path: JSON.stringify(['/未分类/']),
+            logical_path: userPath ? userPath : JSON.stringify(['/未分类/']),
           }).eq('id', material.id);
           results.push({ id: material.id, status: 'processed', papercore: degradedPapercore, reason: 'degraded' });
           continue;
@@ -1153,6 +1175,7 @@ router.post('/process-materials', async (_req, res) => {
       }
     }
 
+    scheduleIndexRebuild();
     res.json({ data: results });
   } catch (e: any) {
     console.error('Process materials error:', e);

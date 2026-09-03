@@ -67,14 +67,14 @@ app.listen(port, () => {
 setTimeout(() => {
   // Warm-start unified vector index + tag vector store
   import('./utils/unified-vector-index.js').then(async (indexMod) => {
-    // Build tag vector store first (used by unified index for re-ranking)
-    import('./utils/vector-store.js').then(async (tagMod) => {
-      await tagMod.tagVectorStore.buildFromDatabase().catch(err => {
-        console.warn('[Index] TagVectorStore build failed:', err.message);
-      });
-    }).catch(() => {
-      // safe to skip
-    });
+    // 先构建标签库（统一索引的标签加成依赖它），再构建统一索引
+    try {
+      await import('./utils/vector-store.js').then((tagMod) =>
+        tagMod.tagVectorStore.buildFromDatabase()
+      );
+    } catch (err: any) {
+      console.warn('[Index] TagVectorStore build failed:', err?.message);
+    }
 
     await indexMod.unifiedVectorIndex.buildIndex().catch(err => {
       console.warn('[Index] UnifiedVectorIndex build failed:', err.message);

@@ -56,8 +56,9 @@ export default function ReflectionDetailScreen() {
       setReflection(r);
 
       // Fetch Q&A activity stats matching the reflection period
+      // 以报告生成时间为窗口终点，历史报告数据不再漂移
       const days = getDaysFromPeriod(r.period);
-      const statsRes = await api.getProblemSolvingStats(days);
+      const statsRes = await api.getProblemSolvingStats(days, r.created_at);
       const daily: Record<string, number> = statsRes.data?.daily || {};
       setDailyCounts(formatStatsForChart(daily, r.period));
     } catch (e) {
