@@ -629,10 +629,10 @@ export default function ChatScreen() {
                         <Text style={{ color: '#636E72', fontSize: 14 }}>...</Text>
                       )}
                     </View>
-                    {citationsRef.current && citationsRef.current.length > 0 && (
+                    {msg.citations && msg.citations.length > 0 && (
                       <View style={{ marginTop: 8, maxWidth: '85%' }}>
                         <Text style={{ fontSize: 12, color: '#6C63FF', fontWeight: '700', marginBottom: 4 }}>引用资料</Text>
-                        {citationsRef.current.map((c, i) => renderCitation(c, i))}
+                        {msg.citations.map((c, i) => renderCitation(c, i))}
                       </View>
                     )}
                   </View>
