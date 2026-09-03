@@ -297,24 +297,24 @@ export default function ControlCenterScreen() {
         'application/octet-stream'
       );
 
-      const createRes = await api.createMaterial({
-        title: materialFileName || '上传资料',
-        file_url: uploadRes.fileUrl,
-        file_name: uploadRes.fileName || materialFileName,
-        mime_type: uploadRes.mimeType,
-        file_size: uploadRes.fileSize,
-      });
+      // 上传接口已在服务端同步创建 material 并完成分类（返回 materialId），
+      // 客户端不再二次 createMaterial，避免一次上传产生两条记录/双倍 LLM 成本
+      const newId = uploadRes.materialId;
 
       // Close modal immediately — file is captured
       setMaterialModalVisible(false);
       setMaterialFileUri(null);
       setMaterialFileName(null);
       loadData();
-      Alert.alert('上传成功', '文件已上传，AI 将在后台自动编排，完成后小红点提示');
+      Alert.alert(
+        '上传成功',
+        uploadRes.classification?.error
+          ? '文件已上传，AI 分类未完成，正在后台重试，完成后小红点提示'
+          : '文件已上传，AI 已自动编排分类，完成后小红点提示'
+      );
 
-      // Trigger AI processing in background (don't block UI)
-      const newId = createRes?.data?.id;
-      if (newId) {
+      // 服务端同步分类失败时，后台重试一次（issue #7 Task 2 的临时兜底）
+      if (newId && uploadRes.classification?.error) {
         const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
         fetch(`${BASE_URL}/api/v1/knowledge-builder/process-content`, {
           method: 'POST',
