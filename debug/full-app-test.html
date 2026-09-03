@@ -3727,11 +3727,11 @@ viewMaterialFullscreen = async function(id, title) {
     let viewUrl = data.viewUrl || '';
 
     // Find metadata
-    let papercore = '', tags = [], logicalPath = '';
+    let papercore = '', tags = [], logicalPath = '', processStatus = '';
     if (matRes) {
       const matData = (matRes.data || matRes).data || matRes.data || [];
       const found = Array.isArray(matData) ? matData.find(m => m.id === id) : null;
-      if (found) { papercore = found.papercore || ''; tags = found.tags || []; logicalPath = found.logical_path || ''; }
+      if (found) { papercore = found.papercore || ''; tags = found.tags || []; logicalPath = found.logical_path || ''; processStatus = found.process_status || ''; }
     }
 
     document.getElementById('nh-fab').classList.add('show');
@@ -3764,8 +3764,11 @@ viewMaterialFullscreen = async function(id, title) {
     html += '<div style="padding:14px 18px;border-top:1px solid var(--border);flex-shrink:0;max-height:200px;overflow-y:auto;">';
     html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
     html += '<div class="section-title" style="margin-bottom:0;">AI 摘要</div>';
+    html += '<div style="display:flex;align-items:center;gap:8px;">';
+    if (processStatus === 'failed') html += '<span style="background:#fdecea;color:#c0392b;font-size:11px;padding:3px 10px;border-radius:10px;">⚠️ 分类失败</span>';
+    if (processStatus === 'pending') html += '<span style="background:#fff4e5;color:#b9770e;font-size:11px;padding:3px 10px;border-radius:10px;">⏳ 待分类</span>';
     html += '<button class="btn btn-neu" style="font-size:11px;padding:5px 12px;border-radius:12px;" onclick="reprocessMaterial(\'' + esc(id) + '\')">🔄 重新分析</button>';
-    html += '</div>';
+    html += '</div></div>';
     if (papercore) html += '<div class="body-text" style="font-size:13px;line-height:1.7;margin-bottom:8px;">' + simpleMarkdown(papercore) + '</div>';
     if (tags.length > 0) html += tags.map(t => '<span class="tag" style="background:var(--pri-pale);color:var(--primary);margin-right:4px;">' + esc(t) + '</span>').join('');
     if (logicalPath) html += '<div class="meta-text" style="margin-top:6px;">📁 ' + esc(fmtPath(logicalPath)) + '</div>';

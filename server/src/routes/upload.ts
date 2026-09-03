@@ -175,6 +175,12 @@ router.post('/', async (req: Request, res: Response) => {
       } catch (clsErr: any) {
         console.error('[upload] classification error:', clsErr.message);
         classification = { error: clsErr.message };
+        // 标记失败：保持 ai_processed=false，批次接口/重新分析可重试（issue #7 Task 2）
+        if (materialId) {
+          try {
+            await client.from('materials').update({ process_status: 'failed' }).eq('id', materialId);
+          } catch {}
+        }
       }
 
       res.json({
