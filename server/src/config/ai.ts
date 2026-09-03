@@ -40,18 +40,7 @@ export const anthropic: Anthropic = AI_API_KEY
 /** 当前使用的主模型 */
 export const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL || 'kimi-for-coding';
 
-/** 可用模型列表（智谱 BigModel 网关 /v1/models 返回） */
-export const AVAILABLE_MODELS = [
-  'glm-5.3-flash',
-  'glm-5.3',
-  'glm-5.2',
-  'glm-5.1',
-  'glm-5-turbo',
-  'glm-5',
-  'glm-4.7',
-  'glm-4.6',
-  'glm-4.5-air',
-  'glm-4.5',
-] as const;
+/** 可用模型列表：跟随 ANTHROPIC_MODEL 配置的网关模型（如 deepseek-v4-pro） */
+export const AVAILABLE_MODELS = [DEFAULT_MODEL];
 
 export type AvailableModel = (typeof AVAILABLE_MODELS)[number];
