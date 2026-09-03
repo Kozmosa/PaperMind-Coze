@@ -62,7 +62,7 @@ class UnifiedVectorIndex {
 
   /**
    * Build (or rebuild) the index from all three content tables.
-   * Also triggers TagVectorStore.buildFromDatabase() for tag matching.
+   * 标签库（TagVectorStore）的构建由调用方负责（见 utils/index-refresh.ts）。
    */
   async buildIndex(): Promise<void> {
     if (this.building && this.buildPromise) {

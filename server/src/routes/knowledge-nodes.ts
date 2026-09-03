@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { getSupabaseClient } from '../storage/database/supabase-client.js';
+import { scheduleIndexRebuild } from '../utils/index-refresh.js';
 
 const router = Router();
 const client = getSupabaseClient();
@@ -60,6 +61,7 @@ router.post('/', async (req: Request, res: Response) => {
       .select()
       .single();
     if (error) throw new Error(error.message);
+    scheduleIndexRebuild();
     res.status(201).json({ data });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -88,6 +90,7 @@ router.put('/:id', async (req: Request, res: Response) => {
       .single();
     if (error) throw new Error(error.message);
     if (!data) return res.status(404).json({ error: '节点不存在' });
+    scheduleIndexRebuild();
     res.json({ data });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -105,6 +108,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
       .single();
     if (error) throw new Error(error.message);
     if (!data) return res.status(404).json({ error: '节点不存在' });
+    scheduleIndexRebuild();
     res.json({ data });
   } catch (err: any) {
     res.status(500).json({ error: err.message });

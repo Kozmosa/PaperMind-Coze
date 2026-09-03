@@ -1507,6 +1507,12 @@ ${sourcesContext}
  */
 router.post('/refresh-index', async (_req: Request, res: Response) => {
   try {
+    // 同时重建标签库（新增标签在重启前也要参与加成）
+    await import('../utils/vector-store.js').then((m) =>
+      m.tagVectorStore.buildFromDatabase()
+    ).catch((err: any) => {
+      console.warn('[Index] TagVectorStore rebuild failed:', err?.message);
+    });
     await unifiedVectorIndex.buildIndex();
     res.json({
       success: true,

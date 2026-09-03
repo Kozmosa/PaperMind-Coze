@@ -313,8 +313,8 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
-  getProblemSolvingStats: (days?: number) =>
-    request<any>(`/problem-solving-logs/stats${days ? `?days=${days}` : ''}`),
+  getProblemSolvingStats: (days?: number, endDate?: string) =>
+    request<any>(`/problem-solving-logs/stats?days=${days || 30}${endDate ? `&endDate=${encodeURIComponent(endDate)}` : ''}`),
 
   // Chat Sessions (聊天会话)
   getChatSessions: () => request<any[]>('/chat-sessions'),
