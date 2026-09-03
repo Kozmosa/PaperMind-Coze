@@ -112,7 +112,8 @@ router.post('/', async (req: Request, res: Response) => {
           await client.from('file_contents').insert({
             draft_id: draft.id,
             extracted_text: extracted.text.slice(0, 50000),
-            page_number: null,
+            // 单页文件统一写第 1 页，保证 file_content 引用卡片有页码 badge（issue #5）
+            page_number: 1,
           });
         }
       }

@@ -91,7 +91,7 @@ router.post('/tutor', async (req: Request, res: Response) => {
     res.setHeader('Connection', 'keep-alive');
 
     const hasImage = !!imageBase64;
-    const { systemPrompt, searchResults } = await buildTutorPrompt(context, message, hasImage);
+    const { systemPrompt, searchResults, allFileContents } = await buildTutorPrompt(context, message, hasImage);
 
     // 构建消息：有图片时用 multipart content blocks，否则纯文本
     let messages: any[];
@@ -125,7 +125,9 @@ router.post('/tutor', async (req: Request, res: Response) => {
     }
 
     // 流结束后，提取 citations 并发送元数据
-    const citations = await extractCitations(fullContent, context, searchResults);
+    // 把 buildTutorPrompt 收集的节点关联文件原文注入 context.fileContents，
+    // 打通架构规格 1.4 优先级 4（此前 allFileContents 从未传到这里，是死路径）
+    const citations = await extractCitations(fullContent, { ...context, fileContents: allFileContents }, searchResults);
 
     res.write(`data: ${JSON.stringify({
       content: '',
@@ -614,7 +616,7 @@ async function buildTutorPrompt(
   context?: any,
   userMessage?: string,
   hasImage?: boolean,
-): Promise<{ systemPrompt: string; searchResults?: any[] }> {
+): Promise<{ systemPrompt: string; searchResults?: any[]; allFileContents?: any[] }> {
   let knowledgeContext = '';
   let fileContentsContext = '';
   let allFileContents: any[] = []; // for citations
@@ -829,6 +831,7 @@ ${imageInstruction}
 
 回答要求：条理清晰、有具体示例、可给出后续学习方向。`,
       searchResults,
+      allFileContents,
     };
   }
 
@@ -848,6 +851,7 @@ ${knowledgeContext}${fileContentsContext}
 8. 给出后续学习建议
 9. 回答完后，在消息末尾添加引用来源汇总，格式：「引用来源：来源名称1、来源名称2」`,
     searchResults,
+    allFileContents,
   };
 }
 
@@ -906,46 +910,59 @@ async function buildReflectionPrompt(context?: any, period?: string): Promise<st
   }
 
   if (context?.userId) {
+    const userId = context.userId;
+
     // 问题解决记录（按时间过滤）
     let logsQuery = client
       .from('paper_problem_logs')
       .select('*')
-      .eq('user_id', context.userId)
+      .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(20);
     if (sinceDate) logsQuery = logsQuery.gte('created_at', sinceDate);
-    const { data: logs } = await logsQuery;
-    if (logs && logs.length > 0) logsContext = `问题解决记录（${logs.length}条）：${JSON.stringify(logs)}`;
 
     // 问答日志（Tutor 对话记录，按时间过滤）
     let qaLogsQuery = client
       .from('problem_solving_logs')
       .select('question, answer, created_at')
-      .eq('user_id', context.userId)
+      .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(30);
     if (sinceDate) qaLogsQuery = qaLogsQuery.gte('created_at', sinceDate);
-    const { data: qaLogs } = await qaLogsQuery;
-    if (qaLogs && qaLogs.length > 0) qaLogsContext = `问答日志（${qaLogs.length}条）：${JSON.stringify(qaLogs)}`;
 
-    // 往期反思
-    const { data: refs } = await client
+    // 往期反思（规格 2.2：均按时间窗口过滤）
+    let refsQuery = client
       .from('reflections')
       .select('*')
-      .eq('user_id', context.userId)
+      .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(5);
-    if (refs && refs.length > 0) pastReflections = `往期反思（${refs.length}条）：${JSON.stringify(refs)}`;
+    if (sinceDate) refsQuery = refsQuery.gte('created_at', sinceDate);
 
     // 知识节点活动（按时间过滤）
     let nodesQuery = client
       .from('knowledge_nodes')
       .select('id, papercore, short_name, tags, created_at')
-      .eq('user_id', context.userId)
+      .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(50);
     if (sinceDate) nodesQuery = nodesQuery.gte('created_at', sinceDate);
-    const { data: nodes } = await nodesQuery;
+
+    // 规格 2.2：4 类数据并行采集
+    const [logsRes, qaLogsRes, refsRes, nodesRes] = await Promise.all([
+      logsQuery, qaLogsQuery, refsQuery, nodesQuery,
+    ]);
+
+    const { data: logs } = logsRes;
+    if (logs && logs.length > 0) logsContext = `问题解决记录（${logs.length}条）：${JSON.stringify(logs)}`;
+
+    const { data: qaLogs } = qaLogsRes;
+    if (qaLogs && qaLogs.length > 0) qaLogsContext = `问答日志（${qaLogs.length}条）：${JSON.stringify(qaLogs)}`;
+
+    const { data: refs } = refsRes;
+    if (refs && refs.length > 0) pastReflections = `往期反思（${refs.length}条）：${JSON.stringify(refs)}`;
+
+    const { data: nodes } = nodesRes;
     if (nodes && nodes.length > 0) nodeActivity = `知识节点活动（${nodes.length}个）：${JSON.stringify(nodes)}`;
   }
 
@@ -976,7 +993,7 @@ ${nodeActivity || '暂无知识节点活动。'}
 ## 学习建议
 <给出具体可操作的学习建议，200-400字>
 
-风格：鼓励、建设性、有洞察力。不要输出任何其他内容（如前言、结语、署名等），直接从 "## 学习行为" 开始输出。`;
+风格：鼓励、建设性、有洞察力。结合往期反思的内容，避免重复往期已经给出的建议。不要输出任何其他内容（如前言、结语、署名等），直接从 "## 学习行为" 开始输出。`;
 }
 
 /**
@@ -1058,8 +1075,13 @@ router.post('/generate-reflection', async (req: Request, res: Response) => {
 
     // 解析4个section
     const sections = parseReflectionSections(fullContent);
+    const parseFailed =
+      !sections.learning_behavior ||
+      !sections.challenge_report ||
+      !sections.thinking_pattern ||
+      !sections.suggestion;
 
-    // 保存到数据库
+    // 保存到数据库（raw_text 保留原始全文，解析失败时不丢内容）
     const { data: saved, error: saveError } = await client
       .from('reflections')
       .insert({
@@ -1067,6 +1089,7 @@ router.post('/generate-reflection', async (req: Request, res: Response) => {
         challenge_report: sections.challenge_report || null,
         thinking_pattern: sections.thinking_pattern || null,
         suggestion: sections.suggestion || null,
+        raw_text: fullContent,
         period,
         user_id: userId,
       })
@@ -1079,6 +1102,7 @@ router.post('/generate-reflection', async (req: Request, res: Response) => {
     } else if (saved) {
       res.write(`data: ${JSON.stringify({
         done: true,
+        warning: parseFailed ? '部分维度解析失败，已保留原始全文（raw_text）' : null,
         reflection: {
           id: saved.id,
           period: saved.period,
