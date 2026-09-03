@@ -657,7 +657,7 @@ async function readMaterialFileFromDisk(material: any): Promise<string> {
   }
 }
 
-router.post('/process-content', async (req: Request, res: Response) => {
+export async function handleProcessContent(req: Request, res: Response) {
   try {
     const userId = (req as any).userId || 'guest';
     const { type, id, file_content } = req.body;
@@ -836,7 +836,9 @@ router.post('/process-content', async (req: Request, res: Response) => {
     console.error('process-content error:', err);
     res.status(500).json({ error: err.message });
   }
-});
+}
+
+router.post('/process-content', handleProcessContent);
 
 // ==========================================
 // POST /reprocess-material - Reprocess a single material from disk

@@ -9,7 +9,15 @@ import { extractText } from '../utils/extract-text.js';
 const router = Router();
 const client = getSupabaseClient();
 
-// 确保上传目录存在
+function decodeOriginalName(name: string): string {
+  try {
+    const repaired = Buffer.from(name, 'latin1').toString('utf8');
+    // 如果已经是合法 utf-8 字符串（无替换字符），用修复版本；否则保留原值
+    if (repaired && !repaired.includes('�')) return repaired;
+  } catch {}
+  return name;
+}
+
 const UPLOAD_DIR = path.join(process.cwd(), 'uploads');
 if (!fs.existsSync(UPLOAD_DIR)) {
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -18,9 +26,11 @@ if (!fs.existsSync(UPLOAD_DIR)) {
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
   filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    const name = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`;
-    cb(null, name);
+    const decoded = decodeOriginalName(file.originalname || '');
+    const ext = path.extname(decoded);
+    const base = path.basename(decoded, ext).replace(/[^\w\-一-鿿]/g, '_').slice(0, 40) || 'file';
+    const stamp = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    cb(null, `${stamp}__${base}${ext}`);
   },
 });
 
@@ -69,18 +79,17 @@ router.post('/', async (req: Request, res: Response) => {
     }
 
     try {
-      // 异步提取文本内容
+      const originalName = decodeOriginalName(file.originalname || 'file');
       const filePath = path.join(UPLOAD_DIR, file.filename);
-      const extracted = await extractText(filePath, file.mimetype, file.originalname);
+      const extracted = await extractText(filePath, file.mimetype, originalName);
 
-      // 保存到 draft_pool（创建草稿记录）
       const userId = (req as any).userId || 'guest';
       const { data: draft, error: draftError } = await client
         .from('draft_pool')
         .insert({
           content: extracted.text || `[文件内容已提取，共 ${extracted.pageCount || '?'} 页]`,
           file_url: `/uploads/${file.filename}`,
-          file_name: file.originalname,
+          file_name: originalName,
           status: extracted.text ? 'processed' : 'unprocessed',
           user_id: userId,
         })
@@ -90,9 +99,7 @@ router.post('/', async (req: Request, res: Response) => {
       if (draftError) {
         console.error('[upload] Failed to create draft:', draftError);
       } else if (draft && extracted.text) {
-        // 将提取的文本存入 file_contents 表
         if (extracted.pageCount && extracted.pageCount > 1) {
-          // PDF 多页：按页存储
           const pages = extracted.text.split(/\n\n+/).filter(Boolean);
           for (let i = 0; i < Math.min(pages.length, extracted.pageCount); i++) {
             await client.from('file_contents').insert({
@@ -102,7 +109,6 @@ router.post('/', async (req: Request, res: Response) => {
             });
           }
         } else {
-          // 单页或非 PDF
           await client.from('file_contents').insert({
             draft_id: draft.id,
             extracted_text: extracted.text.slice(0, 50000),
@@ -111,20 +117,74 @@ router.post('/', async (req: Request, res: Response) => {
         }
       }
 
+      // ====== 同步触发知识分类（不再 fire-and-forget）======
+      let materialId: string | null = null;
+      let classification: any = null;
+      try {
+        const { data: material, error: matErr } = await client
+          .from('materials')
+          .insert({
+            user_id: userId,
+            name: originalName,
+            file_path: `/uploads/${file.filename}`,
+            file_type: file.mimetype,
+            tags: [],
+            ai_processed: false,
+            viewed_after_process: false,
+          })
+          .select()
+          .single();
+        if (matErr) throw new Error(matErr.message);
+        materialId = material?.id || null;
+
+        // 自调 process-content：直接走本进程的 knowledge-builder handler，避免 HTTP 自调
+        // 带来的端口 / 用户上下文传递问题
+        const mod: any = await import('./knowledge-builder.js');
+        const handleProcess = mod.handleProcessContent;
+        if (typeof handleProcess !== 'function') {
+          throw new Error('knowledge-builder handler 未导出');
+        }
+        const fakeReq: any = {
+          body: { type: 'material', id: materialId },
+          userId,
+        };
+        let clsResult: any = null;
+        let clsError: any = null;
+        const fakeRes: any = {
+          json: (v: any) => { clsResult = v; return fakeRes; },
+          status: (code: number) => { fakeRes._status = code; return fakeRes; },
+          _status: 200,
+        };
+        try {
+          await handleProcess(fakeReq, fakeRes);
+        } catch (e: any) {
+          clsError = e;
+        }
+        if (clsError || fakeRes._status >= 400) {
+          throw new Error(clsError?.message || '分类 handler 返回 ' + fakeRes._status);
+        }
+        classification = clsResult;
+      } catch (clsErr: any) {
+        console.error('[upload] classification error:', clsErr.message);
+        classification = { error: clsErr.message };
+      }
+
       res.json({
         fileKey: file.filename,
         fileUrl: `/uploads/${file.filename}`,
-        fileName: file.originalname,
+        fileName: originalName,
         mimeType: file.mimetype,
         draftId: draft?.id,
+        materialId,
         extracted: !!extracted.text,
+        classification,
       });
     } catch (err: any) {
       console.error('[upload] Error:', err);
       res.json({
         fileKey: file.filename,
         fileUrl: `/uploads/${file.filename}`,
-        fileName: file.originalname,
+        fileName: decodeOriginalName(file.originalname || 'file'),
         draftId: null,
         extracted: false,
       });

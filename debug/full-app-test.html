@@ -1114,7 +1114,9 @@
       <div style="max-height:300px;overflow-y:auto;background:var(--bg);border-radius:16px;padding:8px 0;box-shadow:var(--neu-pressed);" id="move-folder-list">
         <div style="text-align:center;padding:20px;"><div class="spinner"></div></div>
       </div>
-      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px;">
+      <div style="display:flex;gap:10px;align-items:center;margin-top:14px;">
+        <button class="btn btn-neu" style="background:rgba(231,76,60,.12);color:#e74c3c;border-radius:14px;font-weight:700;" onclick="deleteFromMoveDialog()">🗑 删除</button>
+        <div style="flex:1;"></div>
         <button class="btn btn-neu" onclick="closeMoveFile()">取消</button>
         <button class="btn btn-primary" id="move-submit-btn" onclick="submitMoveFile()">移动</button>
       </div>
@@ -1382,6 +1384,37 @@ function moveFromList(idx){
   const r=_ctrlRecords[idx];if(!r)return;
   const currentPath = fmtPath(r.logical_path);
   showMoveFileDialog(r.id, r.record_type||'study_note', r.title||r.name||'', currentPath);
+}
+
+// Transient toast for success/error feedback
+function appToast(msg, type){
+  let t=document.getElementById('app-toast'); if(t)t.remove();
+  t=document.createElement('div'); t.id='app-toast';
+  t.textContent=msg;
+  const col=type==='error'?'#e74c3c':'#2ecc71';
+  t.style.cssText='position:fixed;bottom:100px;left:50%;transform:translateX(-50%);z-index:300;background:'+col+';color:#fff;font-size:13px;font-weight:600;padding:10px 20px;border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.18);opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;max-width:90%;overflow:hidden;text-overflow:ellipsis;';
+  document.body.appendChild(t);
+  t.style.opacity='1';
+  setTimeout(()=>{t.style.opacity='0';setTimeout(()=>{if(t&&t.parentNode)t.remove();},400);},2200);
+}
+
+// Delete a file record (material / study note)
+async function deleteFile(id, type, title){
+  if(!confirm('确定删除「'+title+'」吗？此操作不可恢复。'))return;
+  const ep = type==='material' ? '/materials/' : '/study-notes/';
+  try{
+    const res=await safeFetch(API+ep+id,{method:'DELETE'});
+    if(res.ok){ appToast('已删除「'+title+'」'); refreshCurrentTab(); }
+    else{ const t=await res.text().catch(()=>''); alert('删除失败 HTTP '+res.status+(t?' — '+t.slice(0,120):'')); }
+  }catch(e){ alert('删除失败: '+e.message); }
+}
+
+// Delete from the move dialog (📁 弹窗底部的删除键)
+function deleteFromMoveDialog(){
+  const id=_moveFileId, type=_moveFileType, title=_moveFileTitle||'';
+  if(!id)return;
+  closeMoveFile();
+  deleteFile(id, type, title);
 }
 
 function viewReflection(idx){
@@ -2492,14 +2525,27 @@ async function submitUploadMaterial() {
     document.getElementById('um-progress-bar').style.width = '100%';
     document.getElementById('um-progress-text').textContent = '上传成功，正在分类...';
 
-    // Step 3: Trigger knowledge classification (fire-and-forget)
+    // Step 3: 触发知识分类 — 等待结果，失败时给出明确提示
     if (matId) {
-      safeFetch(API + '/knowledge-builder/process-content', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'material', id: matId })
-      }).catch(() => {});
+      try {
+        const clsRes = await safeFetch(API + '/knowledge-builder/process-content', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'material', id: matId })
+        });
+        if (!clsRes.ok) {
+          const t = await clsRes.text().catch(() => '');
+          throw new Error('HTTP ' + clsRes.status + (t ? ' — ' + t.slice(0, 120) : ''));
+        }
+        const clsJson = await clsRes.json().catch(() => null);
+        console.log('[upload] classification result:', clsJson);
+      } catch (clsErr) {
+        console.error('[upload] classification failed:', clsErr.message);
+        appToast('分类失败（文件已上传）：' + clsErr.message, 'error');
+      }
     }
 
-    setTimeout(() => { closeUploadMaterial(); refreshCurrentTab(); }, 800);
+    setTimeout(() => { closeUploadMaterial(); refreshCurrentTab(); }, 600);
   } catch (e) {
     console.error('[upload]', e);
     document.getElementById('um-progress-text').textContent = '失败: ' + e.message;
@@ -2511,7 +2557,7 @@ async function submitUploadMaterial() {
 // ═══════════════════════════════════════════
 // FOLDER VIEW: file moving between folders
 // ═══════════════════════════════════════════
-let _moveFileId = null, _moveFileType = null, _moveSelectedPath = null;
+let _moveFileId = null, _moveFileType = null, _moveSelectedPath = null, _moveFileTitle = null, _moveFileCurrentPath = '/';
 
 function viewFolderDoc(id, type, title) {
   if (type === 'study_note') viewNoteFullscreen(id, title);
@@ -2522,7 +2568,9 @@ function viewFolderDoc(id, type, title) {
 function showMoveFileDialog(id, type, title, currentPath) {
   _moveFileId = id;
   _moveFileType = type;
+  _moveFileTitle = title;
   _moveSelectedPath = null;
+  _moveFileCurrentPath = currentPath || '/';
   document.getElementById('move-cur-path').textContent = esc(currentPath || '/');
   document.getElementById('move-submit-btn').disabled = true;
   document.getElementById('move-file-mask').classList.add('show');
@@ -2531,42 +2579,102 @@ function showMoveFileDialog(id, type, title, currentPath) {
 
 async function loadFolderPicker() {
   const list = document.getElementById('move-folder-list');
-  list.innerHTML = '<div style="text-align:center;padding:20px;"><div class="spinner"></div></div>';
+  list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3);font-size:12px;">加载文件夹结构...</div>';
   try {
-    const res = await safeFetch(API + '/control-center/recent-records?limit=200');
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const json = await res.json();
-    const records = json.data || [];
-    // Extract unique folder paths
-    const folders = new Set();
-    folders.add('/');
-    records.forEach(r => {
-      let path = r.logical_path || '';
-      try {
-        const p = JSON.parse(path);
-        if (Array.isArray(p) && p.length > 0) path = p[0];
-      } catch {}
-      path = path.replace(/^\[?"?\/?|\/?"?\]?$/g, '/');
-      const parts = path.split('/').filter(Boolean);
-      let cur = '';
-      parts.forEach(part => { cur += '/' + part; folders.add(cur + '/'); });
+    // Collect paths from recent records + knowledge graph
+    const paths = new Set();
+
+    // Source 1: recent records
+    try {
+      const recRes = await safeFetch(API + '/control-center/recent-records?limit=200');
+      if (recRes.ok) {
+        const recJson = await recRes.json();
+        const records = recJson.data || [];
+        records.forEach(rec => {
+          let path = rec.logical_path || '';
+          try { const p = JSON.parse(path); if (Array.isArray(p) && p.length > 0) path = p[0]; } catch {}
+          path = path.replace(/^\[?"?\/?/, '/').replace(/\/?"?\]?$/, '/');
+          const parts = path.split('/').filter(Boolean);
+          let cur = '';
+          parts.forEach(part => { cur += '/' + part; paths.add(cur + '/'); });
+        });
+      }
+    } catch {}
+
+    // Source 2: knowledge graph categories
+    try {
+      const graphRes = await safeFetch(API + '/knowledge-builder/graph-data');
+      if (graphRes.ok) {
+        const graphJson = await graphRes.json();
+        const graphData = graphJson.data || graphJson;
+        const nodes = graphData.nodes || [];
+        nodes.forEach(n => {
+          if (n.logicalPath && n.depth >= 1) {
+            const parts = n.logicalPath.split('/').filter(Boolean);
+            let cur = '';
+            parts.forEach(part => { cur += '/' + part; paths.add(cur + '/'); });
+          }
+        });
+      }
+    } catch {}
+
+    if (paths.size === 0) {
+      list.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text3);">暂无文件夹</div>';
+      return;
+    }
+
+    // Build tree from flat paths
+    const root = new Map();
+    paths.forEach(p => {
+      const parts = p.split('/').filter(Boolean);
+      let cur = root;
+      let full = '';
+      parts.forEach(part => {
+        full += '/' + part + '/';
+        if (!cur.has(part)) cur.set(part, { name: part, fullPath: full, subs: new Map() });
+        cur = cur.get(part).subs;
+      });
     });
 
-    const sorted = [...folders].sort();
-    let html = '';
-    sorted.forEach(f => {
-      const display = f === '/' ? '/ (根目录)' : f;
-      html += '<div class="folder-picker-item" onclick="selectMoveFolder(\'' + esc(f) + '\', this)" data-path="' + esc(f) + '">📁 ' + esc(display) + '</div>';
-    });
-    list.innerHTML = html || '<div style="text-align:center;padding:16px;color:var(--text3);">暂无文件夹</div>';
+    const currentPath = '/' + (_moveFileCurrentPath || '').replace(/^\/+|\/+$/g, '') + '/';
+    list.innerHTML = renderMoveFolderTree(root, 0, currentPath, currentPath);
+
   } catch (e) {
     list.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text3);">加载失败: ' + esc(e.message) + '</div>';
   }
 }
 
+function renderMoveFolderTree(folders, depth, currentPath, fullCurrentPath) {
+  const sorted = [...folders.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  let h = '';
+  sorted.forEach(([key, node]) => {
+    const hasKids = node.subs.size > 0;
+    const selClass = node.fullPath === currentPath ? ' selected' : '';
+    // Auto-expand if current path is under this branch
+    const isAncestor = fullCurrentPath && fullCurrentPath !== '/' && node.fullPath !== '/' && fullCurrentPath.startsWith(node.fullPath);
+    const kidsDisplay = (hasKids && (isAncestor || node.fullPath === '/')) ? 'block' : 'none';
+    const chevChar = (hasKids && (isAncestor || node.fullPath === '/')) ? '▼' : '▶';
+    h += '<div class="folder-select-item' + selClass + '" style="padding-left:' + (14 + depth * 22) + 'px;" onclick="selectMoveFolder(&quot;' + esc(node.fullPath) + '&quot;, this)">';
+    if (hasKids) {
+      h += '<span class="um-tree-chev" style="font-size:10px;color:var(--text4);width:16px;flex-shrink:0;" onclick="event.stopPropagation();toggleUmTree(this)">' + chevChar + '</span>';
+    } else {
+      h += '<span style="width:16px;flex-shrink:0;"></span>';
+    }
+    h += '<span style="font-size:15px;flex-shrink:0;">📁</span>';
+    h += '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(node.name) + '</span>';
+    h += '</div>';
+    if (hasKids) {
+      h += '<div class="um-tree-kids" style="display:' + kidsDisplay + ';">';
+      h += renderMoveFolderTree(node.subs, depth + 1, currentPath, fullCurrentPath);
+      h += '</div>';
+    }
+  });
+  return h;
+}
+
 function selectMoveFolder(path, el) {
   _moveSelectedPath = path;
-  document.querySelectorAll('.folder-picker-item').forEach(i => i.classList.remove('selected'));
+  document.querySelectorAll('#move-folder-list .folder-select-item').forEach(i => i.classList.remove('selected'));
   if (el) el.classList.add('selected');
   document.getElementById('move-submit-btn').disabled = false;
 }
@@ -2589,7 +2697,7 @@ async function submitMoveFile() {
 
 function closeMoveFile() {
   document.getElementById('move-file-mask').classList.remove('show');
-  _moveFileId = null; _moveFileType = null; _moveSelectedPath = null;
+  _moveFileId = null; _moveFileType = null; _moveSelectedPath = null; _moveFileCurrentPath = '/';
 }
 
 
