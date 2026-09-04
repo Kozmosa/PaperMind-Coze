@@ -27,7 +27,7 @@
 │   │   ├── middleware/         # Supabase Auth 鉴权
 │   │   ├── storage/database/   # schema 定义 + Supabase 客户端
 │   │   └── utils/              # 文本提取、向量索引
-│   ├── scripts/                # 数据脚本（seed-mvp1、reprocess-materials）
+│   ├── scripts/                # 数据脚本（seed-scenario、seed-mvp1、reprocess-materials）
 │   └── package.json
 ├── debug/                      # 浏览器调试页（后端静态挂载于 /debug/*）
 ├── docs/                       # 架构文档
@@ -283,4 +283,11 @@ import { Screen } from '../../../components/Screen';
 
 - Expo Web：<http://localhost:5001>；后端：<http://localhost:9091>（健康检查 `GET /api/v1/health`）
 - 日志输出到 `logs/client.log` 与 `logs/server.log`
-- 种子 / 重处理脚本：`npx tsx server/scripts/seed-mvp1.ts`、`npx tsx server/scripts/reprocess-materials.ts`（需服务已启动）
+- 数据库迁移（凭据二选一：`SUPABASE_ACCESS_TOKEN` 个人访问令牌走 Management API，或 `SUPABASE_DB_URL` pg 直连，见 `.env.example`）：
+  - 应用全部待执行迁移：`cd server && npx tsx scripts/apply-migrations.ts`（幂等，账本在 `schema_migrations`）
+  - 基础表已手动建过的库可先登记再应用：`npx tsx scripts/apply-migrations.ts --mark 000_init.sql 000_init_missing_tables.sql`
+  - 校验关键列：`cd server && npx tsx scripts/verify-migrations.ts`
+- 种子 / 重处理脚本（需服务已启动；tsx 是 server 的依赖，在 server 目录下执行）：
+  - 演示场景包（推荐，含社区/反思/会话等全套数据）：`cd server && npx tsx scripts/seed-scenario.ts`，说明见 `test_data/scenario/README.md`
+  - MVP1 最小种子（仅纪要+资料）：`cd server && npx tsx scripts/seed-mvp1.ts`
+  - 资料重处理：`cd server && npx tsx scripts/reprocess-materials.ts`
