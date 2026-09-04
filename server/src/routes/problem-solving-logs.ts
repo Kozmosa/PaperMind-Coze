@@ -37,19 +37,34 @@ router.post('/', async (req: Request, res: Response) => {
       citation_snippets,
     } = req.body;
 
-    const { data, error } = await client
+    const payload = {
+      user_id: userId,
+      question: question || '',
+      answer: answer || '',
+      steps: steps || '',
+      related_knowledge_node_ids: related_knowledge_node_ids || [],
+      related_draft_ids: related_draft_ids || [],
+      citation_snippets: citation_snippets || [],
+    };
+
+    let { data, error } = await client
       .from('problem_solving_logs')
-      .insert({
-        user_id: userId,
-        question: question || '',
-        answer: answer || '',
-        steps: steps || '',
-        related_knowledge_node_ids: related_knowledge_node_ids || [],
-        related_draft_ids: related_draft_ids || [],
-        citation_snippets: citation_snippets || [],
-      })
+      .insert(payload)
       .select()
       .single();
+
+    // related_draft_ids 由 migrations/002 添加：未执行迁移的库返回 42703，
+    // 降级去掉该列重试，避免「我明白了」写入断裂（与 issue #6 同源的缺列防御）
+    if (error && (error.code === '42703' || /related_draft_ids/.test(error.message || ''))) {
+      const rest = { ...payload };
+      delete rest.related_draft_ids;
+      const retry = await client.from('problem_solving_logs').insert(rest).select().single();
+      data = retry.data;
+      error = retry.error;
+      console.warn(
+        '[problem-solving-logs] related_draft_ids 列缺失，已降级写入（执行 migrations/002_add_related_draft_ids.sql 可恢复）',
+      );
+    }
 
     if (error) throw new Error(error.message);
     res.json({ data });

@@ -297,7 +297,7 @@ async function generatePapercore(
   const prompt = `你是学术摘要撰写专家。请为以下文档撰写学术摘要（Papercore）。
 
 要求：
-1. 第一行输出文档的一级标题/总标题（直接提取原文，不要改写）
+1. 第一行输出文档的总标题（仅标题一行文字；原文开头的引用块、出处说明、前置知识等头部行不要一并输出）
 2. 正文以二级标题为线索组织叙述，保持逻辑连贯
 3. 涵盖核心定义、公式定理、关键结论
 4. 80-150字，语言简洁专业
@@ -308,7 +308,8 @@ async function generatePapercore(
   try {
     const response = await anthropic.messages.create({
       model: DEFAULT_MODEL,
-      max_tokens: 400,
+      // thinking 型模型会先输出思考块再输出正文，预算不足时正文为空（分类全空）
+      max_tokens: 2048,
       temperature: 0.3,
       messages: [{ role: 'user', content: prompt }],
     });
@@ -431,17 +432,25 @@ ${papercore.slice(0, 800)}
 输出JSON（不要markdown代码块）：{"L1":"一级学科", "L2":"二级学科", "reasoning":"简要判断理由"}`;
 
   try {
-    const resp = await anthropic.messages.create({
-      model: DEFAULT_MODEL,
-      max_tokens: 256,
-      temperature: 0.3,
-      messages: [{ role: 'user', content: globalPrompt }],
-    });
-    const c = resp.content
-      .filter((x: any) => x.type === 'text')
-      .map((x: any) => x.text)
-      .join('')
-      .trim();
+    // thinking 型模型的思考块会消耗输出预算：无正文时升档重试一次，避免分类静默失败
+    let c = '';
+    for (const budget of [4096, 16384]) {
+      const resp = await anthropic.messages.create({
+        model: DEFAULT_MODEL,
+        max_tokens: budget,
+        temperature: 0.3,
+        messages: [{ role: 'user', content: globalPrompt }],
+      });
+      c = resp.content
+        .filter((x: any) => x.type === 'text')
+        .map((x: any) => x.text)
+        .join('')
+        .trim();
+      if (c) break;
+      console.warn(
+        `[global-position] 无正文输出（预算 ${budget} 耗尽），${budget < 16384 ? '升档重试' : '放弃'}`,
+      );
+    }
     const m = c.match(/\{[\s\S]*\}/);
     if (m) {
       const parsed = JSON.parse(m[0]);
@@ -525,7 +534,7 @@ ${papercore.slice(0, 600)}
     try {
       const resp = await anthropic.messages.create({
         model: DEFAULT_MODEL,
-        max_tokens: 512,
+        max_tokens: 4096,
         temperature: 0.3,
         messages: [{ role: 'user', content: l3Prompt }],
       });
@@ -630,6 +639,30 @@ function getUserSetLogicalPath(record: any): string | null {
 
 // Helper: 资料分类完成后同步 knowledge_nodes（issue #7 Task 5）
 // 图谱此前只聚合 materials/study_notes，上传的资料在知识节点侧不可见
+/**
+ * 写回 AI 分类结果。process_status 列由 migrations/004_add_process_status.sql 添加，
+ * 未执行该迁移的库会返回 42703（列不存在）——此时去掉该列降级重试，
+ * 保证 tags/papercore/logical_path 等主字段完整落库，仅失败重试标记不可用。
+ */
+async function updateAiProcessResult(
+  supabase: any,
+  table: 'study_notes' | 'materials',
+  payload: Record<string, any>,
+  id: string,
+  userId: string,
+): Promise<void> {
+  let { error } = await supabase.from(table).update(payload).eq('id', id).eq('user_id', userId);
+  if (error && (error.code === '42703' || /process_status/.test(error.message || ''))) {
+    const rest = { ...payload };
+    delete rest.process_status;
+    const retry = await supabase.from(table).update(rest).eq('id', id).eq('user_id', userId);
+    error = retry.error;
+    console.warn(
+      '[process-content] process_status 列缺失，已降级写入（在 Supabase SQL Editor 执行 migrations/004_add_process_status.sql 可恢复完整状态机）',
+    );
+  }
+  if (error) throw new Error(error.message);
+}
 async function syncKnowledgeNodeForMaterial(
   userId: string,
   material: any,
@@ -790,17 +823,19 @@ export async function handleProcessContent(req: Request, res: Response) {
         const lps = buildLogicalPaths(L1, L2, kps);
         const userPath = getUserSetLogicalPath(record);
         const finalLps = userPath ? JSON.parse(userPath) : lps;
-        await supabase
-          .from(table)
-          .update({
+        await updateAiProcessResult(
+          supabase,
+          table,
+          {
             ai_processed: true,
             papercore: forcePapercore,
             logical_path: JSON.stringify(finalLps),
             tags: [L1, L2, ...kps].filter(Boolean),
             process_status: 'processed',
-          })
-          .eq('id', id)
-          .eq('user_id', userId);
+          },
+          id,
+          userId,
+        );
         if (table === 'materials')
           await syncKnowledgeNodeForMaterial(
             userId,
@@ -958,13 +993,7 @@ export async function handleProcessContent(req: Request, res: Response) {
 
     const finalPaths = JSON.parse(finalLogicalPath);
 
-    const { error: updateError } = await supabase
-      .from(table)
-      .update(updatePayload)
-      .eq('id', id)
-      .eq('user_id', userId);
-
-    if (updateError) throw new Error(updateError.message);
+    await updateAiProcessResult(supabase, table, updatePayload, id, userId);
 
     if (table === 'materials')
       await syncKnowledgeNodeForMaterial(userId, record, hierarchicalTags, papercore);
@@ -1163,12 +1192,7 @@ router.post('/reprocess-material', async (req: Request, res: Response) => {
       viewed_after_process: false,
       updated_at: new Date().toISOString(),
     };
-    const { error: updateError } = await supabase
-      .from('materials')
-      .update(updatePayload)
-      .eq('id', id)
-      .eq('user_id', userId);
-    if (updateError) throw new Error(updateError.message);
+    await updateAiProcessResult(supabase, 'materials', updatePayload, id, userId);
 
     scheduleIndexRebuild();
     res.json({
@@ -2091,7 +2115,7 @@ ${l2Summaries}
     try {
       const response = await anthropic.messages.create({
         model: DEFAULT_MODEL,
-        max_tokens: 512,
+        max_tokens: 1024,
         temperature: 0.1,
         messages: [{ role: 'user', content: prompt }],
       });
@@ -2384,7 +2408,7 @@ ${papercore.slice(0, 600)}
       try {
         const resp2 = await anthropic.messages.create({
           model: DEFAULT_MODEL,
-          max_tokens: 200,
+          max_tokens: 1024,
           temperature: 0.2,
           messages: [{ role: 'user', content: reassignPrompt }],
         });

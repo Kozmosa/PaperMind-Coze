@@ -525,7 +525,7 @@ ${candidates}
 
     const msg = await anthropic.messages.create({
       model: DEFAULT_MODEL,
-      max_tokens: 1024,
+      max_tokens: 2048,
       system: systemPrompt,
       messages: [{ role: 'user', content: '请分析并返回 JSON 数组。' }],
     });
@@ -533,7 +533,11 @@ ${candidates}
     // 3. 解析 LLM 响应
     let classified: Array<{ nodeId: number; relation_type: string }> = [];
     try {
-      const text = (msg.content[0] as any)?.text || '';
+      // thinking 型模型的 content[0] 可能是思考块，需过滤出全部 text 块
+      const text = msg.content
+        .filter((c: any) => c.type === 'text')
+        .map((c: any) => c.text)
+        .join('');
       const jsonMatch = text.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
         classified = JSON.parse(jsonMatch[0]);
