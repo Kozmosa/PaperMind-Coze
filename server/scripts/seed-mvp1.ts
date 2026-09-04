@@ -2,7 +2,7 @@
  * PaperMind MVP1 数据导入脚本 (v2)
  * 修复: 文件内容读取 / BOM清理 / frontmatter跳过 / 前置数据清理
  *
- * 用法: npx tsx server/scripts/seed-mvp1.ts
+ * 用法: cd server && npx tsx scripts/seed-mvp1.ts（演示场景请优先使用 seed-scenario.ts）
  */
 
 import * as fs from 'fs';
@@ -10,9 +10,18 @@ import * as path from 'path';
 import * as http from 'http';
 import * as https from 'https';
 import { fileURLToPath } from 'url';
+import { createRequire } from 'node:module';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// 与 server/src/config/ai.ts 一致：优先 server/.env，回退仓库根 .env
+{
+  const require2 = createRequire(import.meta.url);
+  let envPath = path.resolve('.env');
+  if (!fs.existsSync(envPath)) envPath = path.resolve('..', '.env');
+  require2('dotenv').config({ path: envPath });
+}
 
 const BASE_URL = 'http://localhost:9091';
 const API_PREFIX = '/api/v1';
@@ -176,10 +185,11 @@ async function extractPptxText(filePath: string): Promise<string> {
 
 async function clearExistingData() {
   console.log('🧹 前置步骤：清理现有测试数据...');
-  const supabase = (await import('@supabase/supabase-js')).createClient(
-    'https://qlkucusjidkzqforlzkn.supabase.co',
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFsa3VjdXNqaWRrenFmb3JsemtuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MjQ1NTI5NywiZXhwIjoyMDk4MDMxMjk3fQ.lvFxQsmP3rvSig7XXChE3ZQHy4zE8ShvEahd4TzM4O8',
-  );
+  // 凭据从环境变量读取（与 seed-scenario.ts 一致），不再硬编码 service key
+  const url = process.env.SUPABASE_URL || process.env.COZE_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.COZE_SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) throw new Error('缺少 SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY（.env）');
+  const supabase = (await import('@supabase/supabase-js')).createClient(url, key);
   const r1 = await supabase.from('study_notes').delete().eq('user_id', TEST_USER_ID);
   const r2 = await supabase.from('materials').delete().eq('user_id', TEST_USER_ID);
   console.log(
