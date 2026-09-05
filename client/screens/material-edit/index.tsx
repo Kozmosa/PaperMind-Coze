@@ -11,6 +11,7 @@ import { useCallback, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
+import { useCSSVariable } from 'uniwind';
 import { Screen } from '@/components/layout/Screen';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
 import { api } from '@/utils/api';
@@ -20,7 +21,6 @@ import type { Citation } from '@/components/note-helper/NoteHelperPanel';
 import MarkdownRenderer from '@/components/markdown/MarkdownRenderer';
 
 const C = {
-  bg: '#FFFFFF',
   primary: '#6C63FF',
   text: '#1A1A1A',
   textSecondary: '#8E8E93',
@@ -37,6 +37,8 @@ export default function MaterialViewScreen() {
   const { id } = useSafeSearchParams<{ id: string }>();
 
   const [viewUrl, setViewUrl] = useState('');
+  const [background] = useCSSVariable(['--color-background']) as string[];
+  const pageBg = background || '#F0F0F3';
   const [fileName, setFileName] = useState('');
   const [fileType, setFileType] = useState('');
   const [pages, setPages] = useState<{ page_number: number; text: string }[]>([]);
@@ -155,7 +157,7 @@ export default function MaterialViewScreen() {
 
   if (loading) {
     return (
-      <Screen backgroundColor={C.bg}>
+      <Screen>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <ActivityIndicator size="large" color={C.primary} />
           <Text style={{ color: C.textSecondary, marginTop: 12 }}>加载资料...</Text>
@@ -166,7 +168,7 @@ export default function MaterialViewScreen() {
 
   if (!id) {
     return (
-      <Screen backgroundColor={C.bg}>
+      <Screen>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 }}>
           <Feather name="alert-circle" size={48} color={C.placeholder} />
           <Text
@@ -181,8 +183,8 @@ export default function MaterialViewScreen() {
 
   return (
     <>
-      <Screen backgroundColor={C.bg} safeAreaEdges={['left', 'right', 'bottom']}>
-        <View style={{ flex: 1, backgroundColor: C.bg }}>
+      <Screen safeAreaEdges={['left', 'right', 'bottom']}>
+        <View style={{ flex: 1, backgroundColor: pageBg }}>
           {/* ======== Header ======== */}
           <View
             style={{
@@ -321,7 +323,7 @@ export default function MaterialViewScreen() {
             style={{
               borderTopWidth: 1,
               borderTopColor: C.border,
-              backgroundColor: C.bg,
+              backgroundColor: pageBg,
               paddingBottom: insets.bottom + 8,
               maxHeight: '45%',
             }}

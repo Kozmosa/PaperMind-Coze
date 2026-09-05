@@ -42,7 +42,6 @@ const QUICK_ACTIONS = [
 ];
 
 const COLORS = {
-  bg: '#FFFFFF',
   primary: '#6C63FF',
   text: '#2D3436',
   textSecondary: '#636E72',
@@ -194,7 +193,7 @@ export default function NoteHelperFullscreenScreen() {
   };
 
   return (
-    <Screen backgroundColor={COLORS.bg}>
+    <Screen>
       <View style={styles.container}>
         {/* Top Bar */}
         <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
@@ -322,14 +321,12 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
   },
   topBar: {
     paddingHorizontal: 16,
     paddingBottom: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F3',
-    backgroundColor: '#FFFFFF',
   },
   topBarRow: {
     flexDirection: 'row',
@@ -388,7 +385,6 @@ const styles = StyleSheet.create({
   bottomBar: {
     borderTopWidth: 1,
     borderTopColor: '#F0F0F3',
-    backgroundColor: '#FFFFFF',
   },
   quickActionsContainer: {
     paddingHorizontal: 12,

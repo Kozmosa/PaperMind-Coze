@@ -15,6 +15,7 @@ import { useFocusEffect } from 'expo-router';
 import { useSafeSearchParams } from '@/hooks/useSafeRouter';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
+import { useCSSVariable } from 'uniwind';
 import { Screen } from '@/components/layout/Screen';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { api } from '@/utils/api';
@@ -56,7 +57,6 @@ const uid = () => {
 
 // ========== 颜色 ==========
 const C = {
-  bg: '#FFFFFF',
   primary: '#6C63FF',
   text: '#1A1A1A',
   textSecondary: '#8E8E93',
@@ -71,6 +71,8 @@ export default function StudyNoteEditScreen() {
   const { id } = useSafeSearchParams<{ id: string }>();
   const router = useSafeRouter();
   const insets = useSafeAreaInsets();
+  const [background] = useCSSVariable(['--color-background']) as string[];
+  const pageBg = background || '#F0F0F3';
 
   const [mode, setMode] = useState<'edit' | 'read'>('edit');
   const [listKey, setListKey] = useState(0);
@@ -576,7 +578,7 @@ export default function StudyNoteEditScreen() {
   // ========== Loading ==========
   if (loading) {
     return (
-      <Screen backgroundColor={C.bg}>
+      <Screen>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <ActivityIndicator size="large" color={C.primary} />
         </View>
@@ -587,8 +589,8 @@ export default function StudyNoteEditScreen() {
   // ========== 主渲染 ==========
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <Screen backgroundColor={C.bg} safeAreaEdges={['left', 'right', 'bottom']}>
-        <View style={{ flex: 1, backgroundColor: C.bg }}>
+      <Screen safeAreaEdges={['left', 'right', 'bottom']}>
+        <View style={{ flex: 1, backgroundColor: pageBg }}>
           {/* ======== 顶部导航 ======== */}
           <View
             style={{
@@ -671,7 +673,7 @@ export default function StudyNoteEditScreen() {
               paddingBottom: 8,
               borderBottomWidth: 1,
               borderBottomColor: C.border,
-              backgroundColor: C.bg,
+              backgroundColor: pageBg,
             }}
           >
             {mode === 'edit' ? (
@@ -871,7 +873,7 @@ export default function StudyNoteEditScreen() {
                 bottom: 0,
                 left: 0,
                 right: 0,
-                backgroundColor: C.bg,
+                backgroundColor: pageBg,
                 borderTopWidth: 1,
                 borderTopColor: C.border,
                 paddingBottom: insets.bottom + 8,
