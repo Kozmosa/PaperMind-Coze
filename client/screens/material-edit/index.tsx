@@ -1,4 +1,12 @@
-import { View, Text, TouchableOpacity, Alert, ActivityIndicator, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+  Platform,
+  ScrollView,
+} from 'react-native';
 import { useCallback, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -31,6 +39,7 @@ export default function MaterialViewScreen() {
   const [viewUrl, setViewUrl] = useState('');
   const [fileName, setFileName] = useState('');
   const [fileType, setFileType] = useState('');
+  const [pages, setPages] = useState<{ page_number: number; text: string }[]>([]);
   const [papercore, setPapercore] = useState('');
   const [tags, setTags] = useState<string[]>([]);
   const [logicalPath, setLogicalPath] = useState('');
@@ -64,6 +73,8 @@ export default function MaterialViewScreen() {
   };
 
   const isPDF = fileType === 'PDF';
+  const isLegacyPPT = fileType === 'PPT';
+  const textPages = pages.filter((p) => p.text && p.text.trim().length > 0);
 
   useFocusEffect(
     useCallback(() => {
@@ -95,6 +106,11 @@ export default function MaterialViewScreen() {
         setViewUrl(fileRes.data.viewUrl || '');
         setFileName(fileRes.data.fileName || '');
         setFileType(fileRes.data.fileType || '');
+        setPages(
+          (fileRes.data.pages || []).map((p: any) =>
+            typeof p === 'string' ? { page_number: 0, text: p } : p,
+          ),
+        );
       } else {
         setLoadError('服务器返回数据异常');
       }
@@ -219,10 +235,38 @@ export default function MaterialViewScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* ======== PDF Viewer / Unsupported notice ======== */}
+          {/* ======== PDF Viewer / Text Pages / Unsupported notice ======== */}
           <View style={{ flex: 1 }}>
             {isPDF && viewUrl ? (
               <PDFViewer url={viewUrl} />
+            ) : isLegacyPPT ? (
+              <View
+                style={{
+                  flex: 1,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  padding: 40,
+                }}
+              >
+                <Feather name="file-text" size={48} color={C.placeholder} />
+                <Text
+                  style={{
+                    fontSize: 14,
+                    color: C.textSecondary,
+                    marginTop: 12,
+                    textAlign: 'center',
+                  }}
+                >
+                  .ppt 旧格式暂不支持在线预览
+                </Text>
+                <Text
+                  style={{ fontSize: 12, color: C.placeholder, marginTop: 4, textAlign: 'center' }}
+                >
+                  请转存为 PPTX 格式后重新上传查看
+                </Text>
+              </View>
+            ) : textPages.length > 0 ? (
+              <TextPagesViewer pages={textPages} />
             ) : (
               <View
                 style={{
@@ -393,6 +437,35 @@ export default function MaterialViewScreen() {
         onGenerate={handleNoteHelperGenerate}
       />
     </>
+  );
+}
+
+// ========== Text Pages Viewer (PPTX/DOCX/MD 等提取文本的分页预览) ==========
+function TextPagesViewer({ pages }: { pages: { page_number: number; text: string }[] }) {
+  return (
+    <ScrollView
+      style={{ flex: 1 }}
+      contentContainerStyle={{ paddingHorizontal: 20, paddingVertical: 16 }}
+      showsVerticalScrollIndicator={true}
+    >
+      {pages.map((page, i) => (
+        <View key={i} style={{ marginBottom: 16 }}>
+          {i > 0 && (
+            <Text
+              style={{
+                fontSize: 11,
+                color: C.placeholder,
+                textAlign: 'center',
+                marginBottom: 12,
+              }}
+            >
+              — 第 {page.page_number || i + 1} 页 —
+            </Text>
+          )}
+          <Text style={{ fontSize: 14, color: C.text, lineHeight: 22 }}>{page.text}</Text>
+        </View>
+      ))}
+    </ScrollView>
   );
 }
 

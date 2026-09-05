@@ -3118,8 +3118,10 @@ async function loadNHSourceFile(idx) {
       viewUrl = fcData.viewUrl || '';
 
       // Extract text content
-      if (fcData.pages && fcData.pages.length) {
-        content = fcData.pages.join('\n\n');
+      if (fileType === 'PPT') {
+        content = '（.ppt 旧格式暂不支持内容提取，请转存为 PPTX 后查看）';
+      } else if (fcData.pages && fcData.pages.length) {
+        content = fcData.pages.map(p => typeof p === 'string' ? p : (p.text || '')).join('\n\n');
       } else if (fcData.content) {
         content = fcData.content;
       } else if (!content && !viewUrl) {
@@ -3788,7 +3790,11 @@ viewMaterialFullscreen = async function(id, title) {
         '<a href="' + esc(fullUrl) + '" target="_blank" class="btn btn-neu" style="display:inline-block;text-decoration:none;font-size:12px;">在新窗口打开 PDF</a>' +
         '</div>' +
         '</div>';
-    } else if (data.pages && data.pages.length > 0) {
+    } else if (fileType === 'PPT') {
+      // 旧版 .ppt 无二进制解析分支，明确引导转存
+      html += '<div class="empty-state"><div class="empty-icon">📄</div><div class="empty-title">.ppt 旧格式暂不支持在线预览</div><div class="empty-desc">请转存为 PPTX 格式后重新上传查看</div></div>';
+    } else if (data.pages && data.pages.some(p => (typeof p === 'string' ? p : (p.text || '')).trim())) {
+      // PPTX/DOCX/MD/TXT 等：文本分页降级视图（与 PDF 的 file-content 分页同路径）
       html += '<div style="padding:10px 18px;overflow-y:auto;flex:1;">';
       html += '<div class="mat-text-pages">';
       data.pages.forEach((page, i) => {

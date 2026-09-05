@@ -119,7 +119,8 @@ router.post('/', async (req: Request, res: Response) => {
         console.error('[upload] Failed to create draft:', draftError);
       } else if (draft && extracted.text) {
         if (extracted.pageCount && extracted.pageCount > 1) {
-          const pages = extracted.text.split(/\n\n+/).filter(Boolean);
+          // 优先按换页符 \f 拆页（PPTX 逐幻灯片），否则按空行分段
+          const pages = extracted.text.split(/\f+|\n\n+/).filter(Boolean);
           for (let i = 0; i < Math.min(pages.length, extracted.pageCount); i++) {
             await client.from('file_contents').insert({
               draft_id: draft.id,
