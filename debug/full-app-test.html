@@ -1992,22 +1992,6 @@ function closeFullscreenNote() {
   _fsNoteId = null;
 }
 
-// Simple markdown → HTML (inline only, no lib)
-function simpleMarkdown(md) {
-  if (!md) return '';
-  let h = esc(md);
-  h = h.replace(/^### (.+)$/gm, '<h3>$1</h3>');
-  h = h.replace(/^## (.+)$/gm, '<h2>$1</h2>');
-  h = h.replace(/^# (.+)$/gm, '<h1>$1</h1>');
-  h = h.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-  h = h.replace(/\*(.+?)\*/g, '<em>$1</em>');
-  h = h.replace(/`([^`]+)`/g, '<code>$1</code>');
-  h = h.replace(/^\- (.+)$/gm, '<li>$1</li>');
-  h = h.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
-  h = h.replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>');
-  return h;
-}
-
 // ═══════════════════════════════════════════
 // FULLSCREEN MATERIAL VIEWER (PDF/text)
 // ═══════════════════════════════════════════
@@ -2726,6 +2710,21 @@ function simpleMarkdown(md) {
   if (!md) return '';
   // Escape HTML but NOT backticks or $ (needed for code/LaTeX patterns below)
   let h = String(md).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+  // LaTeX 先行提取为占位符：避免后续段落/换行转换把 <br/>、<p> 注入公式内部
+  // 支持 $...$ 行内与 $$...$$ 块级（含多行公式）；katex 未加载时保留原始文本
+  const mathSlots = [];
+  const hasKatex = (typeof katex !== 'undefined') && katex && katex.renderToString;
+  function stashMath(tex, display) {
+    if (!hasKatex) return null;
+    try {
+      mathSlots.push(katex.renderToString(tex, { displayMode: display, throwOnError: false }));
+      return '%%MATH_SLOT_' + (mathSlots.length - 1) + '%%';
+    } catch(e) { return null; }
+  }
+  h = h.replace(/\$\$([\s\S]+?)\$\$/g, function(m, tex) { return stashMath(tex, true) || m; });
+  h = h.replace(/\$([^\$\n]+?)\$/g, function(m, tex) { return stashMath(tex, false) || m; });
+
   // Headers
   h = h.replace(/^#### (.+)$/gm, '<h4 style="text-align:left;">$1</h4>');
   h = h.replace(/^### (.+)$/gm, '<h3 style="text-align:left;">$1</h3>');
@@ -2755,15 +2754,9 @@ function simpleMarkdown(md) {
   // Paragraphs
   h = '<p>' + h.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br/>') + '</p>';
 
-  // LaTeX: $...$ inline, $$...$$ display
-  h = h.replace(/\$\$(.+?)\$\$/g, function(_, tex) {
-    try { return katex.renderToString(tex, { displayMode: true, throwOnError: false }); }
-    catch(e) { return '<em>[LaTeX error]</em>'; }
-  });
-  h = h.replace(/\$(.+?)\$/g, function(_, tex) {
-    try { return katex.renderToString(tex, { displayMode: false, throwOnError: false }); }
-    catch(e) { return '<em>[LaTeX error]</em>'; }
-  });
+  // 还原公式占位符；块级公式从 <p> 包裹中拆出，避免非法嵌套
+  h = h.replace(/%%MATH_SLOT_(\d+)%%/g, function(_, i) { return mathSlots[+i]; });
+  h = h.replace(/<p>(<span class="katex-display">[\s\S]*?<\/span>)<\/p>/g, '$1');
 
   return h;
 }
