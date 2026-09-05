@@ -1847,30 +1847,24 @@ router.get('/graph-data', async (req: Request, res: Response) => {
       }
     });
 
-    // ====== Domain circles (based on L1 tags, dynamic radius from children) ======
-    const domains = l1Nodes.map((node) => {
-      // Find furthest child (L2 or L3) to determine domain radius
+    // ====== Domain circles (based on L2 tags, dynamic radius from L3 children) ======
+    // 按 L2 分组计数：场景数据 L1 只有「数学」「计算机科学」两类，
+    // 领域粒度落在 L2（复变函数/数理统计/数值分析等），演示预期 ≥3 圈
+    const domains = l2Nodes.map((node) => {
+      // Find furthest L3 child to determine domain radius
       let maxDist = 0;
-      for (const child of l2Nodes) {
-        if (child.parentId === node.id) {
-          const dx = child.x - node.x,
-            dy = child.y - node.y;
-          maxDist = Math.max(maxDist, Math.sqrt(dx * dx + dy * dy) + 50);
-          // Also check L3 children
-          for (const l3 of l3Nodes) {
-            if (l3.parentId === child.id) {
-              const d3x = l3.x - node.x,
-                d3y = l3.y - node.y;
-              maxDist = Math.max(maxDist, Math.sqrt(d3x * d3x + d3y * d3y) + 25);
-            }
-          }
+      for (const l3 of l3Nodes) {
+        if (l3.parentId === node.id) {
+          const dx = l3.x - node.x,
+            dy = l3.y - node.y;
+          maxDist = Math.max(maxDist, Math.sqrt(dx * dx + dy * dy) + 25);
         }
       }
       return {
         name: node.name,
         cx: node.x,
         cy: node.y,
-        r: Math.max(130, Math.ceil(maxDist)),
+        r: Math.max(70, Math.ceil(maxDist)),
         count: node.count,
       };
     });

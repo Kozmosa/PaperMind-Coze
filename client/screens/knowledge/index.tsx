@@ -454,7 +454,7 @@ export default function KnowledgePage() {
   const renderGraph = () => {
     if (!graphData) return null;
 
-    const l1Count = graphData.nodes.filter((n) => n.level === 'L1').length;
+    const domainCount = graphData.domains.length; // 领域圈按 L2 分组计数（见 server graph-data）
     const l2Count = graphData.nodes.filter((n) => n.level === 'L2').length;
     const l3Count = graphData.nodes.filter((n) => n.level === 'L3').length;
 
@@ -734,7 +734,7 @@ export default function KnowledgePage() {
               <View
                 style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: C.primary }}
               />
-              <Text style={{ fontSize: 10, color: C.text3 }}>{l1Count}领域</Text>
+              <Text style={{ fontSize: 10, color: C.text3 }}>{domainCount}领域</Text>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
               <View

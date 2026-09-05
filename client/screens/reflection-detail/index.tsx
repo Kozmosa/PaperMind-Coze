@@ -6,6 +6,7 @@ import { LineChart } from 'react-native-chart-kit';
 import { Screen } from '@/components/layout/Screen';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
 import { api } from '@/utils/api';
+import MarkdownRenderer from '@/components/markdown/MarkdownRenderer';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -208,16 +209,13 @@ export default function ReflectionDetailScreen() {
                 {section.title}
               </Text>
             </View>
-            <Text
-              style={{
-                fontSize: 15,
-                color: '#2D3436',
-                lineHeight: 24,
-                opacity: section.content ? 1 : 0.4,
-              }}
-            >
-              {section.content || '暂无内容'}
-            </Text>
+            {section.content ? (
+              <MarkdownRenderer content={section.content} />
+            ) : (
+              <Text style={{ fontSize: 15, color: '#2D3436', lineHeight: 24, opacity: 0.4 }}>
+                暂无内容
+              </Text>
+            )}
           </View>
         ))}
 

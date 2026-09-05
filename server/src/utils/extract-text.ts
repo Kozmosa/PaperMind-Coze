@@ -140,7 +140,8 @@ async function extractPptx(filePath: string): Promise<ExtractedContent> {
         .trim();
       if (slideText) texts.push(slideText);
     }
-    return { text: texts.join('\n\n'), pageCount: slides.length };
+    // 用换页符 \f 连接各页幻灯片，file-content 路由可按 \f 拆出逐页文本（与 PDF 分页同路径）
+    return { text: texts.join('\f'), pageCount: slides.length };
   } catch (err) {
     console.error('[extractPptx] Error:', err);
     return { text: '' };
