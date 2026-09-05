@@ -20,6 +20,7 @@ import { api } from '@/utils/api';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
+import { useCSSVariable } from 'uniwind';
 
 type Message = {
   id: string;
@@ -62,6 +63,12 @@ const AGENTS = [
 
 export default function ChatScreen() {
   const router = useSafeRouter();
+  const [backgroundSecondary, border] = useCSSVariable([
+    '--color-background-secondary',
+    '--color-border',
+  ]) as string[];
+  const bgSecondary = backgroundSecondary || '#E7E7EC';
+  const borderColor = border || '#E3DED9';
   const scrollRef = useRef<ScrollView>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -586,7 +593,7 @@ export default function ChatScreen() {
         <View
           key={idx}
           style={{
-            backgroundColor: '#F0F0F3',
+            backgroundColor: bgSecondary,
             borderRadius: 12,
             padding: 12,
             marginTop: 8,
@@ -639,7 +646,7 @@ export default function ChatScreen() {
     return (
       <View
         key={idx}
-        style={{ backgroundColor: '#F0F0F3', borderRadius: 12, padding: 12, marginTop: 8 }}
+        style={{ backgroundColor: bgSecondary, borderRadius: 12, padding: 12, marginTop: 8 }}
       >
         <Text style={{ color: '#636E72', fontSize: 13 }}>
           {citation.title || citation.label || '引用来源'}
@@ -658,7 +665,7 @@ export default function ChatScreen() {
               width: 260,
               backgroundColor: '#FFF',
               borderRightWidth: 1,
-              borderRightColor: '#F0F0F3',
+              borderRightColor: borderColor,
               paddingTop: 12,
             }}
           >
@@ -667,7 +674,7 @@ export default function ChatScreen() {
                 paddingHorizontal: 16,
                 paddingBottom: 12,
                 borderBottomWidth: 1,
-                borderBottomColor: '#F0F0F3',
+                borderBottomColor: borderColor,
               }}
             >
               <Text style={{ fontSize: 18, fontWeight: '700', color: '#2D3436' }}>历史对话</Text>
@@ -676,7 +683,7 @@ export default function ChatScreen() {
               {sessions.map((s) => (
                 <TouchableOpacity
                   key={s.id}
-                  style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: '#F0F0F3' }}
+                  style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: borderColor }}
                   onPress={() => {
                     currentSessionId.current = s.id;
                     loadSessionMessages(s.id);
@@ -716,7 +723,7 @@ export default function ChatScreen() {
               paddingVertical: 12,
               backgroundColor: '#FFF',
               borderBottomWidth: 1,
-              borderBottomColor: '#F0F0F3',
+              borderBottomColor: borderColor,
             }}
           >
             <TouchableOpacity
@@ -736,7 +743,7 @@ export default function ChatScreen() {
                       paddingHorizontal: 16,
                       paddingVertical: 8,
                       borderRadius: 20,
-                      backgroundColor: selectedAgent === agent.id ? agent.color : '#F0F0F3',
+                      backgroundColor: selectedAgent === agent.id ? agent.color : bgSecondary,
                       marginRight: 8,
                     }}
                     onPress={() => setSelectedAgent(agent.id)}
@@ -864,7 +871,7 @@ export default function ChatScreen() {
                   <View style={{ alignItems: 'flex-start' }}>
                     <View
                       style={{
-                        backgroundColor: '#F0F0F3',
+                        backgroundColor: bgSecondary,
                         borderRadius: 18,
                         borderBottomLeftRadius: 4,
                         paddingHorizontal: 16,
@@ -902,7 +909,7 @@ export default function ChatScreen() {
               <View style={{ alignItems: 'flex-start', marginBottom: 16 }}>
                 <View
                   style={{
-                    backgroundColor: '#F0F0F3',
+                    backgroundColor: bgSecondary,
                     borderRadius: 18,
                     paddingHorizontal: 16,
                     paddingVertical: 12,
@@ -940,7 +947,7 @@ export default function ChatScreen() {
               paddingVertical: 10,
               backgroundColor: '#FFF',
               borderTopWidth: 1,
-              borderTopColor: '#F0F0F3',
+              borderTopColor: borderColor,
             }}
           >
             <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
@@ -950,7 +957,7 @@ export default function ChatScreen() {
                   width: 40,
                   height: 40,
                   borderRadius: 20,
-                  backgroundColor: '#F0F0F3',
+                  backgroundColor: bgSecondary,
                   justifyContent: 'center',
                   alignItems: 'center',
                 }}
@@ -965,7 +972,7 @@ export default function ChatScreen() {
                   width: 40,
                   height: 40,
                   borderRadius: 20,
-                  backgroundColor: selectedNodeId ? '#6C63FF' : '#F0F0F3',
+                  backgroundColor: selectedNodeId ? '#6C63FF' : bgSecondary,
                   justifyContent: 'center',
                   alignItems: 'center',
                 }}
@@ -995,7 +1002,7 @@ export default function ChatScreen() {
               <TextInput
                 style={{
                   flex: 1,
-                  backgroundColor: '#F0F0F3',
+                  backgroundColor: bgSecondary,
                   borderRadius: 20,
                   paddingHorizontal: 16,
                   paddingVertical: 10,
@@ -1017,7 +1024,7 @@ export default function ChatScreen() {
                   width: 40,
                   height: 40,
                   borderRadius: 20,
-                  backgroundColor: input.trim() && !loading ? '#6C63FF' : '#F0F0F3',
+                  backgroundColor: input.trim() && !loading ? '#6C63FF' : bgSecondary,
                   justifyContent: 'center',
                   alignItems: 'center',
                 }}
@@ -1054,7 +1061,7 @@ export default function ChatScreen() {
             {/* 从相册选择图片 */}
             <TouchableOpacity
               style={{
-                backgroundColor: '#F0F0F3',
+                backgroundColor: bgSecondary,
                 borderRadius: 12,
                 padding: 16,
                 alignItems: 'center',

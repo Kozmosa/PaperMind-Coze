@@ -9,12 +9,11 @@ import { Screen } from '@/components/layout/Screen';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { api } from '@/utils/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCSSVariable } from 'uniwind';
 import NoteHelperPanel from '@/components/note-helper/NoteHelperPanel';
 import type { Citation } from '@/components/note-helper/NoteHelperPanel';
 
 const COLORS = {
-  bg: '#F0F0F3',
-  card: '#F0F0F3',
   text: '#2D3436',
   textSecondary: '#636E72',
   textMuted: '#B2BEC3',
@@ -45,6 +44,12 @@ export default function ControlCenterScreen() {
   const router = useSafeRouter();
   const insets = useSafeAreaInsets();
   const { refreshKey } = useAuth();
+  const [backgroundSecondary, border] = useCSSVariable([
+    '--color-background-secondary',
+    '--color-border',
+  ]) as string[];
+  const bgSecondary = backgroundSecondary || '#E7E7EC';
+  const borderColor = border || '#E3DED9';
 
   const [recentRecords, setRecentRecords] = useState<RecentRecord[]>([]);
   const [allRecords, setAllRecords] = useState<RecentRecord[]>([]);
@@ -359,7 +364,7 @@ export default function ControlCenterScreen() {
   return (
     <>
       <Screen statusBarStyle="dark" safeAreaEdges={['left', 'right', 'bottom']}>
-        <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
+        <View style={{ flex: 1, backgroundColor: bgSecondary }}>
           {/* Header */}
           <View style={{ paddingTop: insets.top + 16, paddingHorizontal: 20, paddingBottom: 8 }}>
             <Text style={{ fontSize: 28, fontWeight: '800', color: COLORS.text }}>控制中心</Text>
@@ -384,7 +389,7 @@ export default function ControlCenterScreen() {
                   key={i}
                   style={{
                     flex: 1,
-                    backgroundColor: COLORS.card,
+                    backgroundColor: bgSecondary,
                     borderRadius: 20,
                     padding: 16,
                     shadowColor: '#D1D9E6',
@@ -420,7 +425,7 @@ export default function ControlCenterScreen() {
             {/* Quick Actions */}
             <View
               style={{
-                backgroundColor: COLORS.card,
+                backgroundColor: bgSecondary,
                 borderRadius: 24,
                 padding: 20,
                 marginBottom: 24,
@@ -498,7 +503,7 @@ export default function ControlCenterScreen() {
             {/* Recent Records */}
             <View
               style={{
-                backgroundColor: COLORS.card,
+                backgroundColor: bgSecondary,
                 borderRadius: 24,
                 padding: 20,
                 marginBottom: 24,
@@ -691,7 +696,7 @@ export default function ControlCenterScreen() {
                   alignItems: 'center',
                   padding: 20,
                   borderBottomWidth: 1,
-                  borderBottomColor: COLORS.bg,
+                  borderBottomColor: bgSecondary,
                 }}
               >
                 <Text style={{ fontSize: 18, fontWeight: '700', color: COLORS.text }}>
@@ -715,7 +720,7 @@ export default function ControlCenterScreen() {
                 </Text>
                 <TextInput
                   style={{
-                    backgroundColor: COLORS.bg,
+                    backgroundColor: bgSecondary,
                     borderRadius: 16,
                     padding: 14,
                     fontSize: 15,
@@ -735,7 +740,7 @@ export default function ControlCenterScreen() {
                 </Text>
                 <TextInput
                   style={{
-                    backgroundColor: COLORS.bg,
+                    backgroundColor: bgSecondary,
                     borderRadius: 16,
                     padding: 14,
                     fontSize: 15,
@@ -823,7 +828,7 @@ export default function ControlCenterScreen() {
                   alignItems: 'center',
                   padding: 20,
                   borderBottomWidth: 1,
-                  borderBottomColor: COLORS.bg,
+                  borderBottomColor: bgSecondary,
                 }}
               >
                 <Text style={{ fontSize: 18, fontWeight: '700', color: COLORS.text }}>
@@ -913,7 +918,7 @@ export default function ControlCenterScreen() {
                   alignItems: 'center',
                   padding: 20,
                   borderBottomWidth: 1,
-                  borderBottomColor: COLORS.bg,
+                  borderBottomColor: bgSecondary,
                 }}
               >
                 <Text style={{ fontSize: 18, fontWeight: '700', color: COLORS.text }}>
@@ -943,7 +948,7 @@ export default function ControlCenterScreen() {
                         alignItems: 'center',
                         paddingVertical: 14,
                         borderBottomWidth: 1,
-                        borderBottomColor: COLORS.bg,
+                        borderBottomColor: bgSecondary,
                       }}
                       onPress={() => {
                         if (selectMode) {
@@ -1045,7 +1050,7 @@ export default function ControlCenterScreen() {
               right: 0,
               backgroundColor: '#FFFFFF',
               borderTopWidth: 1,
-              borderTopColor: '#F0F0F3',
+              borderTopColor: borderColor,
               paddingBottom: insets.bottom + 8,
               paddingHorizontal: 20,
               paddingTop: 12,

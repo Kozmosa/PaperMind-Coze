@@ -6,6 +6,7 @@ import { Screen } from '@/components/layout/Screen';
 import { api } from '@/utils/api';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import Toast from 'react-native-toast-message';
+import { useCSSVariable } from 'uniwind';
 
 type Reflection = {
   id: number;
@@ -25,6 +26,12 @@ const TIME_OPTIONS = [
 
 export default function ReflectionIndexScreen() {
   const router = useSafeRouter();
+  const [backgroundSecondary, border] = useCSSVariable([
+    '--color-background-secondary',
+    '--color-border',
+  ]) as string[];
+  const bgSecondary = backgroundSecondary || '#E7E7EC';
+  const borderColor = border || '#E3DED9';
   const [reflections, setReflections] = useState<Reflection[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -105,7 +112,7 @@ export default function ReflectionIndexScreen() {
           paddingVertical: 12,
           backgroundColor: '#FFF',
           borderBottomWidth: 1,
-          borderBottomColor: '#F0F0F3',
+          borderBottomColor: borderColor,
         }}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -183,7 +190,7 @@ export default function ReflectionIndexScreen() {
                         flex: 1,
                         paddingVertical: 10,
                         borderRadius: 12,
-                        backgroundColor: selectedPeriod === opt.value ? '#6C63FF' : '#F0F0F3',
+                        backgroundColor: selectedPeriod === opt.value ? '#6C63FF' : bgSecondary,
                         alignItems: 'center',
                       }}
                       onPress={() => setSelectedPeriod(opt.value)}
@@ -333,7 +340,7 @@ export default function ReflectionIndexScreen() {
                 {r.learning_behavior && (
                   <View
                     style={{
-                      backgroundColor: '#F0F0F3',
+                      backgroundColor: bgSecondary,
                       borderRadius: 8,
                       paddingHorizontal: 10,
                       paddingVertical: 4,
@@ -348,7 +355,7 @@ export default function ReflectionIndexScreen() {
                 {r.challenge_report && (
                   <View
                     style={{
-                      backgroundColor: '#F0F0F3',
+                      backgroundColor: bgSecondary,
                       borderRadius: 8,
                       paddingHorizontal: 10,
                       paddingVertical: 4,

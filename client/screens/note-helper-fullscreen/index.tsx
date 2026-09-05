@@ -11,6 +11,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { useCSSVariable } from 'uniwind';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSafeSearchParams } from '@/hooks/useSafeRouter';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
@@ -42,17 +43,21 @@ const QUICK_ACTIONS = [
 ];
 
 const COLORS = {
-  bg: '#FFFFFF',
   primary: '#6C63FF',
   text: '#2D3436',
   textSecondary: '#636E72',
   textMuted: '#B2BEC3',
-  border: '#F0F0F3',
 };
 
 export default function NoteHelperFullscreenScreen() {
   const router = useSafeRouter();
   const insets = useSafeAreaInsets();
+  const [backgroundSecondary, border] = useCSSVariable([
+    '--color-background-secondary',
+    '--color-border',
+  ]) as string[];
+  const bgSecondary = backgroundSecondary || '#E7E7EC';
+  const borderColor = border || '#E3DED9';
   const params = useSafeSearchParams<{
     noteContent: string;
     citations: string;
@@ -194,10 +199,12 @@ export default function NoteHelperFullscreenScreen() {
   };
 
   return (
-    <Screen backgroundColor={COLORS.bg}>
+    <Screen>
       <View style={styles.container}>
         {/* Top Bar */}
-        <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
+        <View
+          style={[styles.topBar, { paddingTop: insets.top + 8, borderBottomColor: borderColor }]}
+        >
           <View style={styles.topBarRow}>
             <View style={styles.topLeft}>
               <TouchableOpacity onPress={() => router.back()} style={styles.topBtn}>
@@ -246,7 +253,12 @@ export default function NoteHelperFullscreenScreen() {
         </ScrollView>
 
         {/* Bottom Refinement Bar */}
-        <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 8 }]}>
+        <View
+          style={[
+            styles.bottomBar,
+            { paddingBottom: insets.bottom + 8, borderTopColor: borderColor },
+          ]}
+        >
           {/* Quick Actions */}
           <ScrollView
             horizontal
@@ -256,7 +268,10 @@ export default function NoteHelperFullscreenScreen() {
             {QUICK_ACTIONS.map((action, i) => (
               <TouchableOpacity
                 key={i}
-                style={[styles.quickBtn, refining && styles.quickBtnDisabled]}
+                style={[
+                  styles.quickBtn,
+                  refining && { backgroundColor: bgSecondary, borderColor: '#E8E8ED' },
+                ]}
                 onPress={() => handleRefine(action.prompt)}
                 disabled={refining}
               >
@@ -275,7 +290,7 @@ export default function NoteHelperFullscreenScreen() {
           {/* Free text input */}
           <View style={styles.refineInputContainer}>
             <TextInput
-              style={styles.refineInput}
+              style={[styles.refineInput, { backgroundColor: bgSecondary }]}
               placeholder="输入修改需求..."
               placeholderTextColor={COLORS.textMuted}
               value={refineInput}
@@ -322,14 +337,11 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
   },
   topBar: {
     paddingHorizontal: 16,
     paddingBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F3',
-    backgroundColor: '#FFFFFF',
   },
   topBarRow: {
     flexDirection: 'row',
@@ -387,8 +399,6 @@ const styles = StyleSheet.create({
   },
   bottomBar: {
     borderTopWidth: 1,
-    borderTopColor: '#F0F0F3',
-    backgroundColor: '#FFFFFF',
   },
   quickActionsContainer: {
     paddingHorizontal: 12,
@@ -405,10 +415,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0EDFF',
     borderWidth: 1,
     borderColor: '#E8E3FF',
-  },
-  quickBtnDisabled: {
-    backgroundColor: '#F0F0F3',
-    borderColor: '#E8E8ED',
   },
   quickBtnText: {
     fontSize: 12,
@@ -427,7 +433,6 @@ const styles = StyleSheet.create({
   },
   refineInput: {
     flex: 1,
-    backgroundColor: '#F0F0F3',
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 10,

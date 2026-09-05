@@ -13,6 +13,7 @@ import {
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
+import { useCSSVariable } from 'uniwind';
 import MarkdownRenderer from '@/components/markdown/MarkdownRenderer';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -52,6 +53,8 @@ export default function NoteHelperPanel({
 }: NoteHelperPanelProps) {
   const router = useSafeRouter();
   const insets = useSafeAreaInsets();
+  const [border] = useCSSVariable(['--color-border']) as string[];
+  const borderColor = border || '#E3DED9';
   const [status, setStatus] = useState<'idle' | 'generating' | 'done' | 'error'>('idle');
   const [noteContent, setNoteContent] = useState('');
   const [citations, setCitations] = useState<Citation[]>([]);
@@ -131,7 +134,7 @@ export default function NoteHelperPanel({
           </View>
 
           {/* Header */}
-          <View style={styles.header}>
+          <View style={[styles.header, { borderBottomColor: borderColor }]}>
             <View style={styles.headerLeft}>
               {status === 'generating' ? (
                 <ActivityIndicator size="small" color="#6C63FF" />
@@ -220,7 +223,7 @@ export default function NoteHelperPanel({
 
           {/* Bottom bar */}
           {status === 'done' && (
-            <View style={styles.bottomBar}>
+            <View style={[styles.bottomBar, { borderTopColor: borderColor }]}>
               <TouchableOpacity style={styles.fullscreenLargeBtn} onPress={handleFullscreen}>
                 <Feather name="maximize-2" size={18} color="#FFF" />
                 <Text style={styles.fullscreenLargeText}>全屏编辑</Text>
@@ -273,7 +276,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F3',
   },
   headerLeft: {
     flexDirection: 'row',
@@ -372,7 +374,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: '#F0F0F3',
   },
   fullscreenLargeBtn: {
     flexDirection: 'row',

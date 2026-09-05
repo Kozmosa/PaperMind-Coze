@@ -10,6 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { useCSSVariable } from 'uniwind';
 import { api } from '@/utils/api';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -64,6 +65,8 @@ function PDFViewer({ url }: { url: string }) {
 }
 
 export default function ReferenceCard({ citation, visible, onClose }: ReferenceCardProps) {
+  const [border] = useCSSVariable(['--color-border']) as string[];
+  const borderColor = border || '#E3DED9';
   const [content, setContent] = useState('');
   const [viewUrl, setViewUrl] = useState('');
   const [fileType, setFileType] = useState('');
@@ -191,7 +194,7 @@ export default function ReferenceCard({ citation, visible, onClose }: ReferenceC
       <TouchableOpacity style={styles.backdrop} onPress={onClose} activeOpacity={1} />
       <View style={[styles.card, isMaterialPDF && styles.cardWide]}>
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { borderBottomColor: borderColor }]}>
           <View style={styles.headerLeft}>
             <Feather name={sourceIcon} size={16} color={sourceColor} />
             <Text style={styles.headerTitle} numberOfLines={1}>
@@ -326,7 +329,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F3',
     backgroundColor: '#FAFAFE',
   },
   headerLeft: {

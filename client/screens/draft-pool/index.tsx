@@ -6,6 +6,7 @@ import { Screen } from '@/components/layout/Screen';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { api } from '@/utils/api';
 import * as DocumentPicker from 'expo-document-picker';
+import { useCSSVariable } from 'uniwind';
 
 type DraftItem = {
   id: number;
@@ -17,6 +18,8 @@ type DraftItem = {
 
 export default function DraftPoolScreen() {
   const router = useSafeRouter();
+  const [backgroundSecondary] = useCSSVariable(['--color-background-secondary']) as string[];
+  const bgSecondary = backgroundSecondary || '#E7E7EC';
   const [drafts, setDrafts] = useState<DraftItem[]>([]);
 
   const loadDrafts = useCallback(async () => {
@@ -162,7 +165,7 @@ export default function DraftPoolScreen() {
                 <View
                   key={draft.id}
                   style={{
-                    backgroundColor: '#F0F0F3',
+                    backgroundColor: bgSecondary,
                     borderRadius: 20,
                     padding: 16,
                     marginBottom: 12,
@@ -256,7 +259,7 @@ export default function DraftPoolScreen() {
                 <View
                   key={draft.id}
                   style={{
-                    backgroundColor: '#F0F0F3',
+                    backgroundColor: bgSecondary,
                     borderRadius: 20,
                     padding: 16,
                     marginBottom: 12,

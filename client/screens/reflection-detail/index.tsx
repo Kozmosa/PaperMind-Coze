@@ -6,6 +6,7 @@ import { LineChart } from 'react-native-chart-kit';
 import { Screen } from '@/components/layout/Screen';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
 import { api } from '@/utils/api';
+import { useCSSVariable } from 'uniwind';
 import MarkdownRenderer from '@/components/markdown/MarkdownRenderer';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -52,6 +53,12 @@ function formatStatsForChart(daily: Record<string, number>, period: string): Dai
 export default function ReflectionDetailScreen() {
   const { id } = useSafeSearchParams<{ id: number }>();
   const router = useSafeRouter();
+  const [backgroundSecondary, border] = useCSSVariable([
+    '--color-background-secondary',
+    '--color-border',
+  ]) as string[];
+  const bgSecondary = backgroundSecondary || '#E7E7EC';
+  const borderColor = border || '#E3DED9';
   const [reflection, setReflection] = useState<Reflection | null>(null);
   const [dailyCounts, setDailyCounts] = useState<DailyCount[]>([]);
 
@@ -148,7 +155,7 @@ export default function ReflectionDetailScreen() {
     strokeWidth: 2,
     decimalCount: 0,
     propsForBackgroundLines: {
-      stroke: '#F0F0F3',
+      stroke: borderColor,
       strokeDasharray: '4 4',
       strokeWidth: 1,
     },
@@ -181,7 +188,7 @@ export default function ReflectionDetailScreen() {
           <View
             key={section.key}
             style={{
-              backgroundColor: '#F0F0F3',
+              backgroundColor: bgSecondary,
               borderRadius: 24,
               padding: 20,
               marginBottom: 16,
@@ -222,7 +229,7 @@ export default function ReflectionDetailScreen() {
         {/* 问题解答活动折线图 */}
         <View
           style={{
-            backgroundColor: '#F0F0F3',
+            backgroundColor: bgSecondary,
             borderRadius: 24,
             padding: 20,
             marginBottom: 16,

@@ -16,6 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Screen } from '@/components/layout/Screen';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
 import { api } from '@/utils/api';
+import { useCSSVariable } from 'uniwind';
 
 type ForumPost = {
   id: number;
@@ -27,6 +28,8 @@ type ForumPost = {
 export default function ForumDetailScreen() {
   const { id, name } = useSafeSearchParams<{ id: number; name: string }>();
   const router = useSafeRouter();
+  const [backgroundSecondary] = useCSSVariable(['--color-background-secondary']) as string[];
+  const bgSecondary = backgroundSecondary || '#E7E7EC';
   const [posts, setPosts] = useState<ForumPost[]>([]);
   const [postModal, setPostModal] = useState(false);
   const [newContent, setNewContent] = useState('');
@@ -98,7 +101,7 @@ export default function ForumDetailScreen() {
             <View
               key={post.id}
               style={{
-                backgroundColor: '#F0F0F3',
+                backgroundColor: bgSecondary,
                 borderRadius: 20,
                 padding: 16,
                 marginBottom: 12,
@@ -177,7 +180,7 @@ export default function ForumDetailScreen() {
             >
               <View
                 style={{
-                  backgroundColor: '#F0F0F3',
+                  backgroundColor: bgSecondary,
                   borderTopLeftRadius: 28,
                   borderTopRightRadius: 28,
                   padding: 24,

@@ -28,7 +28,8 @@
 
     @variant light {
       /* Base Colors */
-      --background: #faf5f0;
+      /* DESIGN.md 规范底色：暖灰白 #F0F0F3 */
+      --background: #f0f0f3;
       --foreground: var(--eclipse);
 
       /* Surface: Used for non-overlay components (cards, accordions, disclosure groups) */

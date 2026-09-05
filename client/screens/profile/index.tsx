@@ -18,6 +18,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Screen } from '@/components/layout/Screen';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { api } from '@/utils/api';
+import { useCSSVariable } from 'uniwind';
 
 type PapernoteStyle = {
   id: number;
@@ -39,6 +40,8 @@ type Reflection = {
 export default function ProfileScreen() {
   const router = useSafeRouter();
   const insets = useSafeAreaInsets();
+  const [backgroundSecondary] = useCSSVariable(['--color-background-secondary']) as string[];
+  const bgSecondary = backgroundSecondary || '#E7E7EC';
   const [style, setStyle] = useState<PapernoteStyle | null>(null);
   const [reflections, setReflections] = useState<Reflection[]>([]);
   const [draftCount, setDraftCount] = useState(0);
@@ -134,7 +137,7 @@ export default function ProfileScreen() {
               width: 80,
               height: 80,
               borderRadius: 40,
-              backgroundColor: '#F0F0F3',
+              backgroundColor: bgSecondary,
               justifyContent: 'center',
               alignItems: 'center',
               shadowColor: '#D1D9E6',
@@ -160,7 +163,7 @@ export default function ProfileScreen() {
           {/* Stats Card */}
           <View
             style={{
-              backgroundColor: '#F0F0F3',
+              backgroundColor: bgSecondary,
               borderRadius: 24,
               padding: 20,
               marginBottom: 24,
@@ -196,7 +199,7 @@ export default function ProfileScreen() {
             <TouchableOpacity
               key={section.key}
               style={{
-                backgroundColor: '#F0F0F3',
+                backgroundColor: bgSecondary,
                 borderRadius: 20,
                 padding: 16,
                 marginBottom: 12,
@@ -263,7 +266,7 @@ export default function ProfileScreen() {
           {reflections.length > 0 && (
             <View
               style={{
-                backgroundColor: '#F0F0F3',
+                backgroundColor: bgSecondary,
                 borderRadius: 24,
                 padding: 20,
                 marginTop: 8,
@@ -317,7 +320,7 @@ export default function ProfileScreen() {
               >
                 <View
                   style={{
-                    backgroundColor: '#F0F0F3',
+                    backgroundColor: bgSecondary,
                     borderTopLeftRadius: 28,
                     borderTopRightRadius: 28,
                     padding: 24,
