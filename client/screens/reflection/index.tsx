@@ -26,8 +26,12 @@ const TIME_OPTIONS = [
 
 export default function ReflectionIndexScreen() {
   const router = useSafeRouter();
-  const [backgroundSecondary] = useCSSVariable(['--color-background-secondary']) as string[];
+  const [backgroundSecondary, border] = useCSSVariable([
+    '--color-background-secondary',
+    '--color-border',
+  ]) as string[];
   const bgSecondary = backgroundSecondary || '#E7E7EC';
+  const borderColor = border || '#E3DED9';
   const [reflections, setReflections] = useState<Reflection[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -108,7 +112,7 @@ export default function ReflectionIndexScreen() {
           paddingVertical: 12,
           backgroundColor: '#FFF',
           borderBottomWidth: 1,
-          borderBottomColor: '#F0F0F3',
+          borderBottomColor: borderColor,
         }}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>

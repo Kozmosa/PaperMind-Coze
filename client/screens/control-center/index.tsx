@@ -44,8 +44,12 @@ export default function ControlCenterScreen() {
   const router = useSafeRouter();
   const insets = useSafeAreaInsets();
   const { refreshKey } = useAuth();
-  const [backgroundSecondary] = useCSSVariable(['--color-background-secondary']) as string[];
+  const [backgroundSecondary, border] = useCSSVariable([
+    '--color-background-secondary',
+    '--color-border',
+  ]) as string[];
   const bgSecondary = backgroundSecondary || '#E7E7EC';
+  const borderColor = border || '#E3DED9';
 
   const [recentRecords, setRecentRecords] = useState<RecentRecord[]>([]);
   const [allRecords, setAllRecords] = useState<RecentRecord[]>([]);
@@ -1046,7 +1050,7 @@ export default function ControlCenterScreen() {
               right: 0,
               backgroundColor: '#FFFFFF',
               borderTopWidth: 1,
-              borderTopColor: '#F0F0F3',
+              borderTopColor: borderColor,
               paddingBottom: insets.bottom + 8,
               paddingHorizontal: 20,
               paddingTop: 12,

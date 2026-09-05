@@ -63,8 +63,12 @@ const AGENTS = [
 
 export default function ChatScreen() {
   const router = useSafeRouter();
-  const [backgroundSecondary] = useCSSVariable(['--color-background-secondary']) as string[];
+  const [backgroundSecondary, border] = useCSSVariable([
+    '--color-background-secondary',
+    '--color-border',
+  ]) as string[];
   const bgSecondary = backgroundSecondary || '#E7E7EC';
+  const borderColor = border || '#E3DED9';
   const scrollRef = useRef<ScrollView>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -661,7 +665,7 @@ export default function ChatScreen() {
               width: 260,
               backgroundColor: '#FFF',
               borderRightWidth: 1,
-              borderRightColor: '#F0F0F3',
+              borderRightColor: borderColor,
               paddingTop: 12,
             }}
           >
@@ -670,7 +674,7 @@ export default function ChatScreen() {
                 paddingHorizontal: 16,
                 paddingBottom: 12,
                 borderBottomWidth: 1,
-                borderBottomColor: '#F0F0F3',
+                borderBottomColor: borderColor,
               }}
             >
               <Text style={{ fontSize: 18, fontWeight: '700', color: '#2D3436' }}>历史对话</Text>
@@ -679,7 +683,7 @@ export default function ChatScreen() {
               {sessions.map((s) => (
                 <TouchableOpacity
                   key={s.id}
-                  style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: '#F0F0F3' }}
+                  style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: borderColor }}
                   onPress={() => {
                     currentSessionId.current = s.id;
                     loadSessionMessages(s.id);
@@ -719,7 +723,7 @@ export default function ChatScreen() {
               paddingVertical: 12,
               backgroundColor: '#FFF',
               borderBottomWidth: 1,
-              borderBottomColor: '#F0F0F3',
+              borderBottomColor: borderColor,
             }}
           >
             <TouchableOpacity
@@ -943,7 +947,7 @@ export default function ChatScreen() {
               paddingVertical: 10,
               backgroundColor: '#FFF',
               borderTopWidth: 1,
-              borderTopColor: '#F0F0F3',
+              borderTopColor: borderColor,
             }}
           >
             <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>

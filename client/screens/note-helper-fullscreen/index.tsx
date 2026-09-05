@@ -47,14 +47,17 @@ const COLORS = {
   text: '#2D3436',
   textSecondary: '#636E72',
   textMuted: '#B2BEC3',
-  border: '#F0F0F3',
 };
 
 export default function NoteHelperFullscreenScreen() {
   const router = useSafeRouter();
   const insets = useSafeAreaInsets();
-  const [backgroundSecondary] = useCSSVariable(['--color-background-secondary']) as string[];
+  const [backgroundSecondary, border] = useCSSVariable([
+    '--color-background-secondary',
+    '--color-border',
+  ]) as string[];
   const bgSecondary = backgroundSecondary || '#E7E7EC';
+  const borderColor = border || '#E3DED9';
   const params = useSafeSearchParams<{
     noteContent: string;
     citations: string;
@@ -199,7 +202,9 @@ export default function NoteHelperFullscreenScreen() {
     <Screen>
       <View style={styles.container}>
         {/* Top Bar */}
-        <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
+        <View
+          style={[styles.topBar, { paddingTop: insets.top + 8, borderBottomColor: borderColor }]}
+        >
           <View style={styles.topBarRow}>
             <View style={styles.topLeft}>
               <TouchableOpacity onPress={() => router.back()} style={styles.topBtn}>
@@ -248,7 +253,12 @@ export default function NoteHelperFullscreenScreen() {
         </ScrollView>
 
         {/* Bottom Refinement Bar */}
-        <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 8 }]}>
+        <View
+          style={[
+            styles.bottomBar,
+            { paddingBottom: insets.bottom + 8, borderTopColor: borderColor },
+          ]}
+        >
           {/* Quick Actions */}
           <ScrollView
             horizontal
@@ -332,7 +342,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F3',
   },
   topBarRow: {
     flexDirection: 'row',
@@ -390,7 +399,6 @@ const styles = StyleSheet.create({
   },
   bottomBar: {
     borderTopWidth: 1,
-    borderTopColor: '#F0F0F3',
   },
   quickActionsContainer: {
     paddingHorizontal: 12,

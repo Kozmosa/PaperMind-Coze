@@ -10,6 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { useCSSVariable } from 'uniwind';
 import { api } from '@/utils/api';
 import MarkdownRenderer from '@/components/markdown/MarkdownRenderer';
 
@@ -79,6 +80,8 @@ export default function NoteHelperSidebar({
   sourceFiles,
   citations,
 }: NoteHelperSidebarProps) {
+  const [border] = useCSSVariable(['--color-border']) as string[];
+  const borderColor = border || '#E3DED9';
   const [selectedFile, setSelectedFile] = useState<SourceFileMeta | null>(null);
   const [fileContent, setFileContent] = useState<string>('');
   const [fileViewUrl, setFileViewUrl] = useState<string>('');
@@ -147,7 +150,7 @@ export default function NoteHelperSidebar({
       {/* Sidebar */}
       <View style={styles.sidebar}>
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { borderBottomColor: borderColor }]}>
           {selectedFile ? (
             <View style={styles.headerRow}>
               <TouchableOpacity
@@ -192,7 +195,7 @@ export default function NoteHelperSidebar({
               ) : (
                 <>
                   {/* File meta info */}
-                  <View style={styles.fileMeta}>
+                  <View style={[styles.fileMeta, { borderBottomColor: borderColor }]}>
                     <View style={styles.fileMetaRow}>
                       <Feather
                         name={selectedFile.type === 'study_note' ? 'edit-3' : 'file-text'}
@@ -225,7 +228,7 @@ export default function NoteHelperSidebar({
               return (
                 <TouchableOpacity
                   key={`${file.type}_${file.id}`}
-                  style={styles.fileItem}
+                  style={[styles.fileItem, { borderBottomColor: borderColor }]}
                   onPress={() => handleSelectFile(file)}
                 >
                   <View style={styles.fileIcon}>
@@ -287,7 +290,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F3',
   },
   headerRow: {
     flexDirection: 'row',
@@ -311,7 +313,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F3',
     gap: 12,
   },
   fileIcon: {
@@ -357,7 +358,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     marginBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F3',
   },
   fileMetaRow: {
     flexDirection: 'row',

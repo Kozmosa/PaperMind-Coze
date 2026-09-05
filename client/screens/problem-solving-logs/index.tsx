@@ -36,8 +36,12 @@ type DailyCount = {
 
 export default function ProblemSolvingLogsScreen() {
   const router = useSafeRouter();
-  const [backgroundSecondary] = useCSSVariable(['--color-background-secondary']) as string[];
+  const [backgroundSecondary, border] = useCSSVariable([
+    '--color-background-secondary',
+    '--color-border',
+  ]) as string[];
   const bgSecondary = backgroundSecondary || '#E7E7EC';
+  const borderColor = border || '#E3DED9';
   const [logs, setLogs] = useState<ProblemLog[]>([]);
   const [dailyCounts, setDailyCounts] = useState<DailyCount[]>([]);
   const [statsTotal, setStatsTotal] = useState(0);
@@ -115,7 +119,7 @@ export default function ProblemSolvingLogsScreen() {
           paddingVertical: 12,
           backgroundColor: '#FFF',
           borderBottomWidth: 1,
-          borderBottomColor: '#F0F0F3',
+          borderBottomColor: borderColor,
         }}
       >
         <TouchableOpacity onPress={() => router.back()}>

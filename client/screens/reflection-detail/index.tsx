@@ -53,8 +53,12 @@ function formatStatsForChart(daily: Record<string, number>, period: string): Dai
 export default function ReflectionDetailScreen() {
   const { id } = useSafeSearchParams<{ id: number }>();
   const router = useSafeRouter();
-  const [backgroundSecondary] = useCSSVariable(['--color-background-secondary']) as string[];
+  const [backgroundSecondary, border] = useCSSVariable([
+    '--color-background-secondary',
+    '--color-border',
+  ]) as string[];
   const bgSecondary = backgroundSecondary || '#E7E7EC';
+  const borderColor = border || '#E3DED9';
   const [reflection, setReflection] = useState<Reflection | null>(null);
   const [dailyCounts, setDailyCounts] = useState<DailyCount[]>([]);
 
@@ -151,7 +155,7 @@ export default function ReflectionDetailScreen() {
     strokeWidth: 2,
     decimalCount: 0,
     propsForBackgroundLines: {
-      stroke: '#F0F0F3',
+      stroke: borderColor,
       strokeDasharray: '4 4',
       strokeWidth: 1,
     },
