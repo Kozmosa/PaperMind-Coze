@@ -55,7 +55,7 @@ import {
  */
 interface ScreenProps {
   children: React.ReactNode;
-  /** 背景色，默认 #fff */
+  /** 背景色，默认 var(--background)，即 global.css 的 --background token */
   backgroundColor?: string;
   /**
    * 状态栏样式
