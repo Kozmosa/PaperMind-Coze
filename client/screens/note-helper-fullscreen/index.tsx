@@ -11,6 +11,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { useCSSVariable } from 'uniwind';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSafeSearchParams } from '@/hooks/useSafeRouter';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
@@ -52,6 +53,8 @@ const COLORS = {
 export default function NoteHelperFullscreenScreen() {
   const router = useSafeRouter();
   const insets = useSafeAreaInsets();
+  const [backgroundSecondary] = useCSSVariable(['--color-background-secondary']) as string[];
+  const bgSecondary = backgroundSecondary || '#E7E7EC';
   const params = useSafeSearchParams<{
     noteContent: string;
     citations: string;
@@ -255,7 +258,10 @@ export default function NoteHelperFullscreenScreen() {
             {QUICK_ACTIONS.map((action, i) => (
               <TouchableOpacity
                 key={i}
-                style={[styles.quickBtn, refining && styles.quickBtnDisabled]}
+                style={[
+                  styles.quickBtn,
+                  refining && { backgroundColor: bgSecondary, borderColor: '#E8E8ED' },
+                ]}
                 onPress={() => handleRefine(action.prompt)}
                 disabled={refining}
               >
@@ -274,7 +280,7 @@ export default function NoteHelperFullscreenScreen() {
           {/* Free text input */}
           <View style={styles.refineInputContainer}>
             <TextInput
-              style={styles.refineInput}
+              style={[styles.refineInput, { backgroundColor: bgSecondary }]}
               placeholder="输入修改需求..."
               placeholderTextColor={COLORS.textMuted}
               value={refineInput}
@@ -402,10 +408,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E8E3FF',
   },
-  quickBtnDisabled: {
-    backgroundColor: '#F0F0F3',
-    borderColor: '#E8E8ED',
-  },
   quickBtnText: {
     fontSize: 12,
     fontWeight: '600',
@@ -423,7 +425,6 @@ const styles = StyleSheet.create({
   },
   refineInput: {
     flex: 1,
-    backgroundColor: '#F0F0F3',
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 10,

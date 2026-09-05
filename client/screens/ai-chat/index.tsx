@@ -14,6 +14,7 @@ import { Screen } from '@/components/layout/Screen';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
 import RNSSE from 'react-native-sse';
 import { Ionicons } from '@expo/vector-icons';
+import { useCSSVariable } from 'uniwind';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -32,6 +33,8 @@ export default function AIChatScreen() {
   const params = useSafeSearchParams<{ agent: string; context?: string }>();
   const { agent = 'note_helper', context } = params;
   const info = AGENT_INFO[agent] || AGENT_INFO.note_helper;
+  const [backgroundSecondary] = useCSSVariable(['--color-background-secondary']) as string[];
+  const bgSecondary = backgroundSecondary || '#E7E7EC';
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -214,7 +217,7 @@ export default function AIChatScreen() {
         <View
           className="max-w-[80%] rounded-2xl px-4 py-3"
           style={{
-            backgroundColor: isUser ? info.color : '#F0F0F3',
+            backgroundColor: isUser ? info.color : bgSecondary,
             borderBottomRightRadius: isUser ? 4 : 16,
             borderBottomLeftRadius: isUser ? 16 : 4,
           }}

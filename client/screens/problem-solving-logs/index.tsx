@@ -16,6 +16,7 @@ import { LineChart } from 'react-native-chart-kit';
 import { Screen } from '@/components/layout/Screen';
 import { api } from '@/utils/api';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
+import { useCSSVariable } from 'uniwind';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -35,6 +36,8 @@ type DailyCount = {
 
 export default function ProblemSolvingLogsScreen() {
   const router = useSafeRouter();
+  const [backgroundSecondary] = useCSSVariable(['--color-background-secondary']) as string[];
+  const bgSecondary = backgroundSecondary || '#E7E7EC';
   const [logs, setLogs] = useState<ProblemLog[]>([]);
   const [dailyCounts, setDailyCounts] = useState<DailyCount[]>([]);
   const [statsTotal, setStatsTotal] = useState(0);
@@ -155,7 +158,7 @@ export default function ProblemSolvingLogsScreen() {
                 <View
                   style={{
                     flex: 1,
-                    backgroundColor: '#F0F0F3',
+                    backgroundColor: bgSecondary,
                     borderRadius: 12,
                     padding: 16,
                     alignItems: 'center',
@@ -170,7 +173,7 @@ export default function ProblemSolvingLogsScreen() {
                 <View
                   style={{
                     flex: 1,
-                    backgroundColor: '#F0F0F3',
+                    backgroundColor: bgSecondary,
                     borderRadius: 12,
                     padding: 16,
                     alignItems: 'center',
@@ -336,7 +339,7 @@ export default function ProblemSolvingLogsScreen() {
             <Text style={{ fontSize: 13, color: '#636E72', marginBottom: 6 }}>问题描述 *</Text>
             <TextInput
               style={{
-                backgroundColor: '#F0F0F3',
+                backgroundColor: bgSecondary,
                 borderRadius: 12,
                 padding: 12,
                 fontSize: 14,
@@ -354,7 +357,7 @@ export default function ProblemSolvingLogsScreen() {
             </Text>
             <TextInput
               style={{
-                backgroundColor: '#F0F0F3',
+                backgroundColor: bgSecondary,
                 borderRadius: 12,
                 padding: 12,
                 fontSize: 14,
@@ -372,7 +375,7 @@ export default function ProblemSolvingLogsScreen() {
             </Text>
             <TextInput
               style={{
-                backgroundColor: '#F0F0F3',
+                backgroundColor: bgSecondary,
                 borderRadius: 12,
                 padding: 12,
                 fontSize: 14,
@@ -390,7 +393,7 @@ export default function ProblemSolvingLogsScreen() {
                 onPress={() => setRecordModal(false)}
                 style={{
                   flex: 1,
-                  backgroundColor: '#F0F0F3',
+                  backgroundColor: bgSecondary,
                   borderRadius: 14,
                   paddingVertical: 12,
                   alignItems: 'center',

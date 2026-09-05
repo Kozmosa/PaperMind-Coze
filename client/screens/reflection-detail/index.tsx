@@ -6,6 +6,7 @@ import { LineChart } from 'react-native-chart-kit';
 import { Screen } from '@/components/layout/Screen';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
 import { api } from '@/utils/api';
+import { useCSSVariable } from 'uniwind';
 import MarkdownRenderer from '@/components/markdown/MarkdownRenderer';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -52,6 +53,8 @@ function formatStatsForChart(daily: Record<string, number>, period: string): Dai
 export default function ReflectionDetailScreen() {
   const { id } = useSafeSearchParams<{ id: number }>();
   const router = useSafeRouter();
+  const [backgroundSecondary] = useCSSVariable(['--color-background-secondary']) as string[];
+  const bgSecondary = backgroundSecondary || '#E7E7EC';
   const [reflection, setReflection] = useState<Reflection | null>(null);
   const [dailyCounts, setDailyCounts] = useState<DailyCount[]>([]);
 
@@ -181,7 +184,7 @@ export default function ReflectionDetailScreen() {
           <View
             key={section.key}
             style={{
-              backgroundColor: '#F0F0F3',
+              backgroundColor: bgSecondary,
               borderRadius: 24,
               padding: 20,
               marginBottom: 16,
@@ -222,7 +225,7 @@ export default function ReflectionDetailScreen() {
         {/* 问题解答活动折线图 */}
         <View
           style={{
-            backgroundColor: '#F0F0F3',
+            backgroundColor: bgSecondary,
             borderRadius: 24,
             padding: 20,
             marginBottom: 16,

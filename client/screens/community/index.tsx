@@ -17,6 +17,7 @@ import { Screen } from '@/components/layout/Screen';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { api } from '@/utils/api';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useCSSVariable } from 'uniwind';
 
 type Stickynote = {
   id: number;
@@ -37,6 +38,8 @@ type Forum = {
 export default function CommunityScreen() {
   const router = useSafeRouter();
   const insets = useSafeAreaInsets();
+  const [backgroundSecondary] = useCSSVariable(['--color-background-secondary']) as string[];
+  const bgSecondary = backgroundSecondary || '#E7E7EC';
   const [activeTab, setActiveTab] = useState<'friends' | 'public' | 'forums'>('public');
   const [stickynotes, setStickynotes] = useState<Stickynote[]>([]);
   const [forums, setForums] = useState<Forum[]>([]);
@@ -140,7 +143,7 @@ export default function CommunityScreen() {
                   flex: 1,
                   paddingVertical: 10,
                   borderRadius: 14,
-                  backgroundColor: activeTab === tab.key ? '#F0F0F3' : 'transparent',
+                  backgroundColor: activeTab === tab.key ? bgSecondary : 'transparent',
                   alignItems: 'center',
                   flexDirection: 'row',
                   justifyContent: 'center',
@@ -218,7 +221,7 @@ export default function CommunityScreen() {
                 <TouchableOpacity
                   key={forum.id}
                   style={{
-                    backgroundColor: '#F0F0F3',
+                    backgroundColor: bgSecondary,
                     borderRadius: 20,
                     padding: 16,
                     marginBottom: 12,
@@ -282,7 +285,7 @@ export default function CommunityScreen() {
                 <TouchableOpacity
                   key={note.id}
                   style={{
-                    backgroundColor: '#F0F0F3',
+                    backgroundColor: bgSecondary,
                     borderRadius: 20,
                     padding: 16,
                     marginBottom: 12,
@@ -405,7 +408,7 @@ export default function CommunityScreen() {
             >
               <View
                 style={{
-                  backgroundColor: '#F0F0F3',
+                  backgroundColor: bgSecondary,
                   borderTopLeftRadius: 28,
                   borderTopRightRadius: 28,
                   padding: 24,
@@ -499,7 +502,7 @@ export default function CommunityScreen() {
             >
               <View
                 style={{
-                  backgroundColor: '#F0F0F3',
+                  backgroundColor: bgSecondary,
                   borderTopLeftRadius: 28,
                   borderTopRightRadius: 28,
                   padding: 24,

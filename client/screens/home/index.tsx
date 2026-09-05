@@ -6,6 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Screen } from '@/components/layout/Screen';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { api } from '@/utils/api';
+import { useCSSVariable } from 'uniwind';
 
 type KnowledgeNode = {
   id: number;
@@ -23,6 +24,8 @@ type DraftItem = {
 
 export default function HomeScreen() {
   const router = useSafeRouter();
+  const [backgroundSecondary] = useCSSVariable(['--color-background-secondary']) as string[];
+  const bgSecondary = backgroundSecondary || '#E7E7EC';
   const [nodes, setNodes] = useState<KnowledgeNode[]>([]);
   const [drafts, setDrafts] = useState<DraftItem[]>([]);
   const [stats, setStats] = useState({ total: 0, recent: 0, drafts: 0 });
@@ -78,7 +81,7 @@ export default function HomeScreen() {
               key={i}
               style={{
                 flex: 1,
-                backgroundColor: '#F0F0F3',
+                backgroundColor: bgSecondary,
                 borderRadius: 20,
                 padding: 16,
                 shadowColor: '#D1D9E6',
@@ -112,7 +115,7 @@ export default function HomeScreen() {
         {/* Quick Actions */}
         <View
           style={{
-            backgroundColor: '#F0F0F3',
+            backgroundColor: bgSecondary,
             borderRadius: 24,
             padding: 20,
             marginBottom: 24,
@@ -211,7 +214,7 @@ export default function HomeScreen() {
         {draftPoolItems.length > 0 && (
           <TouchableOpacity
             style={{
-              backgroundColor: '#F0F0F3',
+              backgroundColor: bgSecondary,
               borderRadius: 20,
               padding: 16,
               marginBottom: 24,
@@ -257,7 +260,7 @@ export default function HomeScreen() {
         {/* Recent Nodes */}
         <View
           style={{
-            backgroundColor: '#F0F0F3',
+            backgroundColor: bgSecondary,
             borderRadius: 24,
             padding: 20,
             shadowColor: '#D1D9E6',
