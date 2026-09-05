@@ -532,7 +532,21 @@ async function importNotesAndMaterials(
     '\n📎 上传学习资料（POST /upload，走与 App 相同的链路，每份含 3 次 LLM 调用，请耐心等待）...',
   );
   const materialsDir = path.join(ROOT_DIR, 'test_data', '学习资料');
-  const materialFiles = findFiles(materialsDir, ['.md', '.txt', '.pdf', '.pptx', '.docx']);
+  const allMaterialFiles = findFiles(materialsDir, ['.md', '.txt', '.pdf', '.pptx', '.docx']);
+  // 只导入场景包文件：以 MATERIAL_TIMELINE 的文件名关键词为白名单，
+  // 避免目录下混入的非演示文件被一并导入，保证与演示剧本一致（资料 8 份）
+  const materialFiles = allMaterialFiles.filter((f) =>
+    MATERIAL_TIMELINE.some((t) => path.basename(f, path.extname(f)).includes(t.match)),
+  );
+  const skippedMaterials = allMaterialFiles.length - materialFiles.length;
+  if (skippedMaterials > 0) {
+    console.log(`   ⏭️  已跳过 ${skippedMaterials} 份非场景包文件（不匹配场景清单关键词）`);
+  }
+  if (materialFiles.length !== MATERIAL_TIMELINE.length) {
+    console.warn(
+      `   ⚠️  场景包资料预期 ${MATERIAL_TIMELINE.length} 份，实际匹配 ${materialFiles.length} 份，请检查 test_data/学习资料 目录`,
+    );
+  }
 
   for (let i = 0; i < materialFiles.length; i++) {
     const filePath = materialFiles[i];
