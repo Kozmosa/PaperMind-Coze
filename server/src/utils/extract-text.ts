@@ -80,6 +80,20 @@ export async function extractText(
   }
 }
 
+// 清理提取文本：课件页脚标记（"-- 2 of 252 --"）、连续重复页眉行、多余空行
+function cleanExtractedText(text: string): string {
+  const t = text
+    .replace(/--\s*\d+\s*of\s*\d+\s*--/gi, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n');
+  const out: string[] = [];
+  for (const line of t.split('\n')) {
+    if (out.length > 0 && out[out.length - 1] === line && line.trim().length > 0) continue;
+    out.push(line);
+  }
+  return out.join('\n').trim();
+}
+
 async function extractPdf(filePath: string): Promise<ExtractedContent> {
   try {
     const PDFParse = await getPdfParser();
@@ -89,7 +103,7 @@ async function extractPdf(filePath: string): Promise<ExtractedContent> {
     const data: { text: string; numpages?: number } =
       typeof raw === 'string' ? { text: raw, numpages: undefined } : raw;
     return {
-      text: data.text || '',
+      text: cleanExtractedText(data.text || ''),
       pageCount: data.numpages || 0,
     };
   } catch (err) {

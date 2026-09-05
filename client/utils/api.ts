@@ -356,7 +356,7 @@ export const api = {
     }),
 
   // Get combined recent records (study_notes + materials)
-  getRecentRecords: () => request<any[]>('/control-center/recent-records'),
+  getRecentRecords: (limit?: number) => request<any[]>(`/control-center/recent-records${limit ? `?limit=${limit}` : ''}`),
 
   // Note Helper — SSE 流式生成笔记
   generateNoteStream: (

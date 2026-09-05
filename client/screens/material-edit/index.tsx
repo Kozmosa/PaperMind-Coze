@@ -9,6 +9,7 @@ import { api } from '@/utils/api';
 import NoteHelperFab from '@/components/note-helper/NoteHelperFab';
 import NoteHelperPanel from '@/components/note-helper/NoteHelperPanel';
 import type { Citation } from '@/components/note-helper/NoteHelperPanel';
+import MarkdownRenderer from '@/components/markdown/MarkdownRenderer';
 
 const C = {
   bg: '#FFFFFF',
@@ -310,19 +311,16 @@ export default function MaterialViewScreen() {
 
                 {showPapercore && (
                   <View style={{ paddingHorizontal: 20, paddingBottom: 8 }}>
-                    <Text
+                    <View
                       style={{
-                        fontSize: 13,
-                        color: C.text,
-                        lineHeight: 20,
                         backgroundColor: C.accentBg,
                         borderRadius: 8,
                         padding: 12,
                         overflow: 'hidden',
                       }}
                     >
-                      {papercore}
-                    </Text>
+                      <MarkdownRenderer content={papercore} />
+                    </View>
                   </View>
                 )}
               </View>

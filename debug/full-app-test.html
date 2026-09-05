@@ -583,7 +583,7 @@
   .nh-fs-content {
     flex: 1; overflow-y: auto; padding: 18px; -webkit-overflow-scrolling: touch;
   }
-  .nh-fs-content h1 { font-size: 22px; font-weight: 800; margin: 18px 0 10px; text-align: center; }
+  .nh-fs-content h1 { font-size: 22px; font-weight: 800; margin: 18px 0 10px; text-align: left; }
   .nh-fs-content h2,.nh-fs-content h3,.nh-fs-content h4 { text-align: left; }
   .nh-fs-content h2 { font-size: 18px; font-weight: 800; margin: 14px 0 8px; }
   .nh-fs-content h3 { font-size: 16px; font-weight: 800; margin: 12px 0 6px; }
@@ -824,7 +824,7 @@
   .be-read-block {
     padding: 14px 16px; line-height: 1.85; font-size: 15px; color: var(--text);
   }
-  .be-read-block h1 { font-size: 22px; font-weight: 800; margin: 16px 0 8px; text-align: center; }
+  .be-read-block h1 { font-size: 22px; font-weight: 800; margin: 16px 0 8px; text-align: left; }
   .be-read-block h2 { font-size: 18px; font-weight: 800; margin: 12px 0 6px; text-align: left; }
   .be-read-block h3 { font-size: 16px; font-weight: 800; margin: 10px 0 6px; text-align: left; }
   .be-read-block p,.be-read-block li,.be-read-block blockquote { margin: 6px 0; text-align: left; }
@@ -1051,7 +1051,7 @@
         <button style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text2);flex-shrink:0;" onclick="closeNoteHelperPanel()">✕</button>
       </div>
       <div class="nh-panel-body" id="nh-panel-body">
-        <div style="text-align:center;padding:20px 0;" id="nh-panel-loading"><div class="spinner"></div><div class="meta-text" style="margin-top:8px;">正在生成笔记...</div></div>
+        <div style="text-align:center;padding:20px 0;" id="nh-panel-loading"><div class="meta-text" style="margin-top:8px;">思考中...</div></div>
         <div id="nh-panel-result" style="display:none;font-size:15px;line-height:1.8;color:var(--text);max-height:260px;overflow-y:auto;"></div>
         <div id="nh-panel-actions" style="display:none;margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;"></div>
       </div>
@@ -1507,7 +1507,7 @@ async function selectKTag(id){
     if(!res.ok) throw new Error('HTTP '+res.status);
     const json=await res.json();const docs=json.data||[];
     let dh=docs.length===0?'<div style="text-align:center;color:var(--text3);padding:20px;">暂无关联文档</div>'
-      :docs.map(d=>`<div class="tag-doc"><span style="font-size:22px;">${d.type==='study_note'?'📝':'📄'}</span><div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(d.title||'未命名')}</div><div class="meta-text">${esc(fmtPath(d.logical_path))}</div></div><span style="color:var(--text4);">›</span></div>`).join('');
+      :docs.map(d=>`<div class="tag-doc" style="cursor:pointer;" onclick="event.stopPropagation();${d.type==='study_note'?'viewNoteFullscreen':'viewMaterialFullscreen'}('${d.id}','${esc((d.title||'未命名').replace(/'/g,"\\'"))}')"><span style="font-size:22px;">${d.type==='study_note'?'📝':'📄'}</span><div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(d.title||'未命名')}</div><div class="meta-text">${esc(fmtPath(d.logical_path))}</div></div><span style="color:var(--text4);">›</span></div>`).join('');
     sheet.innerHTML=`<div class="tag-sheet-handle"></div><div style="display:flex;justify-content:space-between;align-items:center;padding:0 18px 14px;border-bottom:1px solid var(--border);"><div style="display:flex;align-items:center;gap:10px;"><span style="display:inline-block;width:14px;height:14px;border-radius:7px;background:${lc[node.level]};"></span><span style="font-size:18px;font-weight:700;color:var(--text);">${esc(node.name)}</span><span class="tag" style="background:var(--pri-pale);color:var(--primary);">${node.level}</span></div><button onclick="closeKTagPopup()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--text2);">✕</button></div><div style="padding:14px 18px;font-size:13px;color:var(--text2);">共 ${node.count} 条关联记录</div><div style="overflow-y:auto;max-height:280px;padding:0 18px 20px;">${dh}</div>`;
   }catch(e){sheet.innerHTML=`<div class="tag-sheet-handle"></div><div style="padding:32px;text-align:center;color:var(--text2);">加载失败: ${esc(e.message)}</div>`;}
 }
@@ -1617,7 +1617,7 @@ async function sendChatMessage(){
   }
   msgs.innerHTML+=`<div style="display:flex;justify-content:flex-end;margin-bottom:14px;"><div class="chat-msg-user">${imgHtml}${esc(userContent)}</div></div>`;
   const botId='bot-'+Date.now();
-  msgs.innerHTML+=`<div class="chat-msg-row" id="${botId}"><div class="avatar" style="width:34px;height:34px;background:var(--primary);font-size:16px;">🤖</div><div class="chat-msg-bot"><div class="spinner" style="width:16px;height:16px;border-width:2px;margin:4px 0;"></div></div></div>`;
+  msgs.innerHTML+=`<div class="chat-msg-row" id="${botId}"><div class="avatar" style="width:34px;height:34px;background:var(--primary);font-size:16px;">🤖</div><div class="chat-msg-bot"><div style="font-size:14px;color:var(--text3);padding:8px 2px;">思考中...</div></div></div>`;
   msgs.scrollTop=msgs.scrollHeight;
   _chatLoading=true;
   const sendBtn=document.querySelector('#page-chat .btn-primary[onclick*="sendChatMessage"]');
@@ -1660,7 +1660,7 @@ async function sendChatMessage(){
 async function startReflectionChat(){
   const msgs=document.getElementById('chat-messages'),empty=msgs.querySelector('.empty-state');if(empty)empty.remove();
   const botId='refl-'+Date.now();
-  msgs.innerHTML+=`<div class="chat-msg-row" id="${botId}"><div class="avatar" style="width:34px;height:34px;background:#D97706;font-size:16px;">💡</div><div class="chat-msg-bot"><div class="spinner" style="width:16px;height:16px;border-width:2px;margin:4px 0;"></div></div></div>`;
+  msgs.innerHTML+=`<div class="chat-msg-row" id="${botId}"><div class="avatar" style="width:34px;height:34px;background:#D97706;font-size:16px;">💡</div><div class="chat-msg-bot"><div style="font-size:14px;color:var(--text3);padding:8px 2px;">思考中...</div></div></div>`;
   msgs.scrollTop=msgs.scrollHeight;_reflGenActive=true;
   try{
     const resp=await fetch(API+'/ai/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent:'reflection_mind',message:'请根据我的学习数据，生成本周的学习反思报告。'})});
@@ -2061,7 +2061,7 @@ async function viewMaterialFullscreen(id, title) {
       html += '<div class="mat-text-pages">';
       data.pages.forEach((page, i) => {
         html += (i > 0 ? '<div class="page-sep">— 第 ' + (i + 1) + ' 页 —</div>' : '');
-        html += '<p style="margin-bottom:12px;">' + esc(page) + '</p>';
+        html += '<p style="margin-bottom:12px;">' + esc(typeof page === 'string' ? page : (page.text || '')) + '</p>';
       });
       html += '</div></div>';
     } else {
@@ -2730,7 +2730,7 @@ function simpleMarkdown(md) {
   h = h.replace(/^#### (.+)$/gm, '<h4 style="text-align:left;">$1</h4>');
   h = h.replace(/^### (.+)$/gm, '<h3 style="text-align:left;">$1</h3>');
   h = h.replace(/^## (.+)$/gm, '<h2 style="text-align:left;">$1</h2>');
-  h = h.replace(/^# (.+)$/gm, '<h1 style="text-align:center;">$1</h1>');
+  h = h.replace(/^# (.+)$/gm, '<h1 style="text-align:left;">$1</h1>');
   // Bold and italic
   h = h.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
   h = h.replace(/\*(.+?)\*/g, '<em>$1</em>');
@@ -3800,7 +3800,7 @@ viewMaterialFullscreen = async function(id, title) {
       html += '<div class="mat-text-pages">';
       data.pages.forEach((page, i) => {
         html += (i > 0 ? '<div class="page-sep">— 第 ' + (i + 1) + ' 页 —</div>' : '');
-        html += '<p style="margin-bottom:12px;">' + esc(page) + '</p>';
+        html += '<p style="margin-bottom:12px;">' + esc(typeof page === 'string' ? page : (page.text || '')) + '</p>';
       });
       html += '</div></div>';
     } else {
