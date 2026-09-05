@@ -41,6 +41,7 @@ router.get('/recent-records', async (req: Request, res: Response) => {
   try {
     const userId = (req as any).userId || 'guest';
     const supabase = getSupabaseClient();
+    const perTableLimit = Math.min(parseInt(req.query.limit as string) || 50, 500);
 
     const [notesRes, materialsRes] = await Promise.all([
       supabase
@@ -50,7 +51,7 @@ router.get('/recent-records', async (req: Request, res: Response) => {
         )
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
-        .limit(50),
+        .limit(perTableLimit),
       supabase
         .from('materials')
         .select(
@@ -58,7 +59,7 @@ router.get('/recent-records', async (req: Request, res: Response) => {
         )
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
-        .limit(50),
+        .limit(perTableLimit),
     ]);
 
     if (notesRes.error) throw new Error(notesRes.error.message);

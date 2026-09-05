@@ -140,7 +140,7 @@ export default function ControlCenterScreen() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const res = await api.getRecentRecords();
+      const res = await api.getRecentRecords(500);
       const records: RecentRecord[] = res.data || [];
       setAllRecords(records);
       setRecentRecords(records.slice(0, 10));
@@ -925,7 +925,7 @@ export default function ControlCenterScreen() {
               </View>
 
               <ScrollView style={{ padding: 20 }} showsVerticalScrollIndicator={false}>
-                {allRecords.map((record) => {
+                {(allRecords.length > 0 ? allRecords : recentRecords).map((record) => {
                   const isNote = record.record_type === 'study_note';
                   const hasRedDot = record.ai_processed && !record.viewed_after_process;
                   const displayTitle =
