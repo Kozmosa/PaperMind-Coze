@@ -7,7 +7,7 @@
 import * as fs from 'fs';
 import mammoth from 'mammoth';
 import AdmZip from 'adm-zip';
-import { visionAnthropic, VISION_MODEL_NAME } from '../config/ai.js';
+import { VISION_CONFIG } from '../config/ai.js';
 
 export interface ExtractedContent {
   text: string;
@@ -175,8 +175,9 @@ async function extractPdf(filePath: string): Promise<ExtractedContent> {
 }
 
 // 视觉 OCR 兜底（扫描件）：渲染前 N 页为图片交给视觉模型识别，逐页 \f 拼接
+// 走 OpenAI 兼容端点（DeepSeek 的 Anthropic 端点不转发图片块，实测 OpenAI 格式可用）
 async function extractPdfWithVision(filePath: string, maxPages = 5): Promise<ExtractedContent> {
-  if (!visionAnthropic) return { text: '' };
+  if (!VISION_CONFIG.apiKey) return { text: '' };
   try {
     const mupdf = await import('mupdf');
     const data = fs.readFileSync(filePath);
@@ -192,30 +193,35 @@ async function extractPdfWithVision(filePath: string, maxPages = 5): Promise<Ext
         true,
       );
       const b64 = Buffer.from(pixmap.asPNG()).toString('base64');
-      const resp = await visionAnthropic.messages.create({
-        model: VISION_MODEL_NAME,
-        max_tokens: 2048,
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'image',
-                source: { type: 'base64', media_type: 'image/png', data: b64 },
-              },
-              {
-                type: 'text',
-                text: '请识别这张课件页面的全部文字内容（标题、正文；公式用 LaTeX 表达），按原文顺序输出，不要添加解释或客套话。',
-              },
-            ],
-          },
-        ],
+      const resp = await fetch(`${VISION_CONFIG.baseUrl}/v1/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${VISION_CONFIG.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: VISION_CONFIG.model,
+          max_tokens: 2048,
+          messages: [
+            {
+              role: 'user',
+              content: [
+                { type: 'image_url', image_url: { url: `data:image/png;base64,${b64}` } },
+                {
+                  type: 'text',
+                  text: '请识别这张课件页面的全部文字内容（标题、正文；公式用 LaTeX 表达），按原文顺序输出，不要添加解释或客套话。',
+                },
+              ],
+            },
+          ],
+        }),
       });
-      const t = resp.content
-        .filter((c: any) => c.type === 'text')
-        .map((c: any) => c.text)
-        .join('')
-        .trim();
+      const j: any = await resp.json().catch(() => ({}));
+      if (j.error) {
+        console.error('[extractPdfWithVision] API error:', JSON.stringify(j.error).slice(0, 150));
+        continue;
+      }
+      const t = (j.choices?.[0]?.message?.content || '').trim();
       if (t && !t.includes('无法') && !t.includes('Unsupported')) texts.push(t);
     }
     return texts.length > 0 ? { text: texts.join('\f'), pageCount: texts.length } : { text: '' };
