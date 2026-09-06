@@ -9,10 +9,19 @@ import {
   Dimensions,
   Platform,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  runOnJS,
+} from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
 import { useCSSVariable } from 'uniwind';
 import { api } from '@/utils/api';
+import { isPDFFile } from '@/utils/file-type';
 import MarkdownRenderer from '@/components/markdown/MarkdownRenderer';
+import TextPagesViewer from '@/components/common/TextPagesViewer';
+import type { TextPage } from '@/components/common/TextPagesViewer';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SIDEBAR_WIDTH = SCREEN_WIDTH * 0.85;
@@ -85,7 +94,34 @@ export default function NoteHelperSidebar({
   const [selectedFile, setSelectedFile] = useState<SourceFileMeta | null>(null);
   const [fileContent, setFileContent] = useState<string>('');
   const [fileViewUrl, setFileViewUrl] = useState<string>('');
+  const [fileType, setFileType] = useState<string>('');
+  const [filePages, setFilePages] = useState<TextPage[]>([]);
   const [loadingContent, setLoadingContent] = useState(false);
+
+  // 滑入滑出 + 遮罩淡入淡出；rendered 保证退出动画播完后再卸载
+  const [rendered, setRendered] = useState(false);
+  const translateX = useSharedValue(SIDEBAR_WIDTH);
+  const backdropOpacity = useSharedValue(0);
+
+  useEffect(() => {
+    if (visible) {
+      setRendered(true);
+      translateX.value = withTiming(0, { duration: 260 });
+      backdropOpacity.value = withTiming(1, { duration: 260 });
+    } else {
+      translateX.value = withTiming(SIDEBAR_WIDTH, { duration: 220 });
+      backdropOpacity.value = withTiming(0, { duration: 220 }, (finished) => {
+        if (finished) runOnJS(setRendered)(false);
+      });
+    }
+  }, [visible]);
+
+  const sidebarAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
+  const backdropAnimStyle = useAnimatedStyle(() => ({
+    opacity: backdropOpacity.value,
+  }));
 
   // Reset when closed
   useEffect(() => {
@@ -93,6 +129,8 @@ export default function NoteHelperSidebar({
       setSelectedFile(null);
       setFileContent('');
       setFileViewUrl('');
+      setFileType('');
+      setFilePages([]);
     }
   }, [visible]);
 
@@ -101,6 +139,8 @@ export default function NoteHelperSidebar({
     setLoadingContent(true);
     setFileContent('');
     setFileViewUrl('');
+    setFileType('');
+    setFilePages([]);
     try {
       const res = await api.getSourceFileContent(file.id, file.type);
       const data = res.data;
@@ -116,11 +156,18 @@ export default function NoteHelperSidebar({
           }
           setFileContent(content || '(无内容)');
         } else {
-          // materials: prefer original file viewUrl over OCR text
-          if (data.viewUrl) {
+          // materials: PDF 走原文 viewUrl 预览，PPTX/DOCX 等按提取的文本页降级展示
+          const ft = data.fileType || '';
+          setFileType(ft);
+          const normPages: TextPage[] = Array.isArray(data.pages)
+            ? data.pages
+                .map((p: any) => (typeof p === 'string' ? { page_number: 0, text: p } : p))
+                .filter((p: TextPage) => p.text && p.text.trim().length > 0)
+            : [];
+          if (data.viewUrl && isPDFFile(ft, data.viewUrl)) {
             setFileViewUrl(data.viewUrl);
-          } else if (data.pages && Array.isArray(data.pages)) {
-            setFileContent(data.pages.map((p: any) => p.text || '').join('\n\n'));
+          } else if (normPages.length > 0) {
+            setFilePages(normPages);
           } else if (data.content) {
             setFileContent(data.content);
           } else {
@@ -140,15 +187,34 @@ export default function NoteHelperSidebar({
     return citations.filter((c) => c.sourceId === fileId).length;
   };
 
-  if (!visible) return null;
+  if (!rendered) return null;
+
+  const fileMeta = selectedFile ? (
+    <View style={[styles.fileMeta, { borderBottomColor: borderColor }]}>
+      <View style={styles.fileMetaRow}>
+        <Feather
+          name={selectedFile.type === 'study_note' ? 'edit-3' : 'file-text'}
+          size={14}
+          color={selectedFile.type === 'study_note' ? '#00B894' : '#FF9F43'}
+        />
+        <Text style={styles.fileMetaText}>
+          {selectedFile.type === 'study_note' ? '学习纪要' : '资料'}
+        </Text>
+        {fileType ? <Text style={styles.fileMetaText}> · {fileType}</Text> : null}
+        {selectedFile.date && <Text style={styles.fileMetaText}> · {selectedFile.date}</Text>}
+      </View>
+    </View>
+  ) : null;
 
   return (
     <View style={styles.container}>
       {/* Backdrop */}
-      <TouchableOpacity style={styles.backdrop} onPress={onClose} activeOpacity={1} />
+      <Animated.View style={[styles.backdrop, backdropAnimStyle]}>
+        <TouchableOpacity style={styles.backdropTouch} onPress={onClose} activeOpacity={1} />
+      </Animated.View>
 
       {/* Sidebar */}
-      <View style={styles.sidebar}>
+      <Animated.View style={[styles.sidebar, sidebarAnimStyle]}>
         {/* Header */}
         <View style={[styles.header, { borderBottomColor: borderColor }]}>
           {selectedFile ? (
@@ -185,6 +251,11 @@ export default function NoteHelperSidebar({
         {selectedFile ? (
           fileViewUrl ? (
             <SidebarPDFViewer url={fileViewUrl} />
+          ) : filePages.length > 0 ? (
+            <View style={styles.content}>
+              {fileMeta}
+              <TextPagesViewer pages={filePages} />
+            </View>
           ) : (
             <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
               {loadingContent ? (
@@ -195,21 +266,7 @@ export default function NoteHelperSidebar({
               ) : (
                 <>
                   {/* File meta info */}
-                  <View style={[styles.fileMeta, { borderBottomColor: borderColor }]}>
-                    <View style={styles.fileMetaRow}>
-                      <Feather
-                        name={selectedFile.type === 'study_note' ? 'edit-3' : 'file-text'}
-                        size={14}
-                        color={selectedFile.type === 'study_note' ? '#00B894' : '#FF9F43'}
-                      />
-                      <Text style={styles.fileMetaText}>
-                        {selectedFile.type === 'study_note' ? '学习纪要' : '资料'}
-                      </Text>
-                      {selectedFile.date && (
-                        <Text style={styles.fileMetaText}> · {selectedFile.date}</Text>
-                      )}
-                    </View>
-                  </View>
+                  {fileMeta}
                   {/* Content */}
                   {fileContent.length > 500 ? (
                     <MarkdownRenderer content={fileContent} maxWidth={SIDEBAR_WIDTH - 40} />
@@ -261,7 +318,7 @@ export default function NoteHelperSidebar({
             <View style={{ height: 40 }} />
           </ScrollView>
         )}
-      </View>
+      </Animated.View>
     </View>
   );
 }
@@ -275,6 +332,9 @@ const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  backdropTouch: {
+    flex: 1,
   },
   sidebar: {
     width: SIDEBAR_WIDTH,

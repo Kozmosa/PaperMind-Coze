@@ -3,6 +3,11 @@ import type { Request, Response } from 'express';
 import { anthropic, DEFAULT_MODEL } from '../config/ai.js';
 import { getSupabaseClient } from '../storage/database/supabase-client.js';
 import { unifiedVectorIndex } from '../utils/unified-vector-index.js';
+import {
+  extractNotePreferences,
+  formatSubjectPreferencesForPrompt,
+  mergeSubjectPreferences,
+} from '../utils/note-preferences.js';
 
 const router = Router();
 const client = getSupabaseClient();
@@ -638,9 +643,11 @@ async function buildNoteHelperPrompt(context?: any): Promise<string> {
       .limit(1);
 
     if (styles && styles.length > 0) {
+      // formatSubjectPreferencesForPrompt 内部会 normalize，兼容旧的平铺结构和新的学科分层结构
       stylePreference = `用户笔记偏好：
 - 总偏好：${styles[0].general_preference || '无'}
-- 学科偏好：${JSON.stringify(styles[0].subject_preferences || {})}`;
+- 学科偏好：
+${formatSubjectPreferencesForPrompt(styles[0].subject_preferences)}`;
     }
   }
 
@@ -1260,6 +1267,188 @@ router.post('/note-helper', async (req: Request, res: Response) => {
   }
 });
 
+// ── Note Helper: 源文件加载与引用构建（generate-note / refine-note 共用）────
+
+interface NoteSourceInfo {
+  id: string;
+  type: 'study_note' | 'material';
+  title: string;
+  content: string;
+  tags: string[];
+  pages: { pageNumber: number | null; text: string }[];
+}
+
+// 与客户端 ReferenceCard 的 Citation 类型一致的契约（字段只增不减）
+interface NoteCitation {
+  index: number;
+  sourceId: string;
+  sourceType: string;
+  fileName: string;
+  highlightText: string;
+  pageNumber: number | null;
+}
+
+/** 加载 generate-note / refine-note 的源文件内容（含 materials 的分页文本与标签） */
+async function loadNoteSources(
+  sourceIds: Array<{ id: string; type: string }>,
+  contentLimit: number,
+): Promise<NoteSourceInfo[]> {
+  const sources: NoteSourceInfo[] = [];
+
+  for (const src of sourceIds) {
+    if (src.type === 'study_note') {
+      const { data: note } = await client.from('study_notes').select('*').eq('id', src.id).single();
+
+      if (note) {
+        let content = note.content || '';
+        if (note.blocks && Array.isArray(note.blocks)) {
+          content = note.blocks
+            .filter((b: any) => b.type === 'text')
+            .map((b: any) => b.content || '')
+            .join('\n\n');
+        }
+        sources.push({
+          id: src.id,
+          type: 'study_note',
+          title: note.title || '学习纪要',
+          content: content.substring(0, contentLimit),
+          tags: Array.isArray(note.tags) ? note.tags : [],
+          pages: [],
+        });
+      }
+    } else if (src.type === 'material') {
+      const { data: mat } = await client.from('materials').select('*').eq('id', src.id).single();
+
+      if (mat) {
+        // file_contents 按页存储（page_number 列），供引用页码匹配。
+        // 注意：materials 与 draft_pool 无外键，draft_id ≠ material.id；
+        // 关联靠 upload.ts 同一次写入的 file_path/file_url 同串（issue #4 Task 2 修正）
+        let pages: { pageNumber: number | null; text: string }[] = [];
+        try {
+          const storedPath = mat.file_path || mat.file_url;
+          let draftId: number | null = null;
+          if (storedPath) {
+            const { data: draft } = await client
+              .from('draft_pool')
+              .select('id')
+              .eq('file_url', storedPath)
+              .maybeSingle();
+            draftId = draft?.id ?? null;
+          }
+          if (draftId === null && mat.name) {
+            // 兜底：种子数据的 draft.file_name 带扩展名（如 "xxx.md"），用前缀匹配
+            const { data: draft } = await client
+              .from('draft_pool')
+              .select('id, file_name')
+              .ilike('file_name', `${mat.name}%`)
+              .limit(1)
+              .maybeSingle();
+            draftId = draft?.id ?? null;
+          }
+          if (draftId !== null) {
+            const { data: fileContents } = await client
+              .from('file_contents')
+              .select('extracted_text, page_number')
+              .eq('draft_id', draftId)
+              .order('page_number', { ascending: true, nullsFirst: true });
+            if (fileContents && fileContents.length > 0) {
+              pages = fileContents.map((fc: any) => ({
+                pageNumber: typeof fc.page_number === 'number' ? fc.page_number : null,
+                text: fc.extracted_text || '',
+              }));
+            }
+          }
+        } catch {
+          // 非关键，分页数据缺失时 pageNumber 一律为 null
+        }
+
+        const fileText = pages.map((p) => p.text).join('\n');
+        sources.push({
+          id: src.id,
+          type: 'material',
+          title: mat.name || mat.title || '资料',
+          content: (mat.papercore || '') + '\n' + fileText.substring(0, contentLimit),
+          tags: Array.isArray(mat.tags) ? mat.tags : [],
+          pages,
+        });
+      }
+    }
+  }
+
+  return sources;
+}
+
+// 页码匹配前归一化：去空白/标点/符号并转小写，降低 LLM 转述与原文的表层差异
+function normalizeForPageMatch(text: string): string {
+  return text.replace(/[\s\p{P}\p{S}]+/gu, '').toLowerCase();
+}
+
+/**
+ * 用引用标记上下文（highlightText）在 material 的分页文本里做 8 字符 shingles 匹配：
+ * 命中数最多的页胜出，至少 2 个命中才采信；只有 1 个带页码的页时直接返回该页；
+ * 其余情况（无分页、页码缺失、匹配不可靠）返回 null。
+ */
+function findPageNumberForSnippet(
+  snippet: string,
+  pages: { pageNumber: number | null; text: string }[],
+): number | null {
+  const numbered = pages.filter((p) => typeof p.pageNumber === 'number' && p.text);
+  if (numbered.length === 0) return null;
+  if (numbered.length === 1) return numbered[0].pageNumber;
+
+  const SHINGLE = 8;
+  const haystack = normalizeForPageMatch(snippet);
+  if (haystack.length < SHINGLE) return null;
+
+  const shingles = new Set<string>();
+  for (let i = 0; i + SHINGLE <= haystack.length; i += SHINGLE) {
+    shingles.add(haystack.slice(i, i + SHINGLE));
+  }
+
+  let bestPage: number | null = null;
+  let bestHits = 0;
+  for (const p of numbered) {
+    const text = normalizeForPageMatch(p.text);
+    let hits = 0;
+    for (const s of shingles) {
+      if (text.includes(s)) hits++;
+    }
+    if (hits > bestHits) {
+      bestHits = hits;
+      bestPage = p.pageNumber;
+    }
+  }
+  return bestHits >= 2 ? bestPage : null;
+}
+
+/**
+ * 基于笔记正文中的 [来源:N] 标记构建引用列表：
+ * 提取标记上下文作为 highlightText，并对 material 来源匹配 pageNumber。
+ * generate-note 与 refine-note 共用（issue #4 Task 2 / Task 4）。
+ */
+function buildNoteCitations(noteText: string, sources: NoteSourceInfo[]): NoteCitation[] {
+  return sources.map((s, i) => {
+    const index = i + 1;
+    const marker = `[来源:${index}]`;
+    let snippet = '';
+    const idx = noteText.indexOf(marker);
+    if (idx >= 0) {
+      // Get preceding and following text (up to 80 chars each side)
+      const start = Math.max(0, idx - 80);
+      const end = Math.min(noteText.length, idx + marker.length + 80);
+      snippet = noteText.slice(start, end).replace(/\n+/g, ' ').trim();
+    }
+    return {
+      index,
+      sourceId: s.id,
+      sourceType: s.type,
+      fileName: s.title,
+      highlightText: snippet,
+      pageNumber: s.type === 'material' ? findPageNumberForSnippet(snippet, s.pages) : null,
+    };
+  });
+}
+
 /**
  * POST /api/v1/ai/generate-note
  * 根据多份源文件（学习纪要+资料）生成结构化笔记（SSE 流式）
@@ -1290,77 +1479,12 @@ router.post('/generate-note', async (req: Request, res: Response) => {
       const st = styles[0];
       stylePreference = `用户笔记偏好：
 - 总偏好：${st.general_preference || '无'}
-- 学科偏好：${JSON.stringify(st.subject_preferences || {})}`;
+- 学科偏好：
+${formatSubjectPreferencesForPrompt(st.subject_preferences)}`;
     }
 
-    // 2. 获取所有源文件内容
-    const sources: { id: string; type: string; title: string; content: string }[] = [];
-    const citations: { index: number; sourceId: string; sourceType: string; fileName: string }[] =
-      [];
-    let citationIndex = 0;
-
-    for (const src of sourceIds) {
-      if (src.type === 'study_note') {
-        const { data: note } = await client
-          .from('study_notes')
-          .select('*')
-          .eq('id', src.id)
-          .single();
-
-        if (note) {
-          let content = note.content || '';
-          if (note.blocks && Array.isArray(note.blocks)) {
-            content = note.blocks
-              .filter((b: any) => b.type === 'text')
-              .map((b: any) => b.content || '')
-              .join('\n\n');
-          }
-          sources.push({
-            id: src.id,
-            type: 'study_note',
-            title: note.title || '学习纪要',
-            content: content.substring(0, 3000),
-          });
-          citationIndex++;
-          citations.push({
-            index: citationIndex,
-            sourceId: src.id,
-            sourceType: 'study_note',
-            fileName: note.title || '学习纪要',
-          });
-        }
-      } else if (src.type === 'material') {
-        const { data: mat } = await client.from('materials').select('*').eq('id', src.id).single();
-
-        if (mat) {
-          let fileText = '';
-          try {
-            const { data: fileContents } = await client
-              .from('file_contents')
-              .select('extracted_text')
-              .eq('draft_id', src.id)
-              .limit(1);
-            if (fileContents && fileContents.length > 0) {
-              fileText = (fileContents[0] as any).extracted_text || '';
-            }
-          } catch {}
-
-          sources.push({
-            id: src.id,
-            type: 'material',
-            title: mat.name || mat.title || '资料',
-            content: (mat.papercore || '') + '\n' + fileText.substring(0, 3000),
-          });
-          citationIndex++;
-          citations.push({
-            index: citationIndex,
-            sourceId: src.id,
-            sourceType: 'material',
-            fileName: mat.name || '资料',
-          });
-        }
-      }
-    }
+    // 2. 获取所有源文件内容（含 materials 分页文本，供引用页码匹配）
+    const sources = await loadNoteSources(sourceIds, 3000);
 
     if (sources.length === 0) {
       res.write(`data: ${JSON.stringify({ error: '未找到有效的源文件内容' })}\n\n`);
@@ -1409,19 +1533,9 @@ ${sourcesText}
       }
     }
 
-    // Post-process: extract context snippets around each [来源:N] marker
-    const citationsWithContext = citations.map((cit) => {
-      let snippet = '';
-      // Find text around citation marker — extract surrounding sentence/paragraph
-      const idx = fullContent.indexOf(`[来源:${cit.index}]`);
-      if (idx >= 0) {
-        // Get preceding and following text (up to 80 chars each side)
-        const start = Math.max(0, idx - 80);
-        const end = Math.min(fullContent.length, idx + `[来源:${cit.index}]`.length + 80);
-        snippet = fullContent.slice(start, end).replace(/\n+/g, ' ').trim();
-      }
-      return { ...cit, highlightText: snippet };
-    });
+    // Post-process: extract context snippets around each [来源:N] marker，
+    // 并为 material 来源匹配 pageNumber（issue #4 Task 2）
+    const citationsWithContext = buildNoteCitations(fullContent, sources);
 
     res.write(`data: ${JSON.stringify({ citations: citationsWithContext, done: true })}\n\n`);
     res.write('data: [DONE]\n\n');
@@ -1463,24 +1577,28 @@ router.post('/refine-note', async (req: Request, res: Response) => {
 
     const existingPrefs = styles && styles.length > 0 ? styles[0].subject_preferences || {} : {};
 
-    // 2. 从修正指令中提取偏好关键词
-    const extractedPrefs: Record<string, any> = {};
-    const prompt = refinementPrompt.toLowerCase();
-    if (prompt.includes('详细') || prompt.includes('展开') || prompt.includes('更多'))
-      extractedPrefs.detail_level = 'high';
-    if (prompt.includes('简洁') || prompt.includes('简短') || prompt.includes('概括'))
-      extractedPrefs.detail_level = 'concise';
-    if (prompt.includes('表格') || prompt.includes('对比')) extractedPrefs.prefer_tables = true;
-    if (prompt.includes('例子') || prompt.includes('示例') || prompt.includes('举例'))
-      extractedPrefs.prefer_examples = true;
-    if (prompt.includes('重点') || prompt.includes('突出') || prompt.includes('强调'))
-      extractedPrefs.emphasize_keypoints = true;
-    if (prompt.includes('通俗') || prompt.includes('简单') || prompt.includes('易懂'))
-      extractedPrefs.language_style = 'plain';
+    // 2. 加载源文件（学科标签用作偏好分层的学科提示，分页文本用于修正后引用重对齐）
+    const noteSources =
+      sourceIds && Array.isArray(sourceIds) && sourceIds.length > 0
+        ? await loadNoteSources(sourceIds, 2000)
+        : [];
+    const subjectHints = [
+      ...new Set(
+        noteSources
+          .map((s) => (s.tags[0] || '').replace(/^#/, '').trim())
+          .filter((t) => t.length > 0),
+      ),
+    ];
 
-    // 3. 保存提取的偏好
-    if (Object.keys(extractedPrefs).length > 0) {
-      const mergedPrefs = { ...existingPrefs, ...extractedPrefs };
+    // 3. 从修正指令中提取偏好（LLM 优先，失败回退关键词），按学科分层合并
+    const extracted = await extractNotePreferences(refinementPrompt, { subjectHints });
+
+    if (extracted && Object.keys(extracted.preferences).length > 0) {
+      const mergedPrefs = mergeSubjectPreferences(
+        existingPrefs,
+        extracted.subject,
+        extracted.preferences,
+      );
       try {
         const { data: existingRecord } = await client
           .from('papernote_style')
@@ -1502,7 +1620,12 @@ router.post('/refine-note', async (req: Request, res: Response) => {
             subject_preferences: mergedPrefs,
           });
         }
-        res.write(`data: ${JSON.stringify({ preferences_extracted: extractedPrefs })}\n\n`);
+        res.write(
+          `data: ${JSON.stringify({
+            preferences_extracted: extracted.preferences,
+            preferences_subject: extracted.subject,
+          })}\n\n`,
+        );
       } catch (e) {
         console.error('Failed to save preferences:', e);
       }
@@ -1510,39 +1633,9 @@ router.post('/refine-note', async (req: Request, res: Response) => {
 
     // 4. 构建修正 prompt
     let sourcesContext = '';
-    if (sourceIds && Array.isArray(sourceIds) && sourceIds.length > 0) {
-      const sourcesTexts: string[] = [];
-      for (const src of sourceIds) {
-        if (src.type === 'study_note') {
-          const { data: note } = await client
-            .from('study_notes')
-            .select('title, content, blocks')
-            .eq('id', src.id)
-            .single();
-          if (note) {
-            let content = note.content || '';
-            if (note.blocks && Array.isArray(note.blocks)) {
-              content = note.blocks
-                .filter((b: any) => b.type === 'text')
-                .map((b: any) => b.content || '')
-                .join('\n');
-            }
-            sourcesTexts.push(`【${note.title || '纪要'}】${content.substring(0, 2000)}`);
-          }
-        } else if (src.type === 'material') {
-          const { data: mat } = await client
-            .from('materials')
-            .select('name, papercore')
-            .eq('id', src.id)
-            .single();
-          if (mat) {
-            sourcesTexts.push(`【${mat.name || '资料'}】${mat.papercore || ''}`);
-          }
-        }
-      }
-      if (sourcesTexts.length > 0) {
-        sourcesContext = '\n\n原始参考资料：\n' + sourcesTexts.join('\n---\n');
-      }
+    if (noteSources.length > 0) {
+      const sourcesTexts = noteSources.map((s) => `【${s.title}】${s.content.substring(0, 2000)}`);
+      sourcesContext = '\n\n原始参考资料：\n' + sourcesTexts.join('\n---\n');
     }
 
     const systemPrompt = `你是笔记助手 note_helper。用户正在优化一份学习笔记，请根据修正指令对笔记进行修改。
@@ -1567,13 +1660,24 @@ ${sourcesContext}
       messages: [{ role: 'user', content: `当前笔记：\n\n${currentNote}\n\n请按修正指令修改。` }],
     });
 
+    let fullContent = '';
     for await (const event of stream) {
       if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+        fullContent += event.delta.text;
         res.write(`data: ${JSON.stringify({ content: event.delta.text })}\n\n`);
       }
     }
 
-    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+    // 5. 基于修正后的正文重算引用（issue #4 Task 4）：
+    // 复用 generate-note 的引用构建逻辑，仅保留正文中仍存在 [来源:N] 标记的引用
+    let refinedCitations: NoteCitation[] = [];
+    if (noteSources.length > 0) {
+      refinedCitations = buildNoteCitations(fullContent, noteSources).filter((c) =>
+        fullContent.includes(`[来源:${c.index}]`),
+      );
+    }
+
+    res.write(`data: ${JSON.stringify({ done: true, citations: refinedCitations })}\n\n`);
     res.write('data: [DONE]\n\n');
     res.end();
   } catch (error: any) {

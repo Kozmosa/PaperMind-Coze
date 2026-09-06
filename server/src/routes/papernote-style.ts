@@ -1,6 +1,12 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { getSupabaseClient } from '../storage/database/supabase-client.js';
+import {
+  extractNotePreferences,
+  mergeSubjectPreferences,
+  normalizeSubjectPreferences,
+  GENERAL_SUBJECT,
+} from '../utils/note-preferences.js';
 
 const router = Router();
 const client = getSupabaseClient();
@@ -87,22 +93,12 @@ router.post('/extract', async (req: Request, res: Response) => {
       return res.status(400).json({ error: '缺少修正指令' });
     }
 
-    // 提取偏好关键词
-    const extractedPrefs: Record<string, any> = {};
-    const prompt = refinementPrompt.toLowerCase();
-    if (prompt.includes('详细') || prompt.includes('展开') || prompt.includes('更多'))
-      extractedPrefs.detail_level = 'high';
-    if (prompt.includes('简洁') || prompt.includes('简短') || prompt.includes('概括'))
-      extractedPrefs.detail_level = 'concise';
-    if (prompt.includes('表格') || prompt.includes('对比')) extractedPrefs.prefer_tables = true;
-    if (prompt.includes('例子') || prompt.includes('示例') || prompt.includes('举例'))
-      extractedPrefs.prefer_examples = true;
-    if (prompt.includes('重点') || prompt.includes('突出') || prompt.includes('强调'))
-      extractedPrefs.emphasize_keypoints = true;
-    if (prompt.includes('通俗') || prompt.includes('简单') || prompt.includes('易懂'))
-      extractedPrefs.language_style = 'plain';
+    // 提取偏好（LLM 优先，失败回退关键词；与 refine-note 共用同一实现，issue #4 Task 5）
+    const extracted = await extractNotePreferences(refinementPrompt);
+    const extractedPrefs = extracted?.preferences || {};
+    const subject = extracted?.subject || GENERAL_SUBJECT;
 
-    // 合并到已有偏好
+    // 合并到已有偏好（按学科分层写入 subject_preferences，兼容旧平铺数据）
     const { data: existing } = await client
       .from('papernote_style')
       .select('*')
@@ -114,24 +110,29 @@ router.post('/extract', async (req: Request, res: Response) => {
         ? existing[0].subject_preferences
         : {};
 
-    const mergedPrefs = { ...existingPrefs, ...extractedPrefs };
+    const mergedPrefs =
+      Object.keys(extractedPrefs).length > 0
+        ? mergeSubjectPreferences(existingPrefs, subject, extractedPrefs)
+        : normalizeSubjectPreferences(existingPrefs);
 
-    if (existing && existing.length > 0) {
-      await client
-        .from('papernote_style')
-        .update({
+    if (Object.keys(extractedPrefs).length > 0) {
+      if (existing && existing.length > 0) {
+        await client
+          .from('papernote_style')
+          .update({
+            subject_preferences: mergedPrefs,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', existing[0].id);
+      } else {
+        await client.from('papernote_style').insert({
+          user_id: userId,
           subject_preferences: mergedPrefs,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', existing[0].id);
-    } else {
-      await client.from('papernote_style').insert({
-        user_id: userId,
-        subject_preferences: mergedPrefs,
-      });
+        });
+      }
     }
 
-    res.json({ data: { extracted: extractedPrefs, merged: mergedPrefs } });
+    res.json({ data: { extracted: extractedPrefs, subject, merged: mergedPrefs } });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

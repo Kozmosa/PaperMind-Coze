@@ -15,6 +15,8 @@ import { useCSSVariable } from 'uniwind';
 import { Screen } from '@/components/layout/Screen';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
 import { api } from '@/utils/api';
+import { isPDFFileType } from '@/utils/file-type';
+import TextPagesViewer from '@/components/common/TextPagesViewer';
 import NoteHelperFab from '@/components/note-helper/NoteHelperFab';
 import NoteHelperPanel from '@/components/note-helper/NoteHelperPanel';
 import type { Citation } from '@/components/note-helper/NoteHelperPanel';
@@ -74,7 +76,7 @@ export default function MaterialViewScreen() {
     return { content: fullContent, citations: extractedCitations };
   };
 
-  const isPDF = fileType === 'PDF';
+  const isPDF = isPDFFileType(fileType);
   const isLegacyPPT = fileType === 'PPT';
   const textPages = pages.filter((p) => p.text && p.text.trim().length > 0);
 
@@ -439,35 +441,6 @@ export default function MaterialViewScreen() {
         onGenerate={handleNoteHelperGenerate}
       />
     </>
-  );
-}
-
-// ========== Text Pages Viewer (PPTX/DOCX/MD 等提取文本的分页预览) ==========
-function TextPagesViewer({ pages }: { pages: { page_number: number; text: string }[] }) {
-  return (
-    <ScrollView
-      style={{ flex: 1 }}
-      contentContainerStyle={{ paddingHorizontal: 20, paddingVertical: 16 }}
-      showsVerticalScrollIndicator={true}
-    >
-      {pages.map((page, i) => (
-        <View key={i} style={{ marginBottom: 16 }}>
-          {i > 0 && (
-            <Text
-              style={{
-                fontSize: 11,
-                color: C.placeholder,
-                textAlign: 'center',
-                marginBottom: 12,
-              }}
-            >
-              — 第 {page.page_number || i + 1} 页 —
-            </Text>
-          )}
-          <Text style={{ fontSize: 14, color: C.text, lineHeight: 22 }}>{page.text}</Text>
-        </View>
-      ))}
-    </ScrollView>
   );
 }
 

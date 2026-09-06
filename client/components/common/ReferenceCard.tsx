@@ -9,9 +9,13 @@ import {
   Dimensions,
   Platform,
 } from 'react-native';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
 import { useCSSVariable } from 'uniwind';
 import { api } from '@/utils/api';
+import { isPDFFile, withPdfPage } from '@/utils/file-type';
+import TextPagesViewer from '@/components/common/TextPagesViewer';
+import type { TextPage } from '@/components/common/TextPagesViewer';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CARD_WIDTH = Math.min(SCREEN_WIDTH * 0.92, 400);
@@ -31,14 +35,16 @@ type ReferenceCardProps = {
   onClose: () => void;
 };
 
-function PDFViewer({ url }: { url: string }) {
+function PDFViewer({ url, pageNumber }: { url: string; pageNumber?: number | null }) {
+  // Web 端浏览器内置 PDF viewer 支持 #page=N 片段定位到对应页
+  const displayUrl = withPdfPage(url, pageNumber);
   const encodedUrl = encodeURIComponent(url);
   const googleViewerUrl = `https://docs.google.com/viewer?url=${encodedUrl}&embedded=true`;
 
   if (Platform.OS === 'web') {
     return (
       <iframe
-        src={url}
+        src={displayUrl}
         style={{ width: '100%', height: 280, border: 'none', borderRadius: 8 }}
         title="PDF"
       />
@@ -49,7 +55,7 @@ function PDFViewer({ url }: { url: string }) {
     const WebView = require('react-native-webview').WebView;
     return (
       <WebView
-        source={{ uri: url }}
+        source={{ uri: displayUrl }}
         style={{ flex: 1, minHeight: 280, backgroundColor: 'transparent' }}
         originWhitelist={['*']}
         javaScriptEnabled={true}
@@ -70,8 +76,27 @@ export default function ReferenceCard({ citation, visible, onClose }: ReferenceC
   const [content, setContent] = useState('');
   const [viewUrl, setViewUrl] = useState('');
   const [fileType, setFileType] = useState('');
+  const [pages, setPages] = useState<TextPage[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // 展开时淡入 + 轻微放大
+  const fade = useSharedValue(0);
+  const scale = useSharedValue(0.96);
+
+  useEffect(() => {
+    if (visible && citation) {
+      fade.value = 0;
+      scale.value = 0.96;
+      fade.value = withTiming(1, { duration: 180 });
+      scale.value = withTiming(1, { duration: 180 });
+    }
+  }, [visible, citation?.sourceId, citation?.index]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: fade.value,
+    transform: [{ scale: scale.value }],
+  }));
 
   useEffect(() => {
     if (visible && citation) {
@@ -80,6 +105,7 @@ export default function ReferenceCard({ citation, visible, onClose }: ReferenceC
       setContent('');
       setViewUrl('');
       setFileType('');
+      setPages([]);
       setError('');
     }
   }, [visible, citation?.sourceId, citation?.index]);
@@ -129,17 +155,19 @@ export default function ReferenceCard({ citation, visible, onClose }: ReferenceC
             setContent('(知识节点)');
           }
         } else {
-          // material: show original file, not OCR text
-          if (data.viewUrl) {
+          // material: PDF 走原文 viewer，PPTX/DOCX 等按提取的文本页降级展示
+          const ft = data.fileType || '';
+          setFileType(ft);
+          const normPages: TextPage[] = Array.isArray(data.pages)
+            ? data.pages
+                .map((p: any) => (typeof p === 'string' ? { page_number: 0, text: p } : p))
+                .filter((p: TextPage) => p.text && p.text.trim().length > 0)
+            : [];
+          setPages(normPages);
+          if (data.viewUrl && isPDFFile(ft, data.viewUrl)) {
             setViewUrl(data.viewUrl);
-            setFileType(data.fileType || '');
-          } else if (data.pages && Array.isArray(data.pages)) {
-            setContent(
-              data.pages
-                .map((p: any) => p.text || '')
-                .join('\n\n')
-                .substring(0, 2000),
-            );
+          } else if (normPages.length > 0) {
+            setContent('');
           } else {
             setContent('(文件不可用)');
           }
@@ -186,13 +214,16 @@ export default function ReferenceCard({ citation, visible, onClose }: ReferenceC
           ? '学习资料'
           : '文件';
 
-  const isMaterialPDF =
-    (citation.sourceType === 'material' || citation.sourceType === 'file_content') && viewUrl;
+  const isMaterialSource =
+    citation.sourceType === 'material' || citation.sourceType === 'file_content';
+  // viewUrl 仅在确认为 PDF 时设置（见 loadContent）
+  const isMaterialPDF = isMaterialSource && viewUrl;
+  const isMaterialTextPages = isMaterialSource && !isMaterialPDF && pages.length > 0;
 
   return (
     <View style={styles.overlay}>
       <TouchableOpacity style={styles.backdrop} onPress={onClose} activeOpacity={1} />
-      <View style={[styles.card, isMaterialPDF && styles.cardWide]}>
+      <Animated.View style={[styles.card, isMaterialPDF && styles.cardWide, animatedStyle]}>
         {/* Header */}
         <View style={[styles.header, { borderBottomColor: borderColor }]}>
           <View style={styles.headerLeft}>
@@ -251,7 +282,26 @@ export default function ReferenceCard({ citation, visible, onClose }: ReferenceC
                 <Text style={styles.highlightContent}>{citation.highlightText}</Text>
               </View>
             ) : null}
-            <PDFViewer url={viewUrl} />
+            <PDFViewer url={viewUrl} pageNumber={citation.pageNumber} />
+          </View>
+        ) : isMaterialTextPages && !loading && !error ? (
+          <View style={styles.textPagesContainer}>
+            {citation.highlightText ? (
+              <View style={styles.highlightBox}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                  <Text style={styles.highlightLabel}>引用内容：</Text>
+                  {citation.pageNumber ? (
+                    <Text
+                      style={{ fontSize: 11, color: '#0984E3', fontWeight: '600', marginLeft: 4 }}
+                    >
+                      第{citation.pageNumber}页
+                    </Text>
+                  ) : null}
+                </View>
+                <Text style={styles.highlightContent}>{citation.highlightText}</Text>
+              </View>
+            ) : null}
+            <TextPagesViewer pages={pages} style={styles.textPages} />
           </View>
         ) : (
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -290,7 +340,7 @@ export default function ReferenceCard({ citation, visible, onClose }: ReferenceC
             )}
           </ScrollView>
         )}
-      </View>
+      </Animated.View>
     </View>
   );
 }
@@ -368,6 +418,13 @@ const styles = StyleSheet.create({
   pdfContainer: {
     height: 320,
     padding: 8,
+  },
+  textPagesContainer: {
+    padding: 16,
+  },
+  textPages: {
+    flex: 0,
+    maxHeight: 280,
   },
   content: {
     padding: 16,
