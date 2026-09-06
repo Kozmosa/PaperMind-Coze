@@ -85,6 +85,8 @@ export default function StudyNoteEditScreen() {
   const [createdAt, setCreatedAt] = useState('');
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [processStatus, setProcessStatus] = useState<string | undefined>(undefined);
+  const [reanalyzing, setReanalyzing] = useState(false);
   const [focusedBlockId, setFocusedBlockId] = useState<string | null>(null);
   const [blockHeights, setBlockHeights] = useState<Record<string, number>>({});
 
@@ -130,6 +132,8 @@ export default function StudyNoteEditScreen() {
         setTags(note.tags || []);
         setLogicalPath(note.logical_path || '');
         setCreatedAt(note.created_at || '');
+        // process_status 由 migrations/004 引入，旧库可能不存在该字段
+        setProcessStatus(note.process_status);
 
         // 解析 blocks
         let parsed: Block[] = [];
@@ -304,6 +308,27 @@ export default function StudyNoteEditScreen() {
       Alert.alert('错误', e.message || '保存失败');
     } finally {
       setSaving(false);
+    }
+  };
+
+  // ========== 重新分析（process_status === 'failed' 时的重试入口） ==========
+  const handleReanalyze = async () => {
+    if (!id || reanalyzing) return;
+    setReanalyzing(true);
+    try {
+      const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
+      const res = await fetch(`${BASE_URL}/api/v1/knowledge-builder/process-content`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'study_note', id }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await loadNote();
+      Alert.alert('完成', 'AI 已重新分析该纪要');
+    } catch (e: any) {
+      Alert.alert('错误', e.message || '重新分析失败');
+    } finally {
+      setReanalyzing(false);
     }
   };
 
@@ -714,6 +739,34 @@ export default function StudyNoteEditScreen() {
               >
                 {formatDate(createdAt)}
               </Text>
+            ) : null}
+
+            {/* 分析失败 Banner（阅读模式，兼容旧库无 process_status 字段） */}
+            {mode === 'read' && processStatus === 'failed' ? (
+              <TouchableOpacity
+                onPress={handleReanalyze}
+                disabled={reanalyzing}
+                style={{
+                  backgroundColor: '#FFF0F0',
+                  borderRadius: 10,
+                  padding: 10,
+                  marginBottom: 4,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 8,
+                  borderWidth: 1,
+                  borderColor: C.danger,
+                }}
+              >
+                {reanalyzing ? (
+                  <ActivityIndicator size="small" color={C.danger} />
+                ) : (
+                  <Feather name="alert-circle" size={14} color={C.danger} />
+                )}
+                <Text style={{ fontSize: 12, fontWeight: '600', color: C.danger, flex: 1 }}>
+                  {reanalyzing ? '正在重新分析...' : '分析失败，点击重新分析'}
+                </Text>
+              </TouchableOpacity>
             ) : null}
 
             {/* AI 编排 Banner（阅读模式） */}

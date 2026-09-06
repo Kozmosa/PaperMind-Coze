@@ -28,6 +28,10 @@ export const anthropic: Anthropic = AI_API_KEY
   ? new Anthropic({
       apiKey: AI_API_KEY,
       ...(AI_BASE_URL ? { baseURL: AI_BASE_URL } : {}),
+      // 分类链路单次 LLM 调用可能达数十秒：放宽单次请求超时，并把 SDK 默认的
+      // 2 次自动重试降为 1 次，避免网关抖动时整链指数级变慢（issue #7 Task 3）
+      timeout: 120_000,
+      maxRetries: 1,
     })
   : new Proxy({} as Anthropic, {
       get() {
