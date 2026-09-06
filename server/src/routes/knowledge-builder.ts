@@ -359,31 +359,40 @@ async function generatePapercore(
   const prompt = `你是学术摘要撰写专家。请为以下文档撰写学术摘要（Papercore）。
 
 要求：
-1. 第一行输出文档的总标题（仅标题一行文字；原文开头的引用块、出处说明、前置知识等头部行不要一并输出）
-2. 正文以二级标题为线索组织叙述，保持逻辑连贯
-3. 涵盖核心定义、公式定理、关键结论
-4. 80-150字，语言简洁专业
-5. 只输出摘要文本，不要加任何前缀标记
+1. 输出一段 80-150 字的连贯叙述，涵盖核心定义、公式定理、关键结论
+2. 纯文本段落：禁止输出标题、引用块（>）、分隔线（---）、列表或任何 Markdown 结构
+3. 数学公式用行内 $...$ 表达（如 $\\chi^2$、$t$ 分布），禁止中文或全角符号出现在公式内部
+4. 不要复述文档开头的前置知识说明，直接进入主题内容
+5. 只输出摘要文本本身
 
 文档内容：${sampleText}`;
 
   try {
-    const response = await anthropic.messages.create({
-      model: DEFAULT_MODEL,
-      // thinking 型模型会先输出思考块再输出正文，预算不足时正文为空（分类全空）
-      max_tokens: 2048,
-      temperature: 0.3,
-      messages: [{ role: 'user', content: prompt }],
-    });
-    const content = response.content
-      .filter((c: any) => c.type === 'text')
-      .map((c: any) => c.text)
-      .join('')
-      .trim();
-    return content || text.slice(0, 150);
+    // thinking 型模型思考块会耗尽输出预算：无正文时升档重试（同全局定位的修复）
+    let content = '';
+    for (const budget of [4096, 16384]) {
+      const response = await anthropic.messages.create({
+        model: DEFAULT_MODEL,
+        max_tokens: budget,
+        temperature: 0.3,
+        messages: [{ role: 'user', content: prompt }],
+      });
+      content = response.content
+        .filter((c: any) => c.type === 'text')
+        .map((c: any) => c.text)
+        .join('')
+        .trim();
+      if (content) break;
+      console.warn(`[papercore] 无正文输出（预算 ${budget}），升档重试`);
+    }
+    if (!content) {
+      // LLM 失败时用诚实的降级摘要，而非原文开头 150 字（此前会混入标题/引用块）
+      return buildDegradedPapercore(opts?.fileName, opts?.folderName);
+    }
+    return content;
   } catch (e) {
     console.error('[papercore] LLM error:', e);
-    return text.slice(0, 150);
+    return buildDegradedPapercore(opts?.fileName, opts?.folderName);
   }
 }
 
