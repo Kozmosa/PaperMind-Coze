@@ -32,12 +32,15 @@ for (const t of targets) {
     .update({ logical_path: null, ai_processed: false, process_status: 'pending' })
     .eq('id', t.id);
 }
-for (const t of targets) {
-  const r = await fetch(`${API}/knowledge-builder/process-content`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ type: 'material', id: t.id }),
-  });
-  const j: any = await r.json().catch(() => ({}));
-  console.log(`✅ ${t.name} → HTTP ${r.status}`, j?.data?.status || '');
-}
+// 并行触发分类（LLM 调用可并发）
+await Promise.all(
+  targets.map(async (t) => {
+    const r = await fetch(`${API}/knowledge-builder/process-content`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'material', id: t.id }),
+    });
+    const j: any = await r.json().catch(() => ({}));
+    console.log(`✅ ${t.name} → HTTP ${r.status}`, j?.data?.status || '');
+  }),
+);
