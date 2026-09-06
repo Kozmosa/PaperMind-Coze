@@ -9,6 +9,7 @@ import { Screen } from '@/components/layout/Screen';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { api } from '@/utils/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { lastPathSegment, normalizeLogicalPath } from '@/utils/logical-path';
 import { useCSSVariable } from 'uniwind';
 import NoteHelperPanel from '@/components/note-helper/NoteHelperPanel';
 import type { Citation } from '@/components/note-helper/NoteHelperPanel';
@@ -655,7 +656,7 @@ export default function ControlCenterScreen() {
                                 style={{ fontSize: 10, color: COLORS.textMuted, marginLeft: 2 }}
                                 numberOfLines={1}
                               >
-                                {record.logical_path.split('/').filter(Boolean).slice(-1)[0] || ''}
+                                {lastPathSegment(record.logical_path)}
                               </Text>
                             </View>
                           ) : null}
@@ -1026,7 +1027,7 @@ export default function ControlCenterScreen() {
                           >
                             <Feather name="folder" size={10} color={COLORS.primary} />
                             <Text style={{ fontSize: 10, color: COLORS.primary, marginLeft: 4 }}>
-                              {record.logical_path}
+                              {normalizeLogicalPath(record.logical_path)}
                             </Text>
                           </View>
                         ) : null}
