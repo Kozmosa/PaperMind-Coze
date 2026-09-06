@@ -1,6 +1,7 @@
 /**
  * 文件文本提取工具
- * 支持: PDF, DOCX, PPTX, TXT, MD, CSV
+ * 支持: PDF, DOCX, PPTX, XLSX, TXT, MD, CSV
+ * 不支持: .doc/.ppt 旧版二进制格式（上传入口 fileFilter 已拦截）、图片（无 OCR，按图片附件处理）
  */
 
 import * as fs from 'fs';
@@ -27,7 +28,7 @@ export async function extractText(
   fileName: string,
 ): Promise<ExtractedContent> {
   try {
-    // 图片文件暂不支持 OCR
+    // 图片无 OCR：学习纪要图片附件会走到这里，返回空文本由上传层按「图片附件」诚实处理
     if (mimeType.startsWith('image/')) {
       return { text: '', pageCount: 0 };
     }

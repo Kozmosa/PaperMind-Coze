@@ -97,6 +97,50 @@ export const fileContents = pgTable(
 export type FileContent = typeof fileContents.$inferSelect;
 
 // ==========================================
+// 学习纪要（process_status 由 migrations/004_add_process_status.sql 添加）
+// ==========================================
+export const studyNotes = pgTable('study_notes', {
+  id: serial('id').primaryKey(),
+  user_id: varchar('user_id', { length: 36 }),
+  title: text('title'),
+  content: text('content'),
+  tags: jsonb('tags').default([]),
+  papercore: text('papercore'),
+  logical_path: text('logical_path'),
+  ai_processed: boolean('ai_processed').default(false),
+  viewed_after_process: boolean('viewed_after_process').default(false),
+  blocks: jsonb('blocks').default([]),
+  knowledge_node_id: integer('knowledge_node_id'),
+  file_url: text('file_url'),
+  file_name: text('file_name'),
+  process_status: text('process_status').default('pending'),
+  created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+export type StudyNote = typeof studyNotes.$inferSelect;
+
+// ==========================================
+// 学习资料（process_status 由 migrations/004_add_process_status.sql 添加）
+// ==========================================
+export const materials = pgTable('materials', {
+  id: serial('id').primaryKey(),
+  user_id: varchar('user_id', { length: 36 }),
+  name: text('name'),
+  file_path: text('file_path'),
+  file_url: text('file_url'),
+  file_type: text('file_type'),
+  tags: jsonb('tags').default([]),
+  papercore: text('papercore'),
+  logical_path: text('logical_path'),
+  ai_processed: boolean('ai_processed').default(false),
+  viewed_after_process: boolean('viewed_after_process').default(false),
+  process_status: text('process_status').default('pending'),
+  created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+export type Material = typeof materials.$inferSelect;
+
+// ==========================================
 // 用户画像 - 笔记风格偏好
 // ==========================================
 export const papernoteStyle = pgTable(

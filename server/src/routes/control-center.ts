@@ -47,7 +47,7 @@ router.get('/recent-records', async (req: Request, res: Response) => {
       supabase
         .from('study_notes')
         .select(
-          'id, title, content, tags, logical_path, papercore, ai_processed, viewed_after_process, created_at, updated_at',
+          'id, title, content, tags, logical_path, papercore, ai_processed, viewed_after_process, process_status, created_at, updated_at',
         )
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
@@ -55,18 +55,48 @@ router.get('/recent-records', async (req: Request, res: Response) => {
       supabase
         .from('materials')
         .select(
-          'id, name, tags, logical_path, papercore, ai_processed, viewed_after_process, created_at, updated_at',
+          'id, name, tags, logical_path, papercore, ai_processed, viewed_after_process, process_status, created_at, updated_at',
         )
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(perTableLimit),
     ]);
 
-    if (notesRes.error) throw new Error(notesRes.error.message);
-    if (materialsRes.error) throw new Error(materialsRes.error.message);
+    // process_status 由 migrations/004 引入，旧库缺列时降级为不带该列重查（无状态徽标）
+    let notesData: any[] | null = notesRes.data;
+    let notesError = notesRes.error;
+    let materialsData: any[] | null = materialsRes.data;
+    let materialsError = materialsRes.error;
+    if (notesError && /process_status/.test(notesError.message)) {
+      const retry = await supabase
+        .from('study_notes')
+        .select(
+          'id, title, content, tags, logical_path, papercore, ai_processed, viewed_after_process, created_at, updated_at',
+        )
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(perTableLimit);
+      notesData = retry.data;
+      notesError = retry.error;
+    }
+    if (materialsError && /process_status/.test(materialsError.message)) {
+      const retry = await supabase
+        .from('materials')
+        .select(
+          'id, name, tags, logical_path, papercore, ai_processed, viewed_after_process, created_at, updated_at',
+        )
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(perTableLimit);
+      materialsData = retry.data;
+      materialsError = retry.error;
+    }
 
-    const notes = (notesRes.data || []).map((n: any) => ({ ...n, record_type: 'study_note' }));
-    const materials = (materialsRes.data || []).map((m: any) => ({
+    if (notesError) throw new Error(notesError.message);
+    if (materialsError) throw new Error(materialsError.message);
+
+    const notes = (notesData || []).map((n: any) => ({ ...n, record_type: 'study_note' }));
+    const materials = (materialsData || []).map((m: any) => ({
       ...m,
       record_type: 'material',
     }));

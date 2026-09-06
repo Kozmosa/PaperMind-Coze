@@ -42,12 +42,23 @@ const upload = multer({
   storage,
   limits: { fileSize: 20 * 1024 * 1024 }, // 20MB
   fileFilter: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const mime = file.mimetype.toLowerCase();
+
+    // .doc/.ppt 旧版二进制没有可用的提取实现（extract-text 只支持 OOXML），
+    // 放行会产生空文本资料，直接在入口处拒绝（issue #7 Task 4）。
+    // 图片放行：学习纪要的图片附件走同一接口，下游按「无文本」诚实处理
+    if (
+      ['.doc', '.ppt'].includes(ext) ||
+      ['application/msword', 'application/vnd.ms-powerpoint'].includes(mime)
+    ) {
+      return cb(new Error('暂不支持 .doc/.ppt 格式，请先转换为 .docx/.pptx 后上传'));
+    }
+
     const allowedMimes = [
       'application/pdf',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'application/msword',
       'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-      'application/vnd.ms-powerpoint',
       'text/markdown',
       'text/plain',
       'application/octet-stream',
@@ -57,13 +68,10 @@ const upload = multer({
       'image/gif',
       'image/webp',
     ];
-    const ext = path.extname(file.originalname).toLowerCase();
     const allowedExts = [
       '.md',
       '.docx',
-      '.doc',
       '.pptx',
-      '.ppt',
       '.pdf',
       '.txt',
       '.csv',
@@ -74,7 +82,7 @@ const upload = multer({
       '.gif',
       '.webp',
     ];
-    if (allowedExts.includes(ext) || allowedMimes.includes(file.mimetype.toLowerCase())) {
+    if (allowedExts.includes(ext) || allowedMimes.includes(mime)) {
       cb(null, true);
     } else {
       cb(new Error('不支持的文件格式，仅支持：markdown, docx, pptx, pdf, txt, csv, xlsx, 图片'));
@@ -103,13 +111,17 @@ router.post('/', async (req: Request, res: Response) => {
       const extracted = await extractText(filePath, file.mimetype, originalName);
 
       const userId = (req as any).userId || 'guest';
+      const isImage = file.mimetype.toLowerCase().startsWith('image/');
       const { data: draft, error: draftError } = await client
         .from('draft_pool')
         .insert({
-          content: extracted.text || `[文件内容已提取，共 ${extracted.pageCount || '?'} 页]`,
+          // 图片附件（学习纪要用）无文本可提取，标记为已处理，不进待处理池
+          content:
+            extracted.text ||
+            (isImage ? `[图片附件] ${originalName}` : '[内容提取失败或格式不支持]'),
           file_url: `/uploads/${file.filename}`,
           file_name: originalName,
-          status: extracted.text ? 'processed' : 'unprocessed',
+          status: extracted.text || isImage ? 'processed' : 'unprocessed',
           user_id: userId,
         })
         .select()
@@ -138,13 +150,12 @@ router.post('/', async (req: Request, res: Response) => {
         }
       }
 
-      // ====== 同步触发知识分类（不再 fire-and-forget）======
+      // ====== 异步触发知识分类（issue #7 Task 3：后台处理，请求立即返回）======
       // 可选表单字段：title（自定义标题）、logical_path（用户选择的文件夹路径，JSON 字符串数组）
       // 由客户端直接随上传提交，避免上传后再 POST /materials 造成重复记录（issue #7）
       const title = req.body?.title;
       const logicalPath = req.body?.logical_path;
       let materialId: string | null = null;
-      let classification: any = null;
       try {
         const materialInsert: Record<string, any> = {
           user_id: userId,
@@ -154,6 +165,7 @@ router.post('/', async (req: Request, res: Response) => {
           tags: [],
           ai_processed: false,
           viewed_after_process: false,
+          process_status: 'processing',
         };
         if (logicalPath) materialInsert.logical_path = logicalPath;
 
@@ -166,50 +178,42 @@ router.post('/', async (req: Request, res: Response) => {
         materialId = material?.id || null;
 
         // 自调 process-content：直接走本进程的 knowledge-builder handler，避免 HTTP 自调
-        // 带来的端口 / 用户上下文传递问题
-        const mod: any = await import('./knowledge-builder.js');
-        const handleProcess = mod.handleProcessContent;
-        if (typeof handleProcess !== 'function') {
-          throw new Error('knowledge-builder handler 未导出');
-        }
-        const fakeReq: any = {
-          body: { type: 'material', id: materialId },
-          userId,
-        };
-        let clsResult: any = null;
-        let clsError: any = null;
-        const fakeRes: any = {
-          json: (v: any) => {
-            clsResult = v;
-            return fakeRes;
-          },
-          status: (code: number) => {
-            fakeRes._status = code;
-            return fakeRes;
-          },
-          _status: 200,
-        };
-        try {
-          await handleProcess(fakeReq, fakeRes);
-        } catch (e: any) {
-          clsError = e;
-        }
-        if (clsError || fakeRes._status >= 400) {
-          throw new Error(clsError?.message || '分类 handler 返回 ' + fakeRes._status);
-        }
-        classification = clsResult;
-      } catch (clsErr: any) {
-        console.error('[upload] classification error:', clsErr.message);
-        classification = { error: clsErr.message };
-        // 标记失败：保持 ai_processed=false，批次接口/重新分析可重试（issue #7 Task 2）
-        if (materialId) {
+        // 带来的端口 / 用户上下文传递问题。分类涉及多次 LLM 调用（几十秒），放后台执行；
+        // 成功路径由 handler 自己写 process_status='processed'（knowledge-builder.ts），
+        // 这里只兜底异常 / 4xx+ 时标记 failed，供批次接口或重新分析重试。
+        const id = materialId;
+        setImmediate(async () => {
           try {
-            await client
-              .from('materials')
-              .update({ process_status: 'failed' })
-              .eq('id', materialId);
-          } catch {}
-        }
+            const mod: any = await import('./knowledge-builder.js');
+            const handleProcess = mod.handleProcessContent;
+            if (typeof handleProcess !== 'function') {
+              throw new Error('knowledge-builder handler 未导出');
+            }
+            const fakeReq: any = {
+              body: { type: 'material', id },
+              userId,
+            };
+            const fakeRes: any = {
+              json: () => fakeRes,
+              status: (code: number) => {
+                fakeRes._status = code;
+                return fakeRes;
+              },
+              _status: 200,
+            };
+            await handleProcess(fakeReq, fakeRes);
+            if (fakeRes._status >= 400) {
+              throw new Error('分类 handler 返回 ' + fakeRes._status);
+            }
+          } catch (clsErr: any) {
+            console.error('[upload] background classification error:', clsErr.message);
+            try {
+              await client.from('materials').update({ process_status: 'failed' }).eq('id', id);
+            } catch {}
+          }
+        });
+      } catch (matErr: any) {
+        console.error('[upload] material insert error:', matErr.message);
       }
 
       res.json({
@@ -220,7 +224,9 @@ router.post('/', async (req: Request, res: Response) => {
         draftId: draft?.id,
         materialId,
         extracted: !!extracted.text,
-        classification,
+        // 分类已转后台执行，响应内不再携带分类结果（issue #7 Task 3）
+        classification: null,
+        processStatus: materialId ? 'processing' : 'failed',
       });
     } catch (err: any) {
       console.error('[upload] Error:', err);
