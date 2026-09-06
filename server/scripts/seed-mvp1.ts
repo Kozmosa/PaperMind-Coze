@@ -231,7 +231,8 @@ async function main() {
   // ====== 第二步：扫描文件 ======
   console.log('📂 第二步：扫描 test_data 目录...');
   const notesDir = path.join(ROOT_DIR, 'test_data', '学习纪要');
-  const materialsDir = path.join(ROOT_DIR, 'test_data', '学习资料');
+  // MVP1 旧数据已归档到 legacy-mvp1（2026-09 治理，场景包数据在 学习资料/ 子目录）
+  const materialsDir = path.join(ROOT_DIR, 'test_data', 'legacy-mvp1');
   const mdFiles = findFiles(notesDir, ['.md', '.txt']);
   const materialFiles = findFiles(materialsDir, [
     '.pdf',

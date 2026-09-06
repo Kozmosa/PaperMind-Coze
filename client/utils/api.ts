@@ -427,6 +427,8 @@ export const api = {
     onChunk: (chunk: string) => void,
     onPreferencesExtracted?: (prefs: any) => void,
     signal?: { aborted: boolean },
+    citations?: any[],
+    onCitationsSynced?: (cits: any[] | null) => void,
   ): Promise<string> => {
     return new Promise(async (resolve, reject) => {
       try {
@@ -459,6 +461,9 @@ export const api = {
                 if (parsed.preferences_extracted && onPreferencesExtracted) {
                   onPreferencesExtracted(parsed.preferences_extracted);
                 }
+                if (parsed.done && parsed.citations !== undefined && onCitationsSynced) {
+                  onCitationsSynced(parsed.citations);
+                }
                 if (parsed.error) {
                   reject(new Error(parsed.error));
                 }
@@ -474,7 +479,14 @@ export const api = {
           }
         };
         xhr.onerror = () => reject(new Error('Network error'));
-        xhr.send(JSON.stringify({ currentNote, refinementPrompt, sourceIds }));
+        xhr.send(
+          JSON.stringify({
+            currentNote,
+            refinementPrompt,
+            sourceIds,
+            ...(citations && citations.length > 0 ? { citations } : {}),
+          }),
+        );
       } catch (e) {
         reject(e);
       }

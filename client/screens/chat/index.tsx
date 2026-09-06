@@ -16,6 +16,7 @@ import { Feather } from '@expo/vector-icons';
 import { Screen } from '@/components/layout/Screen';
 import MarkdownRenderer from '@/components/markdown/MarkdownRenderer';
 import { api } from '@/utils/api';
+import Toast from 'react-native-toast-message';
 import { noWebResize } from '@/utils';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import * as ImagePicker from 'expo-image-picker';
@@ -335,7 +336,7 @@ export default function ChatScreen() {
   // "我明白了！"功能 - 记录问题解决日志
   const handleUnderstood = async () => {
     if (messages.length < 2) {
-      Alert.alert('提示', '请先进行对话后再标记');
+      Toast.show({ type: 'info', text1: '提示', text2: '请先进行对话后再标记' });
       return;
     }
 
@@ -355,7 +356,7 @@ export default function ChatScreen() {
         citation_snippets: citations,
       });
 
-      Alert.alert('已记录', '问题解答已记录到日志，可点击底部的"问题日志"查看');
+      Toast.show({ type: 'success', text1: '已记录', text2: '问题解答已记录到日志' });
     } catch (e) {
       console.error('Failed to save problem solving log', e);
     }
@@ -365,7 +366,7 @@ export default function ChatScreen() {
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
-        Alert.alert('权限不足', '请允许访问相册');
+        Toast.show({ type: 'error', text1: '权限不足', text2: '请允许访问相册' });
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -1094,7 +1095,7 @@ export default function ChatScreen() {
               onPress={() => {
                 setShowUploadModal(false);
                 if (knowledgeNodes.length === 0) {
-                  Alert.alert('提示', '暂无知识节点，请先在知识库中创建节点');
+                  Toast.show({ type: 'info', text1: '提示', text2: '暂无知识节点，请先在知识库中创建节点' });
                   return;
                 }
                 Alert.alert(

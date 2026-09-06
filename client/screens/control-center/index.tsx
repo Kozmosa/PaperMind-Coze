@@ -9,6 +9,7 @@ import { Screen } from '@/components/layout/Screen';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { api } from '@/utils/api';
 import { useAuth } from '@/contexts/AuthContext';
+import Toast from 'react-native-toast-message';
 import { noWebResize } from '@/utils';
 import { lastPathSegment, normalizeLogicalPath } from '@/utils/logical-path';
 import { useCSSVariable } from 'uniwind';
@@ -395,7 +396,11 @@ export default function ControlCenterScreen() {
       setMaterialFileName(null);
       loadData();
       startProcessingPoll();
-      Alert.alert('上传成功', '文件已上传，AI 正在后台分类，完成后小红点提示');
+      Toast.show({
+        type: 'success',
+        text1: '上传成功',
+        text2: '文件已上传，AI 正在后台分类，完成后小红点提示',
+      });
     } catch (e: any) {
       Alert.alert('错误', e.message || '上传失败');
     } finally {

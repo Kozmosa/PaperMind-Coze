@@ -164,8 +164,8 @@ router.post('/', async (req: Request, res: Response) => {
           file_type: file.mimetype,
           tags: [],
           ai_processed: false,
-          viewed_after_process: false,
           process_status: 'processing',
+          viewed_after_process: false,
         };
         if (logicalPath) materialInsert.logical_path = logicalPath;
 

@@ -1,8 +1,11 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
+import * as fs from 'fs';
+import * as path from 'path';
 import { anthropic, DEFAULT_MODEL } from '../config/ai.js';
 import { getSupabaseClient } from '../storage/database/supabase-client.js';
 import { unifiedVectorIndex } from '../utils/unified-vector-index.js';
+import { extractText } from '../utils/extract-text.js';
 
 const router = Router();
 const client = getSupabaseClient();
@@ -1261,6 +1264,44 @@ router.post('/note-helper', async (req: Request, res: Response) => {
 });
 
 /**
+ * 匹配 material 引用卡片所在页码（issue #4 Task 2）：
+ * 重新提取文件文本按页切分，与 highlightText 求字符重叠，取重叠最大页
+ */
+async function findPageForSnippet(material: any, snippet: string): Promise<number | null> {
+  try {
+    const uploadsDir = path.join(process.cwd(), 'uploads');
+    const storedPath = material?.file_path || material?.file_url;
+    let filePath: string | null = null;
+    if (storedPath) {
+      const candidate = path.join(uploadsDir, String(storedPath).replace(/^\/uploads\//, ''));
+      if (fs.existsSync(candidate)) filePath = candidate;
+    }
+    if (!filePath) return null;
+    const extracted = await extractText(filePath, material?.file_type || '', material?.name || '');
+    const text = extracted.text || '';
+    if (!text) return null;
+    const pages = text.split(/\f+|\n\n+/).filter((p) => p.trim().length > 0);
+    if (pages.length <= 1) return 1;
+    const snipChars = new Set(snippet.replace(/\s+/g, ''));
+    let bestPage = 1;
+    let bestScore = 0;
+    pages.forEach((page, i) => {
+      let score = 0;
+      for (const ch of page.replace(/\s+/g, '')) {
+        if (snipChars.has(ch)) score++;
+      }
+      if (score > bestScore) {
+        bestScore = score;
+        bestPage = i + 1;
+      }
+    });
+    return bestPage;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * POST /api/v1/ai/generate-note
  * 根据多份源文件（学习纪要+资料）生成结构化笔记（SSE 流式）
  * Body: { sourceIds: Array<{id: string, type: 'study_note' | 'material'}>, userId?: string }
@@ -1294,7 +1335,7 @@ router.post('/generate-note', async (req: Request, res: Response) => {
     }
 
     // 2. 获取所有源文件内容
-    const sources: { id: string; type: string; title: string; content: string }[] = [];
+    const sources: { id: string; type: string; title: string; content: string; material?: any }[] = [];
     const citations: { index: number; sourceId: string; sourceType: string; fileName: string }[] =
       [];
     let citationIndex = 0;
@@ -1350,6 +1391,7 @@ router.post('/generate-note', async (req: Request, res: Response) => {
             type: 'material',
             title: mat.name || mat.title || '资料',
             content: (mat.papercore || '') + '\n' + fileText.substring(0, 3000),
+            material: mat,
           });
           citationIndex++;
           citations.push({
@@ -1410,18 +1452,28 @@ ${sourcesText}
     }
 
     // Post-process: extract context snippets around each [来源:N] marker
-    const citationsWithContext = citations.map((cit) => {
-      let snippet = '';
-      // Find text around citation marker — extract surrounding sentence/paragraph
-      const idx = fullContent.indexOf(`[来源:${cit.index}]`);
-      if (idx >= 0) {
-        // Get preceding and following text (up to 80 chars each side)
-        const start = Math.max(0, idx - 80);
-        const end = Math.min(fullContent.length, idx + `[来源:${cit.index}]`.length + 80);
-        snippet = fullContent.slice(start, end).replace(/\n+/g, ' ').trim();
-      }
-      return { ...cit, highlightText: snippet };
-    });
+    // + 为 material 引用匹配页码（issue #4 Task 2）
+    const citationsWithContext = await Promise.all(
+      citations.map(async (cit) => {
+        let snippet = '';
+        // Find text around citation marker — extract surrounding sentence/paragraph
+        const idx = fullContent.indexOf(`[来源:${cit.index}]`);
+        if (idx >= 0) {
+          // Get preceding and following text (up to 80 chars each side)
+          const start = Math.max(0, idx - 80);
+          const end = Math.min(fullContent.length, idx + `[来源:${cit.index}]`.length + 80);
+          snippet = fullContent.slice(start, end).replace(/\n+/g, ' ').trim();
+        }
+        let pageNumber: number | null = null;
+        if (cit.sourceType === 'material' && snippet) {
+          const src = sources.find((s: any) => s.id === cit.sourceId);
+          if (src?.material) {
+            pageNumber = await findPageForSnippet(src.material, snippet);
+          }
+        }
+        return { ...cit, highlightText: snippet, pageNumber };
+      }),
+    );
 
     res.write(`data: ${JSON.stringify({ citations: citationsWithContext, done: true })}\n\n`);
     res.write('data: [DONE]\n\n');
@@ -1443,7 +1495,7 @@ ${sourcesText}
  */
 router.post('/refine-note', async (req: Request, res: Response) => {
   try {
-    const { currentNote, refinementPrompt, sourceIds, userId } = req.body;
+    const { currentNote, refinementPrompt, sourceIds, userId, citations } = req.body;
     if (!currentNote || !refinementPrompt) {
       return res.status(400).json({ error: '缺少笔记内容或修正指令' });
     }
@@ -1463,20 +1515,48 @@ router.post('/refine-note', async (req: Request, res: Response) => {
 
     const existingPrefs = styles && styles.length > 0 ? styles[0].subject_preferences || {} : {};
 
-    // 2. 从修正指令中提取偏好关键词
+    // 2. 从修正指令中提取结构化偏好（issue #4 Task 5）：
+    // 优先 LLM 提取（detail_level/prefer_tables/prefer_examples/emphasize_keypoints/language_style），
+    // 失败时回退关键词规则
     const extractedPrefs: Record<string, any> = {};
-    const prompt = refinementPrompt.toLowerCase();
-    if (prompt.includes('详细') || prompt.includes('展开') || prompt.includes('更多'))
-      extractedPrefs.detail_level = 'high';
-    if (prompt.includes('简洁') || prompt.includes('简短') || prompt.includes('概括'))
-      extractedPrefs.detail_level = 'concise';
-    if (prompt.includes('表格') || prompt.includes('对比')) extractedPrefs.prefer_tables = true;
-    if (prompt.includes('例子') || prompt.includes('示例') || prompt.includes('举例'))
-      extractedPrefs.prefer_examples = true;
-    if (prompt.includes('重点') || prompt.includes('突出') || prompt.includes('强调'))
-      extractedPrefs.emphasize_keypoints = true;
-    if (prompt.includes('通俗') || prompt.includes('简单') || prompt.includes('易懂'))
-      extractedPrefs.language_style = 'plain';
+    try {
+      const prefResp = await anthropic.messages.create({
+        model: DEFAULT_MODEL,
+        max_tokens: 512,
+        temperature: 0.2,
+        system:
+          '你是笔记风格偏好提取器。从用户的修正指令中提取结构化偏好，只输出 JSON 对象（没有的字段省略）：' +
+          '{"detail_level":"high|concise","prefer_tables":true,"prefer_examples":true,' +
+          '"emphasize_keypoints":true,"language_style":"plain|academic|friendly","prefer_format":"bullet|paragraph|numbered"}',
+        messages: [{ role: 'user', content: refinementPrompt }],
+      });
+      const prefContent = prefResp.content
+        .filter((x: any) => x.type === 'text')
+        .map((x: any) => x.text)
+        .join('')
+        .trim();
+      const prefMatch = prefContent.match(/\{[\s\S]*\}/);
+      if (prefMatch) {
+        const parsedPrefs = JSON.parse(prefMatch[0]);
+        for (const [k, v] of Object.entries(parsedPrefs)) {
+          if (v !== undefined && v !== null && v !== '') extractedPrefs[k] = v;
+        }
+      }
+    } catch (e) {
+      console.warn('[refine-note] 偏好提取 LLM 失败，回退关键词规则:', (e as any)?.message);
+      const prompt = refinementPrompt.toLowerCase();
+      if (prompt.includes('详细') || prompt.includes('展开') || prompt.includes('更多'))
+        extractedPrefs.detail_level = 'high';
+      if (prompt.includes('简洁') || prompt.includes('简短') || prompt.includes('概括'))
+        extractedPrefs.detail_level = 'concise';
+      if (prompt.includes('表格') || prompt.includes('对比')) extractedPrefs.prefer_tables = true;
+      if (prompt.includes('例子') || prompt.includes('示例') || prompt.includes('举例'))
+        extractedPrefs.prefer_examples = true;
+      if (prompt.includes('重点') || prompt.includes('突出') || prompt.includes('强调'))
+        extractedPrefs.emphasize_keypoints = true;
+      if (prompt.includes('通俗') || prompt.includes('简单') || prompt.includes('易懂'))
+        extractedPrefs.language_style = 'plain';
+    }
 
     // 3. 保存提取的偏好
     if (Object.keys(extractedPrefs).length > 0) {
@@ -1567,13 +1647,25 @@ ${sourcesContext}
       messages: [{ role: 'user', content: `当前笔记：\n\n${currentNote}\n\n请按修正指令修改。` }],
     });
 
+    let fullRefined = '';
     for await (const event of stream) {
       if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+        fullRefined += event.delta.text;
         res.write(`data: ${JSON.stringify({ content: event.delta.text })}\n\n`);
       }
     }
 
-    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+    // 修正后引用同步（issue #4 Task 4）：只保留修正后正文中仍存在的 [来源:N]
+    let syncedCitations: any[] | null = null;
+    if (Array.isArray(citations) && citations.length > 0) {
+      const usedIndices = new Set<number>();
+      const re = /\[来源:(\d+)\]/g;
+      let m;
+      while ((m = re.exec(fullRefined)) !== null) usedIndices.add(parseInt(m[1], 10));
+      syncedCitations = citations.filter((c: any) => usedIndices.has(c.index));
+    }
+
+    res.write(`data: ${JSON.stringify({ done: true, citations: syncedCitations })}\n\n`);
     res.write('data: [DONE]\n\n');
     res.end();
   } catch (error: any) {

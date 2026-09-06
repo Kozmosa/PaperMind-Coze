@@ -13,6 +13,7 @@ import { Feather } from '@expo/vector-icons';
 import { useCSSVariable } from 'uniwind';
 import { api } from '@/utils/api';
 import MarkdownRenderer from '@/components/markdown/MarkdownRenderer';
+import Animated, { FadeIn, SlideInLeft } from 'react-native-reanimated';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SIDEBAR_WIDTH = SCREEN_WIDTH * 0.85;
@@ -144,11 +145,13 @@ export default function NoteHelperSidebar({
 
   return (
     <View style={styles.container}>
-      {/* Backdrop */}
-      <TouchableOpacity style={styles.backdrop} onPress={onClose} activeOpacity={1} />
+      {/* Backdrop（淡入） */}
+      <Animated.View entering={FadeIn.duration(200)} style={StyleSheet.absoluteFill}>
+        <TouchableOpacity style={styles.backdrop} onPress={onClose} activeOpacity={1} />
+      </Animated.View>
 
-      {/* Sidebar */}
-      <View style={styles.sidebar}>
+      {/* Sidebar（左侧滑入，issue #4 Task 6） */}
+      <Animated.View entering={SlideInLeft.duration(260).springify()} style={styles.sidebar}>
         {/* Header */}
         <View style={[styles.header, { borderBottomColor: borderColor }]}>
           {selectedFile ? (
@@ -261,7 +264,7 @@ export default function NoteHelperSidebar({
             <View style={{ height: 40 }} />
           </ScrollView>
         )}
-      </View>
+      </Animated.View>
     </View>
   );
 }
