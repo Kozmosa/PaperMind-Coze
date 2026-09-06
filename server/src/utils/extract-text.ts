@@ -134,9 +134,10 @@ export async function extractText(
   }
 }
 
-// 清理提取文本：课件页脚标记（"-- 2 of 252 --"）、连续重复页眉行、多余空行
+// 清理提取文本：课件页脚标记（"-- 2 of 252 --"）、连续重复页眉行、多余空行、CRLF 归一化
 function cleanExtractedText(text: string): string {
   const t = text
+    .replace(/\r\n/g, '\n')
     .replace(/--\s*\d+\s*of\s*\d+\s*--/gi, '')
     .replace(/[ \t]+\n/g, '\n')
     .replace(/\n{3,}/g, '\n\n');

@@ -31,15 +31,22 @@ async function getSupabase() {
 async function main() {
   const supabase = await getSupabase();
 
-  // 1. 找目标资料（旧 seed 用户路径；可选 --prefix 参数按文件名前缀过滤，如 Bi_）
+  // 1. 找目标资料（旧 seed 用户路径；可选 --prefix 按文件名前缀过滤；--bad-papercore 定位 LLM 兜底摘要）
   const prefixArg = process.argv.find((a) => a.startsWith('--prefix='));
   const prefix = prefixArg ? prefixArg.split('=')[1] : '';
+  const badPapercore = process.argv.includes('--bad-papercore');
   let query = supabase
     .from('materials')
-    .select('id, name, logical_path')
+    .select('id, name, logical_path, papercore')
     .eq('user_id', GUEST);
-  if (prefix) query = query.like('name', `${prefix}%`);
-  else query = query.like('logical_path', '%学习资料%');
+  if (badPapercore) {
+    // generatePapercore 旧兜底路径的签名：原文开头 150 字（现已在服务端修复）
+    query = query.gte('char_length(papercore)', 148).lte('char_length(papercore)', 152);
+  } else if (prefix) {
+    query = query.like('name', `${prefix}%`);
+  } else {
+    query = query.like('logical_path', '%学习资料%');
+  }
   const { data: targets } = await query;
   console.log(`🎯 找到 ${targets?.length || 0} 份待对齐资料`);
 
