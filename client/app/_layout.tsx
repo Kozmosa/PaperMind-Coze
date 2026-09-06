@@ -52,6 +52,7 @@ export default function RootLayout() {
           <Stack.Screen name="ai-chat" options={{ headerShown: false }} />
           <Stack.Screen name="study-note-edit" options={{ headerShown: false }} />
           <Stack.Screen name="material-edit" options={{ headerShown: false }} />
+          <Stack.Screen name="knowledge-node-edit" options={{ headerShown: false }} />
           <Stack.Screen name="note-helper-fullscreen" options={{ headerShown: false }} />
           <Stack.Screen name="problem-solving-logs" options={{ headerShown: false }} />
           <Stack.Screen name="reflection" options={{ headerShown: false }} />

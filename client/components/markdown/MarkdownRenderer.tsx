@@ -6,6 +6,46 @@ interface MarkdownRendererProps {
   maxWidth?: number;
 }
 
+// KaTeX with throwOnError:false never throws — it renders failing formulas as red
+// .katex-error source markup. Sanitize common LLM output issues first, then detect
+// katex-error and degrade to neutral plain-text source instead of red error HTML.
+function sanitizeLatex(formula: string): string {
+  return (
+    formula
+      .trim()
+      // markdown artifacts (blockquote/heading markers) leaking into math blocks
+      .replace(/^[ \t]*[>#]+[ \t]*/gm, '')
+      // KaTeX math mode can't handle CJK directly; wrap non-ASCII runs in \text{}
+      .replace(/([^\t\n\x20-\x7e]+)/g, '\\text{$1}')
+  );
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function mathFallback(source: string, display: boolean): string {
+  const esc = escapeHtml(source.trim());
+  return display
+    ? `<pre class="math-fallback" style="background:#F3F4F6;border-radius:8px;padding:10px 12px;margin:6px 0;overflow-x:auto;white-space:pre-wrap;word-break:break-word;font-family:monospace;font-size:13px;line-height:1.5;color:#374151">${esc}</pre>`
+    : `<code class="math-fallback-inline" style="background:#F3F4F6;border-radius:4px;padding:1px 5px;font-family:monospace;font-size:0.95em;color:#374151">${esc}</code>`;
+}
+
+function renderMath(katex: any, raw: string, display: boolean): string {
+  const formula = sanitizeLatex(raw);
+  if (!formula) return escapeHtml(raw);
+  let html = '';
+  try {
+    html = katex.renderToString(formula, { displayMode: display, throwOnError: false });
+  } catch {
+    html = '';
+  }
+  if (!html || html.indexOf('katex-error') !== -1) {
+    return mathFallback(raw, display);
+  }
+  return html;
+}
+
 // Heading collapse/expand JS (injected into native WebView)
 const COLLAPSE_SCRIPT = `
 (function(){
@@ -130,50 +170,56 @@ function WebMarkdown({ content }: { content: string }) {
 
     try {
       let result = content;
-      const placeholders: { ph: string; html: string }[] = [];
+      const codePlaceholders: { ph: string; md: string }[] = [];
+      const mathPlaceholders: { ph: string; html: string }[] = [];
       let counter = 0;
+      const pushCode = (md: string) => {
+        const ph = `%%CODE_PH_${counter++}%%`;
+        codePlaceholders.push({ ph, md });
+        return ph;
+      };
+      const pushMath = (html: string) => {
+        const ph = `%%MATH_PH_${counter++}%%`;
+        mathPlaceholders.push({ ph, html });
+        return ph;
+      };
 
-      // Block math $$...$$
-      result = result.replace(/\$\$([\s\S]*?)\$\$/g, (_: string, formula: string) => {
-        try {
-          const html = katex.renderToString(formula.trim(), {
-            displayMode: true,
-            throwOnError: false,
-          });
-          const ph = `%%MATH_BLOCK_${counter++}%%`;
-          placeholders.push({ ph, html });
-          return ph;
-        } catch {
-          return formula.trim();
-        }
-      });
+      // Protect code so $ / \[ inside it is not mistaken for math delimiters
+      result = result.replace(/```[\s\S]*?(?:```|$)/g, (m: string) => pushCode(m));
+      result = result.replace(/`[^`\n]+`/g, (m: string) => pushCode(m));
 
-      // Inline math $...$
-      result = result.replace(/\$(?!\d)([^$\n]+)\$/g, (_: string, formula: string) => {
-        if (formula.trim().length === 0) return `$${formula}$`;
-        try {
-          const html = katex.renderToString(formula.trim(), {
-            displayMode: false,
-            throwOnError: false,
-          });
-          const ph = `%%MATH_INLINE_${counter++}%%`;
-          placeholders.push({ ph, html });
-          return ph;
-        } catch {
-          return `$${formula}$`;
-        }
-      });
+      // Block math: $$...$$ and \[...\]
+      result = result.replace(/\$\$([\s\S]*?)\$\$/g, (_: string, f: string) =>
+        pushMath(renderMath(katex, f, true)),
+      );
+      result = result.replace(/\\\[([\s\S]*?)\\\]/g, (_: string, f: string) =>
+        pushMath(renderMath(katex, f, true)),
+      );
+
+      // Inline math: $...$ (no surrounding spaces, not currency) and \(...\)
+      result = result.replace(/\$(?!\d)([^$\n]*\S)\$/g, (match: string, f: string) =>
+        /^\s/.test(f) ? match : pushMath(renderMath(katex, f, false)),
+      );
+      result = result.replace(/\\\(([\s\S]*?)\\\)/g, (_: string, f: string) =>
+        pushMath(renderMath(katex, f, false)),
+      );
+
+      // Restore code before markdown parsing so it still renders as code
+      for (const p of codePlaceholders) {
+        result = result.split(p.ph).join(p.md);
+      }
 
       // Markdown
       let html = marked.parse(result, { breaks: true, gfm: true });
 
       // Restore math placeholders
-      for (const p of placeholders) {
+      for (const p of mathPlaceholders) {
         html = html.split(p.ph).join(p.html);
       }
 
-      // Fix KaTeX display inside <p> tags
+      // Block-level math must not stay wrapped in <p>
       html = html.replace(/<p>(<span class="katex-display">[\s\S]*?<\/span>)<\/p>/g, '$1');
+      html = html.replace(/<p>(<pre class="math-fallback"[^>]*>[\s\S]*?<\/pre>)<\/p>/g, '$1');
 
       el.innerHTML = html;
 
@@ -281,39 +327,61 @@ export default function MarkdownRenderer({ content, maxWidth }: MarkdownRenderer
 <script>
 (function(){
   const md = ${JSON.stringify(escaped)};
-  let placeholders = [];
-  let counter = 0;
-
-  let result = md.replace(/\\$\\$([\\s\\S]*?)\\$\\$/g, function(_, formula) {
+  var codePlaceholders = [];
+  var mathPlaceholders = [];
+  var counter = 0;
+  function pushCode(m){ var ph = '%%CODE_PH_' + (counter++) + '%%'; codePlaceholders.push({ph:ph, md:m}); return ph; }
+  function pushMath(h){ var ph = '%%MATH_PH_' + (counter++) + '%%'; mathPlaceholders.push({ph:ph, html:h}); return ph; }
+  function escapeHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function sanitizeLatex(f){
+    return f.trim()
+      .replace(/^[ \\t]*[>#]+[ \\t]*/gm, '')
+      .replace(/([\\u2E80-\\u9FFF\\uF900-\\uFAFF\\uFF00-\\uFFEF]+)/g, '\\\\text{$1}');
+  }
+  function mathFallback(src, display){
+    var esc = escapeHtml(src.trim());
+    return display
+      ? '<pre class="math-fallback" style="background:#F3F4F6;border-radius:8px;padding:10px 12px;margin:6px 0;overflow-x:auto;white-space:pre-wrap;word-break:break-word;font-family:monospace;font-size:13px;line-height:1.5;color:#374151">' + esc + '</pre>'
+      : '<code class="math-fallback-inline" style="background:#F3F4F6;border-radius:4px;padding:1px 5px;font-family:monospace;font-size:0.95em;color:#374151">' + esc + '</code>';
+  }
+  function renderMath(raw, display){
+    var formula = sanitizeLatex(raw);
+    if (!formula) return escapeHtml(raw);
+    var html = '';
     try {
-      var html = katex.renderToString(formula.trim(), {displayMode:true,throwOnError:false});
-      var ph = '%%MATH_BLOCK_' + (counter++) + '%%';
-      placeholders.push({ph: ph, html: html});
-      return ph;
-    } catch(e) {
-      return formula.trim();
-    }
-  });
+      html = katex.renderToString(formula, {displayMode:display, throwOnError:false});
+    } catch(e) { html = ''; }
+    if (!html || html.indexOf('katex-error') !== -1) return mathFallback(raw, display);
+    return html;
+  }
 
-  result = result.replace(/\\$(?!\\d)([^\\$\\n]+?)\\$/g, function(_, formula) {
-    if (formula.trim().length === 0) return '$' + formula + '$';
-    try {
-      var html = katex.renderToString(formula.trim(), {displayMode:false,throwOnError:false});
-      var ph = '%%MATH_INLINE_' + (counter++) + '%%';
-      placeholders.push({ph: ph, html: html});
-      return ph;
-    } catch(e) {
-      return '$' + formula + '$';
-    }
-  });
+  // Protect code so $ / \\[ inside it is not mistaken for math delimiters
+  var result = md;
+  result = result.replace(/\`\`\`[\\s\\S]*?(?:\`\`\`|$)/g, function(m){ return pushCode(m); });
+  result = result.replace(/\`[^\`\\n]+\`/g, function(m){ return pushCode(m); });
+
+  // Block math: $$...$$ and \\[...\\]
+  result = result.replace(/\\$\\$([\\s\\S]*?)\\$\\$/g, function(_, f){ return pushMath(renderMath(f, true)); });
+  result = result.replace(/\\\\\\[([\\s\\S]*?)\\\\\\]/g, function(_, f){ return pushMath(renderMath(f, true)); });
+
+  // Inline math: $...$ (no surrounding spaces, not currency) and \\(...\\)
+  result = result.replace(/\\$(?!\\d)([^$\\n]*\\S)\\$/g, function(match, f){ return /^\\s/.test(f) ? match : pushMath(renderMath(f, false)); });
+  result = result.replace(/\\\\\\(([\\s\\S]*?)\\\\\\)/g, function(_, f){ return pushMath(renderMath(f, false)); });
+
+  // Restore code before markdown parsing so it still renders as code
+  for (var ci = 0; ci < codePlaceholders.length; ci++) {
+    result = result.split(codePlaceholders[ci].ph).join(codePlaceholders[ci].md);
+  }
 
   result = marked.parse(result, {breaks:true,gfm:true});
 
-  for (var i = 0; i < placeholders.length; i++) {
-    result = result.split(placeholders[i].ph).join(placeholders[i].html);
+  for (var mi = 0; mi < mathPlaceholders.length; mi++) {
+    result = result.split(mathPlaceholders[mi].ph).join(mathPlaceholders[mi].html);
   }
 
+  // Block-level math must not stay wrapped in <p>
   result = result.replace(/<p>(<span class="katex-display">[\\s\\S]*?<\\/span>)<\\/p>/g, '$1');
+  result = result.replace(/<p>(<pre class="math-fallback"[^>]*>[\\s\\S]*?<\\/pre>)<\\/p>/g, '$1');
 
   document.getElementById('content').innerHTML = result;
 

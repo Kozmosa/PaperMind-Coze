@@ -380,6 +380,19 @@ async function getAllL3NamesUnderL2(userId: string, l1: string, l2: string): Pro
   return Array.from(l3Set);
 }
 
+/**
+ * 垃圾 L3 标签判定（issue #18）：章节标签应是简短名词，
+ * 过滤问句、超长句子和文件名残留（如 "Bi_ORC5(week10 2).pdf"）
+ */
+function isGarbageL3Tag(t: string): boolean {
+  if (t.length > 20) return true; // 超长：正常章节名不超过 20 字
+  if (/[?？]/.test(t)) return true; // 含问号
+  if (/^(为什么|如何|怎么|怎样|哪些|什么|何为)/.test(t)) return true; // 疑问词开头
+  if (/(吗|呢|吧|啊)$/.test(t)) return true; // 疑问语气结尾
+  if (/\.[a-zA-Z0-9]{2,4}$/.test(t)) return true; // 文件名扩展名残留
+  return false;
+}
+
 // ==========================================
 // Call 2+3: Global positioning (L1/L2) + Local evolution (L3)
 // ==========================================
@@ -591,10 +604,19 @@ ${papercore.slice(0, 600)}
     }
   }
 
-  // Filter invalid + L3 must not duplicate parent L2 name
+  // Filter invalid + garbage + L3 must not duplicate parent L2 name (issue #18)
   const filteredL3s = finalL3s.filter(
-    (t) => !INVALID.has(t) && !t.startsWith('无法') && !t.startsWith('未') && t !== l2,
+    (t) =>
+      !INVALID.has(t) &&
+      !t.startsWith('无法') &&
+      !t.startsWith('未') &&
+      t !== l2 &&
+      !isGarbageL3Tag(t),
   );
+  const droppedGarbage = finalL3s.filter((t) => !filteredL3s.includes(t));
+  if (droppedGarbage.length > 0) {
+    console.log(`[l3-filter] 过滤垃圾标签: ${droppedGarbage.join(', ')}`);
+  }
 
   console.log(
     `[tags-result] L1="${l1}" L2="${l2}" l2IsNew=${l2IsNew} L3=[${filteredL3s.join(', ')}]`,
@@ -621,20 +643,51 @@ function buildLogicalPaths(L1: string, L2: string, knowledgePoints: string[]): s
 // POST /process-content - Process a single record
 // ==========================================
 
-// Helper: Check if record has user-set logical_path (from upload form)
+/**
+ * 解析 logical_path 为规范字符串数组。兼容历史双嵌套格式：
+ * JSON 数组字符串里再套一层 JSON（如 ["[\"/数学/复分析/\"]"]，issue #18）。
+ * 无法解析时返回 null。
+ */
+function parseLogicalPathArray(lp: string): string[] | null {
+  let arr: unknown;
+  try {
+    arr = JSON.parse(lp);
+  } catch {
+    return null;
+  }
+  // 循环解包：数组唯一元素仍是 JSON 数组字符串时继续展开
+  for (let i = 0; i < 3; i++) {
+    if (!Array.isArray(arr)) return null;
+    if (arr.length === 0) return [];
+    const first = arr[0];
+    if (typeof first !== 'string' || !first.trim().startsWith('[')) break;
+    try {
+      const inner = JSON.parse(first);
+      if (!Array.isArray(inner)) break;
+      arr = inner;
+    } catch {
+      break; // 以 [ 开头但不是 JSON（如 "[重点] 第一章"），按普通路径处理
+    }
+  }
+  if (!Array.isArray(arr)) return null;
+  return arr.map((p) => String(p).trim()).filter(Boolean);
+}
+
+// Helper: Check if record has user-set logical_path (from upload form).
+// 返回值保证是解包后的单层 JSON 数组字符串——历史双嵌套在此归一化，
+// 不再原样透传落库（issue #18）
 function getUserSetLogicalPath(record: any): string | null {
   const lp = record?.logical_path;
   if (!lp || typeof lp !== 'string' || !lp.trim()) return null;
-  try {
-    const parsed = JSON.parse(lp);
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      const first = String(parsed[0]).trim();
-      if (first && first !== '/' && first !== '/未分类/' && !first.includes('未分类')) {
-        return lp;
-      }
-    }
-  } catch {}
-  return null;
+  const paths = parseLogicalPathArray(lp);
+  if (!paths || paths.length === 0) return null;
+  const first = paths[0];
+  if (!first || first === '/' || first === '/未分类/' || first.includes('未分类')) return null;
+  const normalized = JSON.stringify(paths);
+  if (normalized !== lp.trim()) {
+    console.log(`[logical-path] 归一化 logical_path: ${lp} → ${normalized}`);
+  }
+  return normalized;
 }
 
 // Helper: 资料分类完成后同步 knowledge_nodes（issue #7 Task 5）
@@ -949,33 +1002,15 @@ export async function handleProcessContent(req: Request, res: Response) {
     const aiLogicalPaths = buildLogicalPaths(L1, L2, knowledgePoints);
     const hierarchicalTags = [L1, L2, ...knowledgePoints].filter(Boolean);
 
-    // Respect user-set logical_path from upload form (don't overwrite with AI)
-    const existingLogicalPath = (record as any).logical_path;
+    // Respect user-set logical_path from upload form (don't overwrite with AI).
+    // getUserSetLogicalPath 内部已解包历史双嵌套（issue #18），返回值可直接落库
+    const userPath = getUserSetLogicalPath(record);
     let finalLogicalPath: string;
-    if (
-      existingLogicalPath &&
-      typeof existingLogicalPath === 'string' &&
-      existingLogicalPath.trim()
-    ) {
-      try {
-        const parsed = JSON.parse(existingLogicalPath);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const first = String(parsed[0]).trim();
-          // Only keep user path if it's a real category (not root, not 未分类)
-          if (first && first !== '/' && first !== '/未分类/' && !first.includes('未分类')) {
-            finalLogicalPath = existingLogicalPath;
-            console.log(
-              `[process-content] Keeping user-set logical_path: ${finalLogicalPath} (AI would have used: ${JSON.stringify(aiLogicalPaths)})`,
-            );
-          } else {
-            finalLogicalPath = JSON.stringify(aiLogicalPaths);
-          }
-        } else {
-          finalLogicalPath = JSON.stringify(aiLogicalPaths);
-        }
-      } catch {
-        finalLogicalPath = JSON.stringify(aiLogicalPaths);
-      }
+    if (userPath) {
+      finalLogicalPath = userPath;
+      console.log(
+        `[process-content] Keeping user-set logical_path: ${finalLogicalPath} (AI would have used: ${JSON.stringify(aiLogicalPaths)})`,
+      );
     } else {
       finalLogicalPath = JSON.stringify(aiLogicalPaths);
     }
