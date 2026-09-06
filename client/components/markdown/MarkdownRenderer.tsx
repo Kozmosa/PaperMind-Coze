@@ -34,8 +34,10 @@ function sanitizeLatex(formula: string): string {
       .trim()
       // markdown artifacts (blockquote/heading markers) leaking into math blocks
       .replace(/^[ \t]*[>#]+[ \t]*/gm, '')
-      // KaTeX math mode can't handle CJK directly; wrap non-ASCII runs in \text{}
-      .replace(/([^\t\n\x20-\x7e]+)/g, '\\text{$1}')
+      // KaTeX math mode can't handle CJK directly; wrap CJK runs in \text{}。
+      // 只包 CJK：希腊字母/数学符号（μ Σ π ≈ ≤ ²）KaTeX 原生支持，
+      // 全量非 ASCII 包 \text{} 反而因 Main-Regular 缺字形度量而失败（x̄ 组合符案例）
+      .replace(/([⺀-鿿豈-﫿＀-￯]+)/g, '\\text{$1}')
   );
 }
 
@@ -406,13 +408,14 @@ export default function MarkdownRenderer({ content, maxWidth }: MarkdownRenderer
       .replace(/([\\u2E80-\\u9FFF\\uF900-\\uFAFF\\uFF00-\\uFFEF]+)/g, '\\\\text{$1}');
   }
   function mathFallback(src, display){
-    var esc = escapeHtml(src.trim());
+    var esc = escapeHtml(unescapeEntities(src.trim()));
     return display
       ? '<pre class="math-fallback" style="background:#F3F4F6;border-radius:8px;padding:10px 12px;margin:6px 0;overflow-x:auto;white-space:pre-wrap;word-break:break-word;font-family:monospace;font-size:13px;line-height:1.5;color:#374151">' + esc + '</pre>'
       : '<code class="math-fallback-inline" style="background:#F3F4F6;border-radius:4px;padding:1px 5px;font-family:monospace;font-size:0.95em;color:#374151">' + esc + '</code>';
   }
+  function unescapeEntities(s){ return s.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#039;/g,"'"); }
   function renderMath(raw, display){
-    var formula = sanitizeLatex(raw);
+    var formula = sanitizeLatex(unescapeEntities(raw));
     if (!formula) return escapeHtml(raw);
     var html = '';
     try {

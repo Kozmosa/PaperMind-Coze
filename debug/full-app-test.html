@@ -2846,6 +2846,12 @@ function closeMoveFile() {
 // ═══════════════════════════════════════════════════
 // Obsidian 风格预处理（==高亮==、[[双链]]、> [!callout]）——
 // 与 App 端 MarkdownRenderer 的 obsidianPreprocess 对齐；输入为已 HTML 转义的文本（> 即 &gt;）
+// HTML 实体还原：文本级转义会把公式里的 < > & 变成实体，
+// KaTeX 数学模式把 & 当对齐符，&lt; 会直接解析失败（M_o < M_e 案例）
+function unescapeEntities(s) {
+  return s.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#039;/g, "'");
+}
+
 function obsidianPreprocess(t) {
   t = t.replace(/==([^=\n]+)==/g, '<mark>$1</mark>');
   t = t.replace(/\[\[([^\[\]\n]+)\]\]/g, '<span class="wiki-link">$1</span>');
@@ -2873,7 +2879,7 @@ function simpleMarkdown(md) {
   const hasKatex = (typeof katex !== 'undefined') && katex && katex.renderToString;
   function stashMath(tex, display) {
     if (!hasKatex) return null;
-    const formula = tex.trim().replace(/^[ \t]*[>#]+[ \t]*/gm, '').replace(/([^\t\n\x20-\x7e]+)/g, '\text{$1}');
+    const formula = unescapeEntities(tex).trim().replace(/^[ \t]*[>#]+[ \t]*/gm, '').replace(/([⺀-鿿豈-﫿＀-￯]+)/g, '\\text{$1}');
     if (!formula) return null;
     try {
       const html = katex.renderToString(formula, { displayMode: display, throwOnError: false });
@@ -2888,7 +2894,9 @@ function simpleMarkdown(md) {
       : '<code class="math-fallback-inline" style="background:#F3F4F6;border-radius:4px;padding:1px 5px;font-family:monospace;font-size:0.95em;color:#374151;">' + src.trim() + '</code>';
   }
   h = h.replace(/\$\$([\s\S]+?)\$\$/g, function(m, tex) { return stashMath(tex, true) || mathFallback(tex, true); });
-  h = h.replace(/\$([^\$\n]+?)\$/g, function(m, tex) { return stashMath(tex, false) || mathFallback(tex, false); });
+  h = h.replace(/\\\[([\s\S]*?)\\\]/g, function(m, tex) { return stashMath(tex, true) || mathFallback(tex, true); });
+  h = h.replace(/\$(?!\d)([^\$\n]*\S)\$/g, function(m, tex) { return /^\s/.test(tex) ? m : (stashMath(tex, false) || mathFallback(tex, false)); });
+  h = h.replace(/\\\(([\s\S]*?)\\\)/g, function(m, tex) { return stashMath(tex, false) || mathFallback(tex, false); });
 
   // Obsidian 扩展（高亮/双链/callout）
   h = obsidianPreprocess(h);
@@ -2923,9 +2931,9 @@ function simpleMarkdownFallback(md) {
   const mathSlots = [];
   const hasKatex = (typeof katex !== 'undefined') && katex && katex.renderToString;
   function sanitizeLatex(f) {
-    return f.trim()
+    return unescapeEntities(f).trim()
       .replace(/^[ \t]*[>#]+[ \t]*/gm, '')
-      .replace(/([^\t\n\x20-\x7e]+)/g, '\\text{$1}');
+      .replace(/([⺀-鿿豈-﫿＀-￯]+)/g, '\\text{$1}');
   }
   function mathFallback(src, display) {
     return display
@@ -2944,7 +2952,9 @@ function simpleMarkdownFallback(md) {
     } catch(e) { return null; }
   }
   h = h.replace(/\$\$([\s\S]+?)\$\$/g, function(m, tex) { const ph = stashMath(tex, true); return ph || mathFallback(tex, true); });
-  h = h.replace(/\$([^\$\n]+?)\$/g, function(m, tex) { const ph = stashMath(tex, false); return ph || mathFallback(tex, false); });
+  h = h.replace(/\\\[([\s\S]*?)\\\]/g, function(m, tex) { const ph = stashMath(tex, true); return ph || mathFallback(tex, true); });
+  h = h.replace(/\$(?!\d)([^\$\n]*\S)\$/g, function(m, tex) { return /^\s/.test(tex) ? m : ((stashMath(tex, false)) || mathFallback(tex, false)); });
+  h = h.replace(/\\\(([\s\S]*?)\\\)/g, function(m, tex) { const ph = stashMath(tex, false); return ph || mathFallback(tex, false); });
 
   // Obsidian 风格扩展（高亮/双链/callout）——共享预处理
   h = obsidianPreprocess(h);
