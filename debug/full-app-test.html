@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js" crossorigin="anonymous"></script>
 <style>
   /* ============================================================
      PaperMind — Neumorphic · 暖灰薰衣草 · per DESIGN.md
@@ -83,6 +84,37 @@
   .section-title { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 10px; letter-spacing: -0.2px; }
   .meta-text { font-size: 13px; color: var(--text3); }
   .body-text { font-size: 15px; color: var(--text); line-height: 1.65; }
+
+  /* ── Markdown 排版（与 App 端 MarkdownRenderer 同一套样式，marked 输出）──
+     用 :where 保证零优先级，容器已有的类级样式（如 .sticky-note th）优先 */
+  .md-scope { text-align: left; }
+  :where(.body-text,.sticky-note,.be-read-block,.chat-msg-bot,#refl-stream-area,#nh-panel-result,.mat-text-pages,#nh-sb-preview-content,.md-body) { text-align: left; }
+  :where(.body-text,.sticky-note,.be-read-block,.chat-msg-bot,#refl-stream-area,#nh-panel-result,.mat-text-pages,#nh-sb-preview-content,.md-body) p { margin-bottom: 6px; text-align: left; }
+  :where(.body-text,.sticky-note,.be-read-block,.chat-msg-bot,#refl-stream-area,#nh-panel-result,.mat-text-pages,#nh-sb-preview-content,.md-body) p:last-child { margin-bottom: 0; }
+  :where(.body-text,.sticky-note,.be-read-block,.chat-msg-bot,#refl-stream-area,#nh-panel-result,.mat-text-pages,#nh-sb-preview-content,.md-body) h1,
+  :where(.body-text,.sticky-note,.be-read-block,.chat-msg-bot,#refl-stream-area,#nh-panel-result,.mat-text-pages,#nh-sb-preview-content,.md-body) h2,
+  :where(.body-text,.sticky-note,.be-read-block,.chat-msg-bot,#refl-stream-area,#nh-panel-result,.mat-text-pages,#nh-sb-preview-content,.md-body) h3,
+  :where(.body-text,.sticky-note,.be-read-block,.chat-msg-bot,#refl-stream-area,#nh-panel-result,.mat-text-pages,#nh-sb-preview-content,.md-body) h4 { margin-top: 10px; margin-bottom: 4px; font-weight: 600; color: var(--text); text-align: left; }
+  :where(.body-text,.sticky-note,.be-read-block,.chat-msg-bot,#refl-stream-area,#nh-panel-result,.mat-text-pages,#nh-sb-preview-content,.md-body) h1 { font-size: 17px; }
+  :where(.body-text,.sticky-note,.be-read-block,.chat-msg-bot,#refl-stream-area,#nh-panel-result,.mat-text-pages,#nh-sb-preview-content,.md-body) h2 { font-size: 16px; }
+  :where(.body-text,.sticky-note,.be-read-block,.chat-msg-bot,#refl-stream-area,#nh-panel-result,.mat-text-pages,#nh-sb-preview-content,.md-body) h3 { font-size: 15px; }
+  :where(.body-text,.sticky-note,.be-read-block,.chat-msg-bot,#refl-stream-area,#nh-panel-result,.mat-text-pages,#nh-sb-preview-content,.md-body) h4 { font-size: 14px; }
+  :where(.body-text,.sticky-note,.be-read-block,.chat-msg-bot,#refl-stream-area,#nh-panel-result,.mat-text-pages,#nh-sb-preview-content,.md-body) ul,
+  :where(.body-text,.sticky-note,.be-read-block,.chat-msg-bot,#refl-stream-area,#nh-panel-result,.mat-text-pages,#nh-sb-preview-content,.md-body) ol { padding-left: 18px; margin-bottom: 6px; }
+  :where(.body-text,.sticky-note,.be-read-block,.chat-msg-bot,#refl-stream-area,#nh-panel-result,.mat-text-pages,#nh-sb-preview-content,.md-body) li { margin-bottom: 2px; }
+  :where(.body-text,.sticky-note,.be-read-block,.chat-msg-bot,#refl-stream-area,#nh-panel-result,.mat-text-pages,#nh-sb-preview-content,.md-body) code { background: #F3F4F6; border-radius: 4px; padding: 2px 5px; font-family: 'SF Mono','Menlo','Consolas',monospace; font-size: 13px; color: #E11D48; }
+  :where(.body-text,.sticky-note,.be-read-block,.chat-msg-bot,#refl-stream-area,#nh-panel-result,.mat-text-pages,#nh-sb-preview-content,.md-body) pre { background: #1F2937; border-radius: 8px; padding: 12px 14px; margin: 8px 0; overflow-x: auto; }
+  :where(.body-text,.sticky-note,.be-read-block,.chat-msg-bot,#refl-stream-area,#nh-panel-result,.mat-text-pages,#nh-sb-preview-content,.md-body) pre code { background: transparent; color: #E5E7EB; padding: 0; font-size: 13px; line-height: 1.5; white-space: pre-wrap; }
+  :where(.body-text,.sticky-note,.be-read-block,.chat-msg-bot,#refl-stream-area,#nh-panel-result,.mat-text-pages,#nh-sb-preview-content,.md-body) blockquote { border-left: 3px solid #D97757; padding-left: 10px; margin: 6px 0; color: #6B7280; }
+  :where(.body-text,.sticky-note,.be-read-block,.chat-msg-bot,#refl-stream-area,#nh-panel-result,.mat-text-pages,#nh-sb-preview-content,.md-body) a { color: #D97757; text-decoration: none; }
+  :where(.body-text,.sticky-note,.be-read-block,.chat-msg-bot,#refl-stream-area,#nh-panel-result,.mat-text-pages,#nh-sb-preview-content,.md-body) table { border-collapse: collapse; margin: 6px 0; width: 100%; }
+  :where(.body-text,.sticky-note,.be-read-block,.chat-msg-bot,#refl-stream-area,#nh-panel-result,.mat-text-pages,#nh-sb-preview-content,.md-body) th,
+  :where(.body-text,.sticky-note,.be-read-block,.chat-msg-bot,#refl-stream-area,#nh-panel-result,.mat-text-pages,#nh-sb-preview-content,.md-body) td { border: 1px solid #E5E7EB; padding: 5px 8px; text-align: left; }
+  :where(.body-text,.sticky-note,.be-read-block,.chat-msg-bot,#refl-stream-area,#nh-panel-result,.mat-text-pages,#nh-sb-preview-content,.md-body) th { background: #F9FAFB; font-weight: 600; }
+  :where(.body-text,.sticky-note,.be-read-block,.chat-msg-bot,#refl-stream-area,#nh-panel-result,.mat-text-pages,#nh-sb-preview-content,.md-body) hr { border: none; border-top: 1px solid #E5E7EB; margin: 10px 0; }
+  :where(.body-text,.sticky-note,.be-read-block,.chat-msg-bot,#refl-stream-area,#nh-panel-result,.mat-text-pages,#nh-sb-preview-content,.md-body) img { max-width: 100%; border-radius: 8px; }
+  :where(.body-text,.sticky-note,.be-read-block,.chat-msg-bot,#refl-stream-area,#nh-panel-result,.mat-text-pages,#nh-sb-preview-content,.md-body) .katex { font-size: 1.05em; }
+  :where(.body-text,.sticky-note,.be-read-block,.chat-msg-bot,#refl-stream-area,#nh-panel-result,.mat-text-pages,#nh-sb-preview-content,.md-body) .katex-display { margin: 6px 0; overflow-x: auto; overflow-y: hidden; text-align: center; }
 
   /* ── Obsidian 风格扩展（与 App 端 MarkdownRenderer 对齐）── */
   .body-text mark, mark { background: #FFF3B8; border-radius: 3px; padding: 0 2px; color: inherit; }
@@ -2812,7 +2844,68 @@ function closeMoveFile() {
 // ═══════════════════════════════════════════════════
 // ENHANCED MARKDOWN + LATEX RENDERING
 // ═══════════════════════════════════════════════════
+// Obsidian 风格预处理（==高亮==、[[双链]]、> [!callout]）——
+// 与 App 端 MarkdownRenderer 的 obsidianPreprocess 对齐；输入为已 HTML 转义的文本（> 即 &gt;）
+function obsidianPreprocess(t) {
+  t = t.replace(/==([^=\n]+)==/g, '<mark>$1</mark>');
+  t = t.replace(/\[\[([^\[\]\n]+)\]\]/g, '<span class="wiki-link">$1</span>');
+  t = t.replace(/^&gt; \[!(\w+)\]([^\n]*)\n((?:&gt; [^\n]*\n?)*)/gm, function(m, type, title, body) {
+    const bodyHtml = body.split('\n').filter(function(l){return l.trim();}).map(function(l){return '<div>' + l.replace(/^&gt;\s?/, '') + '</div>';}).join('');
+    return '<div class="callout callout-' + type.toLowerCase() + '"><div class="callout-title">' + (title.trim() || type) + '</div>' + bodyHtml + '</div>\n\n';
+  });
+  return t;
+}
+
 function simpleMarkdown(md) {
+  if (!md) return '';
+  // 优先走 App 端同款管线（marked + KaTeX + Obsidian 扩展），CDN 不可用时退回手写渲染器
+  if (!(typeof marked !== 'undefined' && marked && marked.parse)) return simpleMarkdownFallback(md);
+
+  let h = String(md).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+
+  // 代码占位（围栏 + 行内），避免内部 $、== 等被后续规则误伤
+  const codeSlots = [];
+  h = h.replace(/```[^\n]*\n?[\s\S]*?(?:```|$)/g, function(m) { codeSlots.push(m); return '%%CODE_SLOT_' + (codeSlots.length - 1) + '%%'; });
+  h = h.replace(/`[^`\n]+`/g, function(m) { codeSlots.push(m); return '%%CODE_SLOT_' + (codeSlots.length - 1) + '%%'; });
+
+  // 公式占位（与 App 端一致：CJK 包裹 \text{}、katex-error 降级为源码样式）
+  const mathSlots = [];
+  const hasKatex = (typeof katex !== 'undefined') && katex && katex.renderToString;
+  function stashMath(tex, display) {
+    if (!hasKatex) return null;
+    const formula = tex.trim().replace(/^[ \t]*[>#]+[ \t]*/gm, '').replace(/([^\t\n\x20-\x7e]+)/g, '\text{$1}');
+    if (!formula) return null;
+    try {
+      const html = katex.renderToString(formula, { displayMode: display, throwOnError: false });
+      if (!html || html.indexOf('katex-error') !== -1) return null;
+      mathSlots.push(html);
+      return '%%MATH_SLOT_' + (mathSlots.length - 1) + '%%';
+    } catch(e) { return null; }
+  }
+  function mathFallback(src, display) {
+    return display
+      ? '<pre class="math-fallback" style="background:#F3F4F6;border-radius:8px;padding:10px 12px;margin:6px 0;overflow-x:auto;white-space:pre-wrap;word-break:break-word;font-family:monospace;font-size:13px;line-height:1.5;color:#374151;">' + src.trim() + '</pre>'
+      : '<code class="math-fallback-inline" style="background:#F3F4F6;border-radius:4px;padding:1px 5px;font-family:monospace;font-size:0.95em;color:#374151;">' + src.trim() + '</code>';
+  }
+  h = h.replace(/\$\$([\s\S]+?)\$\$/g, function(m, tex) { return stashMath(tex, true) || mathFallback(tex, true); });
+  h = h.replace(/\$([^\$\n]+?)\$/g, function(m, tex) { return stashMath(tex, false) || mathFallback(tex, false); });
+
+  // Obsidian 扩展（高亮/双链/callout）
+  h = obsidianPreprocess(h);
+
+  // 还原代码 → marked 解析（GFM：~~删除线~~、- [ ] 任务列表、表格原生支持）
+  h = h.replace(/%%CODE_SLOT_(\d+)%%/g, function(_, i) { return codeSlots[+i]; });
+  let out = marked.parse(h, { breaks: true, gfm: true });
+
+  // 还原公式；块级公式/降级块拆出 <p> 包裹
+  out = out.replace(/%%MATH_SLOT_(\d+)%%/g, function(_, i) { return mathSlots[+i]; });
+  out = out.replace(/<p>(<span class="katex-display">[\s\S]*?<\/span>)<\/p>/g, '$1');
+  out = out.replace(/<p>(<pre class="math-fallback"[^>]*>[\s\S]*?<\/pre>)<\/p>/g, '$1');
+  return out;
+}
+
+// CDN 不可用（marked 未加载）时的手写降级渲染器
+function simpleMarkdownFallback(md) {
   if (!md) return '';
   // Escape HTML but NOT backticks or $ (needed for code/LaTeX patterns below)
   let h = String(md).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -2853,12 +2946,9 @@ function simpleMarkdown(md) {
   h = h.replace(/\$\$([\s\S]+?)\$\$/g, function(m, tex) { const ph = stashMath(tex, true); return ph || mathFallback(tex, true); });
   h = h.replace(/\$([^\$\n]+?)\$/g, function(m, tex) { const ph = stashMath(tex, false); return ph || mathFallback(tex, false); });
 
-  // Obsidian 风格：> [!type] 标注块（标题行 + 后续 "> " 行收编为 callout 容器）
-  // 注意：文本已做 HTML 转义，> 需匹配 &gt;
-  h = h.replace(/^&gt; \[!(\w+)\]([^\n]*)\n((?:&gt; [^\n]*\n?)*)/gm, function(m, type, title, body) {
-    const bodyHtml = body.split('\n').filter(function(l){return l.trim();}).map(function(l){return '<div>' + l.replace(/^&gt;\s?/, '') + '</div>';}).join('');
-    return '<div class="callout callout-' + type.toLowerCase() + '"><div class="callout-title">' + (title.trim() || type) + '</div>' + bodyHtml + '</div>\n\n';
-  });
+  // Obsidian 风格扩展（高亮/双链/callout）——共享预处理
+  h = obsidianPreprocess(h);
+
   // Obsidian 风格：==高亮==、[[双链]]
   h = h.replace(/==([^=\n]+)==/g, '<mark>$1</mark>');
   h = h.replace(/\[\[([^\[\]\n]+)\]\]/g, '<span class="wiki-link">$1</span>');
