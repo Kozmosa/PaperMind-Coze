@@ -7,10 +7,48 @@
 import * as fs from 'fs';
 import mammoth from 'mammoth';
 import AdmZip from 'adm-zip';
+import { visionAnthropic, VISION_MODEL_NAME } from '../config/ai.js';
 
 export interface ExtractedContent {
   text: string;
   pageCount?: number;
+}
+
+// 可读性判定：过滤扫描件/嵌入字体损坏产生的乱码（CJK 占比极低且 ASCII 占比极低）
+export function isReadableText(text: string): boolean {
+  if (!text || text.length < 5) return false;
+
+  // Count CJK characters specifically (for Chinese academic content)
+  const cjk = text.match(/[一-鿿]/g);
+  const cjkRatio = (cjk || []).length / text.length;
+
+  // If text has virtually no CJK characters, it's likely garbled PDF output
+  // (garbled PDFs produce random bytes, digits, whitespace but no real Chinese text)
+  if (cjkRatio < 0.03) {
+    // Allow pure-English documents (even lower ASCII threshold for formula-heavy content)
+    const asciiLetters = text.match(/[a-zA-Z]/g);
+    const asciiRatio = (asciiLetters || []).length / text.length;
+    if (asciiRatio < 0.15) return false;
+  }
+
+  // Count overall readable characters (CJK, ASCII letters, digits, common punctuation)
+  const readable = text.match(
+    /[一-鿿　-〿＀-￯a-zA-Z0-9\s.,;:!?()[\]\]{}\-+=_"'<>/\\@#$%^&*]/g,
+  );
+  if (!readable) return false;
+  return readable.length / text.length > 0.15;
+}
+
+// 乱码字形检测：嵌入字体损坏时 pdf-parse 输出同一字符连续重复的碎片
+// （如 "u u u H H H" 三连重复），真实文本中相邻同字符占比极低
+export function looksLikeBrokenGlyphs(text: string): boolean {
+  const compact = text.replace(/\s+/g, '');
+  if (compact.length < 30) return false;
+  let repeats = 0;
+  for (let i = 1; i < compact.length; i++) {
+    if (compact[i] === compact[i - 1]) repeats++;
+  }
+  return repeats / compact.length > 0.15;
 }
 
 // pdf-parse v2.4.5 uses class-based API: new PDFParse({ data: buffer })
@@ -118,12 +156,71 @@ async function extractPdf(filePath: string): Promise<ExtractedContent> {
     const raw = await parser.getText();
     const data: { text: string; numpages?: number } =
       typeof raw === 'string' ? { text: raw, numpages: undefined } : raw;
+    const text = cleanExtractedText(data.text || '');
+    // 扫描件/乱码：pdf-parse 提取为空、过短、不可读或字形破碎 → 视觉模型 OCR 兜底
+    if (text.length < 50 || !isReadableText(text) || looksLikeBrokenGlyphs(text)) {
+      const vision = await extractPdfWithVision(filePath);
+      if (vision.text) {
+        return { text: vision.text, pageCount: vision.pageCount || data.numpages || 0 };
+      }
+    }
     return {
-      text: cleanExtractedText(data.text || ''),
+      text,
       pageCount: data.numpages || 0,
     };
   } catch (err) {
     console.error('[extractPdf] Error:', err);
+    return { text: '' };
+  }
+}
+
+// 视觉 OCR 兜底（扫描件）：渲染前 N 页为图片交给视觉模型识别，逐页 \f 拼接
+async function extractPdfWithVision(filePath: string, maxPages = 5): Promise<ExtractedContent> {
+  if (!visionAnthropic) return { text: '' };
+  try {
+    const mupdf = await import('mupdf');
+    const data = fs.readFileSync(filePath);
+    const doc = mupdf.Document.openDocument(data, 'application/pdf');
+    const total = Math.min(doc.countPages(), maxPages);
+    const texts: string[] = [];
+    for (let i = 0; i < total; i++) {
+      const page = doc.loadPage(i);
+      const pixmap = page.toPixmap(
+        mupdf.Matrix.scale(1.5, 1.5),
+        mupdf.ColorSpace.DeviceRGB,
+        false,
+        true,
+      );
+      const b64 = Buffer.from(pixmap.asPNG()).toString('base64');
+      const resp = await visionAnthropic.messages.create({
+        model: VISION_MODEL_NAME,
+        max_tokens: 2048,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'image',
+                source: { type: 'base64', media_type: 'image/png', data: b64 },
+              },
+              {
+                type: 'text',
+                text: '请识别这张课件页面的全部文字内容（标题、正文；公式用 LaTeX 表达），按原文顺序输出，不要添加解释或客套话。',
+              },
+            ],
+          },
+        ],
+      });
+      const t = resp.content
+        .filter((c: any) => c.type === 'text')
+        .map((c: any) => c.text)
+        .join('')
+        .trim();
+      if (t && !t.includes('无法') && !t.includes('Unsupported')) texts.push(t);
+    }
+    return texts.length > 0 ? { text: texts.join('\f'), pageCount: texts.length } : { text: '' };
+  } catch (e) {
+    console.error('[extractPdfWithVision] Error:', (e as any)?.message);
     return { text: '' };
   }
 }

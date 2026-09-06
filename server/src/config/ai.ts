@@ -46,3 +46,20 @@ export const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL || 'kimi-for-coding';
 export const AVAILABLE_MODELS = [DEFAULT_MODEL];
 
 export type AvailableModel = (typeof AVAILABLE_MODELS)[number];
+
+// ==========================================
+// 视觉预处理客户端（扫描件 OCR 兜底，issue 跟进）
+// 独立网关配置：主网关（DeepSeek）不支持图片输入，
+// 视觉走 VISION_API_KEY / VISION_BASE_URL / VISION_MODEL
+// ==========================================
+const VISION_API_KEY = process.env.VISION_API_KEY;
+const VISION_BASE_URL = process.env.VISION_BASE_URL;
+const VISION_MODEL = process.env.VISION_MODEL || 'glm-5.3-flash';
+
+export const visionAnthropic: Anthropic | null = VISION_API_KEY
+  ? new Anthropic({
+      apiKey: VISION_API_KEY,
+      ...(VISION_BASE_URL ? { baseURL: VISION_BASE_URL } : {}),
+    })
+  : null;
+export const VISION_MODEL_NAME = VISION_MODEL;

@@ -5,6 +5,7 @@ import * as path from 'path';
 import { getSupabaseClient } from '../storage/database/supabase-client.js';
 import { anthropic, DEFAULT_MODEL } from '../config/ai.js';
 import { scheduleIndexRebuild } from '../utils/index-refresh.js';
+import { isReadableText } from '../utils/extract-text.js';
 
 const router = Router();
 
@@ -28,6 +29,67 @@ const UNREADABLE_FILE_COURSE_MAP: {
     topicHint: 'Bi_ORC{N} 中 N 对应课程模块，week{X} 对应教学周，据此推断话题',
   },
 ];
+
+// 不可读扫描件按课程映射推断真实话题与 L3（运筹学摘要无效问题跟进）：
+// 与 rebuild-all 的 course-batch 同一套逻辑，单文件分类（process-content）也生效
+async function classifyUnreadableByCourse(
+  userId: string,
+  fileName: string,
+): Promise<{ L1: string; L2: string; l3s: string[]; topic: string } | null> {
+  const course = UNREADABLE_FILE_COURSE_MAP.find((c) => c.pattern.test(fileName || ''));
+  if (!course) return null;
+  try {
+    const existingL3s = await getAllL3NamesUnderL2(userId, course.L1, course.L2);
+    const prompt = `你是${course.L2}课程专家。以下是一个${course.L2}课程PDF的文件名，由于PDF编码问题无法提取文本，请根据文件名推断核心话题。
+
+文件名：${fileName}
+
+${course.L2}下已有L3标签：${existingL3s.join(', ') || '(尚无)'}
+
+标准课程体系参考：${course.courseSystem}。
+
+规则：
+1. ${course.topicHint}
+2. L3标签必须使用标准课程体系中的大类名称（如"对偶理论"而非细碎定理），优先复用已有标签
+3. 最多3个L3标签
+
+输出JSON（不要markdown代码块）：{"topic":"简要话题描述（50字以内）","l3s":["大类标签1"]}`;
+    // thinking 型模型的思考块会消耗输出预算：无正文时升档重试（同全局定位的修复）
+    let c = '';
+    for (const budget of [4096, 16384]) {
+      const resp = await anthropic.messages.create({
+        model: DEFAULT_MODEL,
+        max_tokens: budget,
+        temperature: 0.3,
+        messages: [{ role: 'user', content: prompt }],
+      });
+      c = resp.content
+        .filter((x: any) => x.type === 'text')
+        .map((x: any) => x.text)
+        .join('')
+        .trim();
+      if (c) break;
+      console.warn(`[course-classify] 无正文输出（预算 ${budget}），升档重试`);
+    }
+    console.log(`[course-classify] LLM 响应: ${c.slice(0, 120)}`);
+    const m = c.match(/\{[\s\S]*\}/);
+    if (m) {
+      const parsed = JSON.parse(m[0]);
+      const l3s = (parsed.l3s || [])
+        .slice(0, 3)
+        .filter((t: any) => typeof t === 'string' && t.trim());
+      if (l3s.length > 0 && parsed.topic) {
+        return { L1: course.L1, L2: course.L2, l3s, topic: String(parsed.topic).slice(0, 80) };
+      }
+      console.warn('[course-classify] 解析结果无效: l3s=%o topic=%o', l3s, parsed.topic);
+    } else {
+      console.warn('[course-classify] 响应无 JSON 对象');
+    }
+  } catch (e) {
+    console.error('[course-classify] error:', (e as any)?.message);
+  }
+  return null;
+}
 
 // ==========================================
 // Helper: Extract existing hierarchical tags for a user
@@ -141,29 +203,7 @@ function stripTOC(text: string): string {
 
 // Helper: Check text readability (filter garbled content)
 // ==========================================
-function isReadableText(text: string): boolean {
-  if (!text || text.length < 5) return false;
-
-  // Count CJK characters specifically (for Chinese academic content)
-  const cjk = text.match(/[\u4e00-\u9fff]/g);
-  const cjkRatio = (cjk || []).length / text.length;
-
-  // If text has virtually no CJK characters, it's likely garbled PDF output
-  // (garbled PDFs produce random bytes, digits, whitespace but no real Chinese text)
-  if (cjkRatio < 0.03) {
-    // Allow pure-English documents (even lower ASCII threshold for formula-heavy content)
-    const asciiLetters = text.match(/[a-zA-Z]/g);
-    const asciiRatio = (asciiLetters || []).length / text.length;
-    if (asciiRatio < 0.15) return false;
-  }
-
-  // Count overall readable characters (CJK, ASCII letters, digits, common punctuation)
-  const readable = text.match(
-    /[\u4e00-\u9fff\u3000-\u303f\uff00-\uffefa-zA-Z0-9\s.,;:!?()[\]\]{}\-+=_"'<>/\\@#$%^&*]/g,
-  );
-  if (!readable) return false;
-  return readable.length / text.length > 0.15;
-}
+// isReadableText \u5df2\u8fc1\u81f3 extract-text.ts\uff08\u89c6\u89c9\u515c\u5e95\u89e6\u53d1\u4e5f\u5728\u90a3\u91cc\uff09\uff0c\u8fd9\u91cc re-export \u4f9b\u8def\u7531\u4f7f\u7528
 
 // ==========================================
 // Helper: Build L1→L2 tree from DB records (real-time, for LLM global positioning)
@@ -895,6 +935,38 @@ export async function handleProcessContent(req: Request, res: Response) {
 
     // 强制解析：即使内容不可读/为空，也根据文件名尝试 LLM 分类
     if (!text || text.trim().length < 5 || isPlaceholder || isUnsupported) {
+      // 课程映射优先：扫描件按文件名 + 课程体系推断真实话题（而非复述文件名的降级模板）
+      const courseCls = await classifyUnreadableByCourse(userId, recordFileName);
+      if (courseCls) {
+        const { L1, L2, l3s, topic } = courseCls;
+        const coursePapercore = `${L2}课程资料：${topic}`;
+        const lps = buildLogicalPaths(L1, L2, l3s);
+        await supabase
+          .from(table)
+          .update({
+            ai_processed: true,
+            papercore: coursePapercore,
+            logical_path: JSON.stringify(lps),
+            tags: [L1, L2, ...l3s].filter(Boolean),
+            process_status: 'processed',
+          })
+          .eq('id', id)
+          .eq('user_id', userId);
+        if (table === 'materials')
+          await syncKnowledgeNodeForMaterial(userId, record, [L1, L2, ...l3s].filter(Boolean), coursePapercore);
+        scheduleIndexRebuild();
+        return res.json({
+          data: {
+            id,
+            status: 'processed',
+            papercore: coursePapercore,
+            tags: [L1, L2, ...l3s],
+            logical_path: lps,
+            reason: 'course-mapped',
+          },
+        });
+      }
+
       const forcePapercore = buildDegradedPapercore(recordFileName);
       const existingHierarchy2 = await getExistingTagHierarchy(userId);
       try {
@@ -957,6 +1029,38 @@ export async function handleProcessContent(req: Request, res: Response) {
 
     // Check text readability (filter garbled PDF content) — still force classify
     if (!isReadableText(text)) {
+      // 课程映射优先：扫描件按文件名 + 课程体系推断真实话题（而非复述文件名的降级模板）
+      const courseCls = await classifyUnreadableByCourse(userId, recordFileName);
+      if (courseCls) {
+        const { L1, L2, l3s, topic } = courseCls;
+        const coursePapercore = `${L2}课程资料：${topic}`;
+        const lps = buildLogicalPaths(L1, L2, l3s);
+        await supabase
+          .from(table)
+          .update({
+            ai_processed: true,
+            papercore: coursePapercore,
+            logical_path: JSON.stringify(lps),
+            tags: [L1, L2, ...l3s].filter(Boolean),
+            process_status: 'processed',
+          })
+          .eq('id', id)
+          .eq('user_id', userId);
+        if (table === 'materials')
+          await syncKnowledgeNodeForMaterial(userId, record, [L1, L2, ...l3s].filter(Boolean), coursePapercore);
+        scheduleIndexRebuild();
+        return res.json({
+          data: {
+            id,
+            status: 'processed',
+            papercore: coursePapercore,
+            tags: [L1, L2, ...l3s],
+            logical_path: lps,
+            reason: 'course-mapped',
+          },
+        });
+      }
+
       const degradedPapercore = buildDegradedPapercore(recordFileName);
       const existingHierarchy3 = await getExistingTagHierarchy(userId);
       try {
