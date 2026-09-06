@@ -84,6 +84,25 @@
   .meta-text { font-size: 13px; color: var(--text3); }
   .body-text { font-size: 15px; color: var(--text); line-height: 1.65; }
 
+  /* ── Obsidian 风格扩展（与 App 端 MarkdownRenderer 对齐）── */
+  .body-text mark, mark { background: #FFF3B8; border-radius: 3px; padding: 0 2px; color: inherit; }
+  .body-text del, del { color: #9CA3AF; }
+  .wiki-link { color: #8B5CF6; text-decoration: none; border-bottom: 1px dashed #C4B5FD; cursor: pointer; }
+  .task-item { list-style: none; }
+  .task-box { margin-right: 6px; color: var(--text2); }
+  .callout { border-radius: 8px; padding: 10px 12px; margin: 8px 0; background: #F3F4F6; border-left: 4px solid #9CA3AF; }
+  .callout-title { font-weight: 700; margin-bottom: 4px; font-size: 13px; color: #374151; }
+  .callout-note { background: #EFF6FF; border-left-color: #3B82F6; }
+  .callout-note .callout-title { color: #1D4ED8; }
+  .callout-tip, .callout-success { background: #ECFDF5; border-left-color: #10B981; }
+  .callout-tip .callout-title, .callout-success .callout-title { color: #047857; }
+  .callout-info { background: #F0F9FF; border-left-color: #0EA5E9; }
+  .callout-info .callout-title { color: #0369A1; }
+  .callout-warning { background: #FFFBEB; border-left-color: #F59E0B; }
+  .callout-warning .callout-title { color: #B45309; }
+  .callout-danger, .callout-error { background: #FEF2F2; border-left-color: #EF4444; }
+  .callout-danger .callout-title, .callout-error .callout-title { color: #B91C1C; }
+
   /* ── Neumorphic Button ── */
   .btn {
     display: inline-flex; align-items: center; justify-content: center; gap: 6px;
@@ -2798,19 +2817,51 @@ function simpleMarkdown(md) {
   // Escape HTML but NOT backticks or $ (needed for code/LaTeX patterns below)
   let h = String(md).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
-  // LaTeX 先行提取为占位符：避免后续段落/换行转换把 <br/>、<p> 注入公式内部
+  // 围栏代码块先行占位：内容免受后续任何规则污染，最后原样还原
+  const codeSlots = [];
+  h = h.replace(/```[^\n]*\n?[\s\S]*?(?:```|$)/g, function(m) {
+    codeSlots.push(m);
+    return '%%CODE_SLOT_' + (codeSlots.length - 1) + '%%';
+  });
+
+  // LaTeX 提取为占位符：避免后续段落/换行转换把 <br/>、<p> 注入公式内部
   // 支持 $...$ 行内与 $$...$$ 块级（含多行公式）；katex 未加载时保留原始文本
+  // 与 App 端 MarkdownRenderer 对齐：CJK 包裹 \text{}、katex-error 降级为源码样式
   const mathSlots = [];
   const hasKatex = (typeof katex !== 'undefined') && katex && katex.renderToString;
+  function sanitizeLatex(f) {
+    return f.trim()
+      .replace(/^[ \t]*[>#]+[ \t]*/gm, '')
+      .replace(/([^\t\n\x20-\x7e]+)/g, '\\text{$1}');
+  }
+  function mathFallback(src, display) {
+    return display
+      ? '<pre style="background:#F3F4F6;border-radius:8px;padding:10px 12px;margin:6px 0;overflow-x:auto;white-space:pre-wrap;word-break:break-word;font-family:monospace;font-size:13px;line-height:1.5;color:#374151;">' + src.trim() + '</pre>'
+      : '<code style="background:#F3F4F6;border-radius:4px;padding:1px 5px;font-family:monospace;font-size:0.95em;color:#374151;">' + src.trim() + '</code>';
+  }
   function stashMath(tex, display) {
     if (!hasKatex) return null;
+    const formula = sanitizeLatex(tex);
+    if (!formula) return null;
     try {
-      mathSlots.push(katex.renderToString(tex, { displayMode: display, throwOnError: false }));
+      const html = katex.renderToString(formula, { displayMode: display, throwOnError: false });
+      if (!html || html.indexOf('katex-error') !== -1) return null;
+      mathSlots.push(html);
       return '%%MATH_SLOT_' + (mathSlots.length - 1) + '%%';
     } catch(e) { return null; }
   }
-  h = h.replace(/\$\$([\s\S]+?)\$\$/g, function(m, tex) { return stashMath(tex, true) || m; });
-  h = h.replace(/\$([^\$\n]+?)\$/g, function(m, tex) { return stashMath(tex, false) || m; });
+  h = h.replace(/\$\$([\s\S]+?)\$\$/g, function(m, tex) { const ph = stashMath(tex, true); return ph || mathFallback(tex, true); });
+  h = h.replace(/\$([^\$\n]+?)\$/g, function(m, tex) { const ph = stashMath(tex, false); return ph || mathFallback(tex, false); });
+
+  // Obsidian 风格：> [!type] 标注块（标题行 + 后续 "> " 行收编为 callout 容器）
+  // 注意：文本已做 HTML 转义，> 需匹配 &gt;
+  h = h.replace(/^&gt; \[!(\w+)\]([^\n]*)\n((?:&gt; [^\n]*\n?)*)/gm, function(m, type, title, body) {
+    const bodyHtml = body.split('\n').filter(function(l){return l.trim();}).map(function(l){return '<div>' + l.replace(/^&gt;\s?/, '') + '</div>';}).join('');
+    return '<div class="callout callout-' + type.toLowerCase() + '"><div class="callout-title">' + (title.trim() || type) + '</div>' + bodyHtml + '</div>\n\n';
+  });
+  // Obsidian 风格：==高亮==、[[双链]]
+  h = h.replace(/==([^=\n]+)==/g, '<mark>$1</mark>');
+  h = h.replace(/\[\[([^\[\]\n]+)\]\]/g, '<span class="wiki-link">$1</span>');
 
   // Headers
   h = h.replace(/^#### (.+)$/gm, '<h4 style="text-align:left;">$1</h4>');
@@ -2820,10 +2871,16 @@ function simpleMarkdown(md) {
   // Bold and italic
   h = h.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
   h = h.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  // Strikethrough（Obsidian/GFM）
+  h = h.replace(/~~(.+?)~~/g, '<del>$1</del>');
   // Inline code
   h = h.replace(/`([^`]+)`/g, '<code>$1</code>');
-  // Blockquotes
-  h = h.replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>');
+  // Blockquotes（> 已被 HTML 转义为 &gt;）
+  h = h.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
+  // Task lists（Obsidian：- [ ] / - [x]）→ 复选框样式；需在普通列表规则之前
+  h = h.replace(/^[\-\*] \[([ xX])\] (.+)$/gm, function(m, box, text) {
+    return '<li class="task-item"><span class="task-box">' + (box.trim() ? '☑' : '☐') + '</span> ' + text + '</li>';
+  });
   // Unordered lists
   h = h.replace(/^[\-\*] (.+)$/gm, '<li>$1</li>');
   // Ordered lists
@@ -2844,6 +2901,12 @@ function simpleMarkdown(md) {
   // 还原公式占位符；块级公式从 <p> 包裹中拆出，避免非法嵌套
   h = h.replace(/%%MATH_SLOT_(\d+)%%/g, function(_, i) { return mathSlots[+i]; });
   h = h.replace(/<p>(<span class="katex-display">[\s\S]*?<\/span>)<\/p>/g, '$1');
+  h = h.replace(/<p>(<pre[^>]*>[\s\S]*?<\/pre>)<\/p>/g, '$1');
+  // 最后还原围栏代码块
+  h = h.replace(/%%CODE_SLOT_(\d+)%%/g, function(_, i) {
+    const code = codeSlots[+i].replace(/^```[^\n]*\n?/, '').replace(/```\s*$/, '');
+    return '<pre style="background:#1F2937;border-radius:8px;padding:12px 14px;margin:8px 0;overflow-x:auto;"><code style="background:transparent;color:#E5E7EB;font-family:monospace;font-size:13px;line-height:1.5;white-space:pre-wrap;">' + code + '</code></pre>';
+  });
 
   return h;
 }

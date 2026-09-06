@@ -268,7 +268,7 @@ export default function MaterialViewScreen() {
                 </Text>
               </View>
             ) : textPages.length > 0 ? (
-              <TextPagesViewer pages={textPages} />
+              <TextPagesViewer pages={textPages} fileType={fileType} />
             ) : (
               <View
                 style={{
@@ -443,7 +443,15 @@ export default function MaterialViewScreen() {
 }
 
 // ========== Text Pages Viewer (PPTX/DOCX/MD 等提取文本的分页预览) ==========
-function TextPagesViewer({ pages }: { pages: { page_number: number; text: string }[] }) {
+// 渲染规范：MD/TXT 是 markdown 文档 → MarkdownRenderer；PDF 提取文本保持原文
+function TextPagesViewer({
+  pages,
+  fileType,
+}: {
+  pages: { page_number: number; text: string }[];
+  fileType?: string;
+}) {
+  const isMarkdown = fileType === 'MD' || fileType === 'TXT';
   return (
     <ScrollView
       style={{ flex: 1 }}
@@ -464,7 +472,11 @@ function TextPagesViewer({ pages }: { pages: { page_number: number; text: string
               — 第 {page.page_number || i + 1} 页 —
             </Text>
           )}
-          <Text style={{ fontSize: 14, color: C.text, lineHeight: 22 }}>{page.text}</Text>
+          {isMarkdown ? (
+            <MarkdownRenderer content={page.text || ' '} />
+          ) : (
+            <Text style={{ fontSize: 14, color: C.text, lineHeight: 22 }}>{page.text}</Text>
+          )}
         </View>
       ))}
     </ScrollView>

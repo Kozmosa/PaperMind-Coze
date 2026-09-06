@@ -19,6 +19,7 @@ import { api } from '@/utils/api';
 import { noWebResize } from '@/utils';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCSSVariable } from 'uniwind';
+import MarkdownRenderer from '@/components/markdown/MarkdownRenderer';
 
 type Stickynote = {
   id: number;
@@ -326,9 +327,7 @@ export default function CommunityScreen() {
                       {new Date(note.created_at).toLocaleDateString()}
                     </Text>
                   </View>
-                  <Text style={{ fontSize: 15, color: '#2D3436', lineHeight: 22 }}>
-                    {note.papercore}
-                  </Text>
+                  <MarkdownRenderer content={note.papercore} maxWidth={310} />
                   {note.original_material && (
                     <View
                       style={{

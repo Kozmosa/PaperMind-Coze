@@ -15,6 +15,7 @@ import { useCSSVariable } from 'uniwind';
 import { Screen } from '@/components/layout/Screen';
 import { api } from '@/utils/api';
 import { noWebResize } from '@/utils';
+import { stripMathDelimiters } from '@/utils/text';
 
 // ========== 颜色（与 study-note-edit 保持一致） ==========
 const C = {
@@ -527,7 +528,7 @@ export default function KnowledgeNodeEditScreen() {
                     style={{ fontSize: 12, color: C.textSecondary, marginTop: 6, lineHeight: 18 }}
                     numberOfLines={2}
                   >
-                    {s.papercore}
+                    {stripMathDelimiters(s.papercore)}
                   </Text>
                 ) : null}
                 <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>

@@ -20,6 +20,7 @@ import { Screen } from '@/components/layout/Screen';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/utils/api';
+import { stripMathDelimiters } from '@/utils/text';
 import { normalizeLogicalPath } from '@/utils/logical-path';
 import NoteHelperPanel from '@/components/note-helper/NoteHelperPanel';
 import type { Citation } from '@/components/note-helper/NoteHelperPanel';
@@ -883,7 +884,7 @@ export default function KnowledgePage() {
                   </Text>
                   {doc.papercore ? (
                     <Text style={{ fontSize: 10, color: C.text3, marginTop: 2 }} numberOfLines={1}>
-                      {doc.papercore}
+                      {stripMathDelimiters(doc.papercore)}
                     </Text>
                   ) : null}
                 </View>

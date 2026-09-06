@@ -847,9 +847,7 @@ export default function StudyNoteEditScreen() {
                         >
                           Papercore 摘要
                         </Text>
-                        <Text style={{ fontSize: 14, color: C.text, lineHeight: 22 }}>
-                          {papercore}
-                        </Text>
+                        <MarkdownRenderer content={papercore} maxWidth={350} />
                       </View>
                     ) : null}
 

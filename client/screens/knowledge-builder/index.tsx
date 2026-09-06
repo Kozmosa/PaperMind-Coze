@@ -29,6 +29,7 @@ import { Screen } from '@/components/layout/Screen';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { api } from '@/utils/api';
 import { noWebResize } from '@/utils';
+import { stripMathDelimiters } from '@/utils/text';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import MiniGraphPreview from '@/components/knowledge/MiniGraphPreview';
@@ -603,7 +604,7 @@ export default function KnowledgeBuilderScreen() {
                       </View>
                       <Text style={styles.relationName}>{s.short_name || `节点 ${s.nodeId}`}</Text>
                       <Text style={styles.relationPapercore} numberOfLines={2}>
-                        {s.papercore}
+                        {stripMathDelimiters(s.papercore)}
                       </Text>
                       {s.tags && s.tags.length > 0 && (
                         <Text style={styles.relationTags}>
