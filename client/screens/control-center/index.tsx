@@ -9,6 +9,7 @@ import { Screen } from '@/components/layout/Screen';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { api } from '@/utils/api';
 import { useAuth } from '@/contexts/AuthContext';
+import Toast from 'react-native-toast-message';
 import { noWebResize } from '@/utils';
 import { lastPathSegment, normalizeLogicalPath } from '@/utils/logical-path';
 import { useCSSVariable } from 'uniwind';
@@ -335,12 +336,13 @@ export default function ControlCenterScreen() {
       setMaterialFileUri(null);
       setMaterialFileName(null);
       loadData();
-      Alert.alert(
-        '上传成功',
-        uploadRes.classification?.error
-          ? '文件已上传，AI 分类未完成，正在后台重试，完成后小红点提示'
-          : '文件已上传，AI 已自动编排分类，完成后小红点提示',
-      );
+      Toast.show({
+        type: uploadRes.classification?.error ? 'info' : 'success',
+        text1: '上传成功',
+        text2: uploadRes.classification?.error
+          ? 'AI 分类未完成，正在后台重试'
+          : 'AI 正在后台自动编排分类，完成后小红点提示',
+      });
 
       // 服务端同步分类失败时，后台重试一次（issue #7 Task 2 的临时兜底）
       if (newId && uploadRes.classification?.error) {

@@ -153,6 +153,7 @@ router.post('/', async (req: Request, res: Response) => {
           file_type: file.mimetype,
           tags: [],
           ai_processed: false,
+          process_status: 'processing',
           viewed_after_process: false,
         };
         if (logicalPath) materialInsert.logical_path = logicalPath;
@@ -176,13 +177,8 @@ router.post('/', async (req: Request, res: Response) => {
           body: { type: 'material', id: materialId },
           userId,
         };
-        let clsResult: any = null;
-        let clsError: any = null;
         const fakeRes: any = {
-          json: (v: any) => {
-            clsResult = v;
-            return fakeRes;
-          },
+          json: () => fakeRes,
           status: (code: number) => {
             fakeRes._status = code;
             return fakeRes;
@@ -190,14 +186,21 @@ router.post('/', async (req: Request, res: Response) => {
           _status: 200,
         };
         try {
-          await handleProcess(fakeReq, fakeRes);
+          // 异步分类（issue #7 Task 3）：不阻塞上传响应，
+          // process_status 状态机跟踪 processing → processed/failed，
+          // 客户端轮询/重新分析可感知结果
+          setImmediate(() => {
+            handleProcess(fakeReq, fakeRes).catch((e: any) => {
+              console.error('[upload] async classification error:', e?.message);
+            });
+          });
         } catch (e: any) {
-          clsError = e;
+          console.error('[upload] classification launch error:', e.message);
+          classification = { error: e.message };
         }
-        if (clsError || fakeRes._status >= 400) {
-          throw new Error(clsError?.message || '分类 handler 返回 ' + fakeRes._status);
+        if (!classification) {
+          classification = { async: true, status: 'processing' };
         }
-        classification = clsResult;
       } catch (clsErr: any) {
         console.error('[upload] classification error:', clsErr.message);
         classification = { error: clsErr.message };

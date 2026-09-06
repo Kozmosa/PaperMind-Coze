@@ -12,6 +12,7 @@ import {
 import { Feather } from '@expo/vector-icons';
 import { useCSSVariable } from 'uniwind';
 import { api } from '@/utils/api';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CARD_WIDTH = Math.min(SCREEN_WIDTH * 0.92, 400);
@@ -192,7 +193,10 @@ export default function ReferenceCard({ citation, visible, onClose }: ReferenceC
   return (
     <View style={styles.overlay}>
       <TouchableOpacity style={styles.backdrop} onPress={onClose} activeOpacity={1} />
-      <View style={[styles.card, isMaterialPDF && styles.cardWide]}>
+      <Animated.View
+        entering={FadeInDown.duration(220).springify()}
+        style={[styles.card, isMaterialPDF && styles.cardWide]}
+      >
         {/* Header */}
         <View style={[styles.header, { borderBottomColor: borderColor }]}>
           <View style={styles.headerLeft}>
@@ -290,7 +294,7 @@ export default function ReferenceCard({ citation, visible, onClose }: ReferenceC
             )}
           </ScrollView>
         )}
-      </View>
+      </Animated.View>
     </View>
   );
 }

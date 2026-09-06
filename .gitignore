@@ -106,3 +106,6 @@ debug/*.json
 
 # 用户上传的运行时文件(server 启动时自动重建目录)
 server/uploads/
+
+# debug 调试产物归档
+debug/artifacts/

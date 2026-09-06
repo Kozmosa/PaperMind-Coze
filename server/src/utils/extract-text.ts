@@ -73,6 +73,21 @@ export async function extractText(
       return extractXlsx(filePath);
     }
 
+    // .ppt / .doc 旧版二进制格式：无提取实现，返回标记文本供分类链路识别
+    // （knowledge-builder 的占位检测会走 degraded 路径，用户看到明确提示而非静默失败）
+    if (mimeType === 'application/vnd.ms-powerpoint' || fileName.endsWith('.ppt')) {
+      return {
+        text: '[旧版PPT二进制格式，无法自动提取，请转存为 .pptx 后重新上传]',
+        pageCount: 0,
+      };
+    }
+    if (mimeType === 'application/msword' || fileName.endsWith('.doc')) {
+      return {
+        text: '[旧版Word二进制格式，无法自动提取，请转存为 .docx 后重新上传]',
+        pageCount: 0,
+      };
+    }
+
     return { text: '' };
   } catch (err) {
     console.error('[extractText] Error:', err);

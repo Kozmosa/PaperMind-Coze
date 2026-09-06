@@ -15,6 +15,7 @@ import { Feather, AntDesign } from '@expo/vector-icons';
 import { LineChart } from 'react-native-chart-kit';
 import { Screen } from '@/components/layout/Screen';
 import { api } from '@/utils/api';
+import Toast from 'react-native-toast-message';
 import { noWebResize } from '@/utils';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { useCSSVariable } from 'uniwind';
@@ -66,13 +67,13 @@ export default function ProblemSolvingLogsScreen() {
         process: processText.trim() || null,
         solution: solutionText.trim() || null,
       });
-      Alert.alert('已记录', '问题解决记录已保存，将参与后续反思报告');
+      Toast.show({ type: 'success', text1: '已记录', text2: '问题解决记录已保存，将参与后续反思报告' });
       setProblemText('');
       setProcessText('');
       setSolutionText('');
       setRecordModal(false);
     } catch (e: any) {
-      Alert.alert('保存失败', e.message || '请重试');
+      Toast.show({ type: 'error', text1: '保存失败', text2: e.message || '请重试' });
     } finally {
       setSubmitting(false);
     }
