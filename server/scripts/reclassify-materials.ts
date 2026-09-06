@@ -63,7 +63,7 @@ async function main() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: 'material', id: t.id }),
       });
-      const j = await r.json().catch(() => ({}));
+      const j: any = await r.json().catch(() => ({}));
       const status = j?.data?.status || (r.ok ? 'ok' : 'fail');
       console.log(`   [${++ok}/${targets.length}] ${t.name.slice(0, 30)} → ${status}`);
     } catch (e: any) {

@@ -6,6 +6,11 @@ import { anthropic, DEFAULT_MODEL } from '../config/ai.js';
 import { getSupabaseClient } from '../storage/database/supabase-client.js';
 import { unifiedVectorIndex } from '../utils/unified-vector-index.js';
 import { extractText } from '../utils/extract-text.js';
+import {
+  extractNotePreferences,
+  formatSubjectPreferencesForPrompt,
+  mergeSubjectPreferences,
+} from '../utils/note-preferences.js';
 
 const router = Router();
 const client = getSupabaseClient();
@@ -641,9 +646,11 @@ async function buildNoteHelperPrompt(context?: any): Promise<string> {
       .limit(1);
 
     if (styles && styles.length > 0) {
+      // formatSubjectPreferencesForPrompt 内部会 normalize，兼容旧的平铺结构和新的学科分层结构
       stylePreference = `用户笔记偏好：
 - 总偏好：${styles[0].general_preference || '无'}
-- 学科偏好：${JSON.stringify(styles[0].subject_preferences || {})}`;
+- 学科偏好：
+${formatSubjectPreferencesForPrompt(styles[0].subject_preferences)}`;
     }
   }
 
@@ -1331,11 +1338,13 @@ router.post('/generate-note', async (req: Request, res: Response) => {
       const st = styles[0];
       stylePreference = `用户笔记偏好：
 - 总偏好：${st.general_preference || '无'}
-- 学科偏好：${JSON.stringify(st.subject_preferences || {})}`;
+- 学科偏好：
+${formatSubjectPreferencesForPrompt(st.subject_preferences)}`;
     }
 
     // 2. 获取所有源文件内容
-    const sources: { id: string; type: string; title: string; content: string; material?: any }[] = [];
+    const sources: { id: string; type: string; title: string; content: string; material?: any }[] =
+      [];
     const citations: { index: number; sourceId: string; sourceType: string; fileName: string }[] =
       [];
     let citationIndex = 0;
@@ -1515,52 +1524,17 @@ router.post('/refine-note', async (req: Request, res: Response) => {
 
     const existingPrefs = styles && styles.length > 0 ? styles[0].subject_preferences || {} : {};
 
-    // 2. 从修正指令中提取结构化偏好（issue #4 Task 5）：
-    // 优先 LLM 提取（detail_level/prefer_tables/prefer_examples/emphasize_keypoints/language_style），
-    // 失败时回退关键词规则
-    const extractedPrefs: Record<string, any> = {};
-    try {
-      const prefResp = await anthropic.messages.create({
-        model: DEFAULT_MODEL,
-        max_tokens: 512,
-        temperature: 0.2,
-        system:
-          '你是笔记风格偏好提取器。从用户的修正指令中提取结构化偏好，只输出 JSON 对象（没有的字段省略）：' +
-          '{"detail_level":"high|concise","prefer_tables":true,"prefer_examples":true,' +
-          '"emphasize_keypoints":true,"language_style":"plain|academic|friendly","prefer_format":"bullet|paragraph|numbered"}',
-        messages: [{ role: 'user', content: refinementPrompt }],
-      });
-      const prefContent = prefResp.content
-        .filter((x: any) => x.type === 'text')
-        .map((x: any) => x.text)
-        .join('')
-        .trim();
-      const prefMatch = prefContent.match(/\{[\s\S]*\}/);
-      if (prefMatch) {
-        const parsedPrefs = JSON.parse(prefMatch[0]);
-        for (const [k, v] of Object.entries(parsedPrefs)) {
-          if (v !== undefined && v !== null && v !== '') extractedPrefs[k] = v;
-        }
-      }
-    } catch (e) {
-      console.warn('[refine-note] 偏好提取 LLM 失败，回退关键词规则:', (e as any)?.message);
-      const prompt = refinementPrompt.toLowerCase();
-      if (prompt.includes('详细') || prompt.includes('展开') || prompt.includes('更多'))
-        extractedPrefs.detail_level = 'high';
-      if (prompt.includes('简洁') || prompt.includes('简短') || prompt.includes('概括'))
-        extractedPrefs.detail_level = 'concise';
-      if (prompt.includes('表格') || prompt.includes('对比')) extractedPrefs.prefer_tables = true;
-      if (prompt.includes('例子') || prompt.includes('示例') || prompt.includes('举例'))
-        extractedPrefs.prefer_examples = true;
-      if (prompt.includes('重点') || prompt.includes('突出') || prompt.includes('强调'))
-        extractedPrefs.emphasize_keypoints = true;
-      if (prompt.includes('通俗') || prompt.includes('简单') || prompt.includes('易懂'))
-        extractedPrefs.language_style = 'plain';
-    }
+    // 2. 从修正指令中提取偏好（issue #4 Task 5）：
+    // LLM 优先（含所属学科判断），失败回退关键词规则；按学科分层合并进 subject_preferences
+    const extracted = await extractNotePreferences(refinementPrompt);
 
     // 3. 保存提取的偏好
-    if (Object.keys(extractedPrefs).length > 0) {
-      const mergedPrefs = { ...existingPrefs, ...extractedPrefs };
+    if (extracted && Object.keys(extracted.preferences).length > 0) {
+      const mergedPrefs = mergeSubjectPreferences(
+        existingPrefs,
+        extracted.subject,
+        extracted.preferences,
+      );
       try {
         const { data: existingRecord } = await client
           .from('papernote_style')
@@ -1582,7 +1556,12 @@ router.post('/refine-note', async (req: Request, res: Response) => {
             subject_preferences: mergedPrefs,
           });
         }
-        res.write(`data: ${JSON.stringify({ preferences_extracted: extractedPrefs })}\n\n`);
+        res.write(
+          `data: ${JSON.stringify({
+            preferences_extracted: extracted.preferences,
+            preferences_subject: extracted.subject,
+          })}\n\n`,
+        );
       } catch (e) {
         console.error('Failed to save preferences:', e);
       }
