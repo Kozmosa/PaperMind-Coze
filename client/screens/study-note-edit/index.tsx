@@ -19,6 +19,7 @@ import { useCSSVariable } from 'uniwind';
 import { Screen } from '@/components/layout/Screen';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { api } from '@/utils/api';
+import { noWebResize } from '@/utils';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import DraggableFlatList, { RenderItemParams } from 'react-native-draggable-flatlist';
@@ -400,6 +401,7 @@ export default function StudyNoteEditScreen() {
                 height: Math.max(80, blockHeights[item.id] || 0),
                 padding: 0,
                 textAlignVertical: 'top',
+                ...noWebResize,
               }}
               placeholder="今天学到了什么？写下你的理解…"
               placeholderTextColor={C.placeholder}

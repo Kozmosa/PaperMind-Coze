@@ -28,6 +28,7 @@ import { Feather } from '@expo/vector-icons';
 import { Screen } from '@/components/layout/Screen';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { api } from '@/utils/api';
+import { noWebResize } from '@/utils';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import MiniGraphPreview from '@/components/knowledge/MiniGraphPreview';
@@ -493,7 +494,7 @@ export default function KnowledgeBuilderScreen() {
               {/* Papercore */}
               <Text style={styles.fieldLabel}>Papercore（知识核概）</Text>
               <TextInput
-                style={styles.papercoreInput}
+                style={[styles.papercoreInput, noWebResize]}
                 value={papercore}
                 onChangeText={setPapercore}
                 placeholder="输入你对这个知识点的个人理解..."

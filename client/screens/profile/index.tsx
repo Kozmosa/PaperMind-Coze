@@ -18,6 +18,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Screen } from '@/components/layout/Screen';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { api } from '@/utils/api';
+import { noWebResize } from '@/utils';
 import { useCSSVariable } from 'uniwind';
 
 type PapernoteStyle = {
@@ -354,7 +355,7 @@ export default function ProfileScreen() {
                     }}
                   >
                     <TextInput
-                      style={{ fontSize: 15, color: '#2D3436', minHeight: 120 }}
+                      style={{ fontSize: 15, color: '#2D3436', minHeight: 120, ...noWebResize }}
                       placeholder="描述你的笔记偏好，如：喜欢用思维导图、善于总结关键词..."
                       placeholderTextColor="#B2BEC3"
                       multiline

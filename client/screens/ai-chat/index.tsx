@@ -15,6 +15,7 @@ import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
 import RNSSE from 'react-native-sse';
 import { Ionicons } from '@expo/vector-icons';
 import { useCSSVariable } from 'uniwind';
+import { noWebResize } from '@/utils';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -302,6 +303,7 @@ export default function AIChatScreen() {
                 value={input}
                 onChangeText={setInput}
                 multiline
+                style={noWebResize}
                 selectionColorClassName="accent-indigo-500"
               />
               <TouchableOpacity

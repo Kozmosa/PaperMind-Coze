@@ -20,6 +20,7 @@ import { Screen } from '@/components/layout/Screen';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/utils/api';
+import { normalizeLogicalPath } from '@/utils/logical-path';
 import NoteHelperPanel from '@/components/note-helper/NoteHelperPanel';
 import type { Citation } from '@/components/note-helper/NoteHelperPanel';
 
@@ -320,13 +321,7 @@ export default function KnowledgePage() {
   const folderTree = useMemo(() => {
     const root = new Map<string, FolderNode>();
     allRecords.forEach((rec: any) => {
-      const rawLp = rec.logical_path || '';
-      let pathStr = rawLp;
-      try {
-        const p = JSON.parse(rawLp);
-        if (Array.isArray(p) && p.length > 0) pathStr = p[0];
-      } catch {}
-      pathStr = pathStr.replace(/^\[?"?\/?/, '/').replace(/\/?"?\]?$/, '/');
+      const pathStr = normalizeLogicalPath(rec.logical_path);
       const parts = pathStr.split('/').filter(Boolean);
       if (parts.length === 0) return;
       let cur = root;

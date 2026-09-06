@@ -175,6 +175,17 @@ interface Citation {
 }
 
 // 提取 citations 的辅助函数
+// 清洗引用片段：去掉历史数据残留的分页占位符（"-- 1 of 67 --"）、省略号，压缩空白
+function cleanCitationSnippet(text?: string | null): string | undefined {
+  if (!text) return undefined;
+  const cleaned = text
+    .replace(/--\s*\d+\s*of\s*\d+\s*--/gi, '')
+    .replace(/\.{3,}|…+/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return cleaned || undefined;
+}
+
 async function extractCitations(
   answer: string,
   context?: any,
@@ -206,10 +217,11 @@ async function extractCitations(
         papercore: r.papercore,
         tags: r.tags,
         pageNumber: r.pageNumber || null,
-        snippet:
+        snippet: cleanCitationSnippet(
           r.sourceType === 'file_content'
             ? r.papercore // already snipped in index
             : r.papercore?.substring(0, 200),
+        ),
         fileName: r.fileName,
         draftId: r.draftId,
       };
@@ -249,7 +261,7 @@ async function extractCitations(
           title: fc.file_name || `文件片段`,
           fileName: fc.file_name || '未知文件',
           pageNumber: fc.page_number,
-          snippet: fc.extracted_text?.substring(0, 200),
+          snippet: cleanCitationSnippet(fc.extracted_text?.substring(0, 200)),
           draftId: fc.draft_id,
         });
       }
@@ -295,7 +307,7 @@ async function extractCitations(
             sourceType: 'file_content',
             title: draft.file_name || '上传文件',
             fileName: draft.file_name || '上传文件',
-            snippet,
+            snippet: cleanCitationSnippet(snippet),
             pageNumber,
             draftId: draft.id,
           });

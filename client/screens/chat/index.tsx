@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   ScrollView,
   KeyboardAvoidingView,
-  Platform,
   Modal,
   FlatList,
   Alert,
@@ -17,6 +16,7 @@ import { Feather } from '@expo/vector-icons';
 import { Screen } from '@/components/layout/Screen';
 import MarkdownRenderer from '@/components/markdown/MarkdownRenderer';
 import { api } from '@/utils/api';
+import { noWebResize } from '@/utils';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
@@ -1009,6 +1009,7 @@ export default function ChatScreen() {
                   fontSize: 15,
                   color: '#2D3436',
                   maxHeight: 100,
+                  ...noWebResize,
                 }}
                 placeholder="输入问题..."
                 placeholderTextColor="#B2BEC3"
