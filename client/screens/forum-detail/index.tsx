@@ -16,6 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Screen } from '@/components/layout/Screen';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
 import { api } from '@/utils/api';
+import { noWebResize } from '@/utils';
 import { useCSSVariable } from 'uniwind';
 
 type ForumPost = {
@@ -214,7 +215,7 @@ export default function ForumDetailScreen() {
                   }}
                 >
                   <TextInput
-                    style={{ fontSize: 15, color: '#2D3436', minHeight: 120 }}
+                    style={{ fontSize: 15, color: '#2D3436', minHeight: 120, ...noWebResize }}
                     placeholder="写下你的想法..."
                     placeholderTextColor="#B2BEC3"
                     multiline

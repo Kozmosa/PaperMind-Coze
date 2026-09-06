@@ -22,6 +22,7 @@ import ReferenceCard from '@/components/common/ReferenceCard';
 import type { SourceFileMeta } from '@/components/note-helper/NoteHelperSidebar';
 import type { Citation } from '@/components/common/ReferenceCard';
 import { api } from '@/utils/api';
+import { noWebResize } from '@/utils';
 
 type SourceFile = {
   id: string;
@@ -290,7 +291,7 @@ export default function NoteHelperFullscreenScreen() {
           {/* Free text input */}
           <View style={styles.refineInputContainer}>
             <TextInput
-              style={[styles.refineInput, { backgroundColor: bgSecondary }]}
+              style={[styles.refineInput, { backgroundColor: bgSecondary }, noWebResize]}
               placeholder="输入修改需求..."
               placeholderTextColor={COLORS.textMuted}
               value={refineInput}

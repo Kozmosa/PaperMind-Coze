@@ -9,6 +9,7 @@ import { Screen } from '@/components/layout/Screen';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { api } from '@/utils/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { noWebResize } from '@/utils';
 import { lastPathSegment, normalizeLogicalPath } from '@/utils/logical-path';
 import { useCSSVariable } from 'uniwind';
 import NoteHelperPanel from '@/components/note-helper/NoteHelperPanel';
@@ -749,6 +750,7 @@ export default function ControlCenterScreen() {
                     marginBottom: 16,
                     minHeight: 120,
                     textAlignVertical: 'top',
+                    ...noWebResize,
                   }}
                   placeholder="今天学到了什么？写下你的理解..."
                   placeholderTextColor={COLORS.textMuted}

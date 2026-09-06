@@ -16,6 +16,7 @@ import { Feather } from '@expo/vector-icons';
 import { Screen } from '@/components/layout/Screen';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { api } from '@/utils/api';
+import { noWebResize } from '@/utils';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCSSVariable } from 'uniwind';
 
@@ -447,7 +448,7 @@ export default function CommunityScreen() {
                   }}
                 >
                   <TextInput
-                    style={{ fontSize: 15, color: '#2D3436', minHeight: 80 }}
+                    style={{ fontSize: 15, color: '#2D3436', minHeight: 80, ...noWebResize }}
                     placeholder="写下你的知识分享..."
                     placeholderTextColor="#B2BEC3"
                     multiline

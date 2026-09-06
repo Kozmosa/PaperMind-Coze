@@ -15,6 +15,7 @@ import { Feather, AntDesign } from '@expo/vector-icons';
 import { LineChart } from 'react-native-chart-kit';
 import { Screen } from '@/components/layout/Screen';
 import { api } from '@/utils/api';
+import { noWebResize } from '@/utils';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { useCSSVariable } from 'uniwind';
 
@@ -349,6 +350,7 @@ export default function ProblemSolvingLogsScreen() {
                 fontSize: 14,
                 color: '#2D3436',
                 marginBottom: 12,
+                ...noWebResize,
               }}
               placeholder="遇到了什么问题？"
               placeholderTextColor="#B2BEC3"
@@ -367,6 +369,7 @@ export default function ProblemSolvingLogsScreen() {
                 fontSize: 14,
                 color: '#2D3436',
                 marginBottom: 12,
+                ...noWebResize,
               }}
               placeholder="你是怎么一步步解决的？"
               placeholderTextColor="#B2BEC3"
@@ -385,6 +388,7 @@ export default function ProblemSolvingLogsScreen() {
                 fontSize: 14,
                 color: '#2D3436',
                 marginBottom: 20,
+                ...noWebResize,
               }}
               placeholder="最终方案 / 结论"
               placeholderTextColor="#B2BEC3"

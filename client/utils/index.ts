@@ -73,3 +73,9 @@ export const convertToLocalTimeStr = (utcDateStr: string): string => {
   }
   return d.local().format('YYYY-MM-DD HH:mm:ss');
 };
+
+/**
+ * Web 端 multiline TextInput 渲染为原生 textarea，默认带 resize 缩放手柄，
+ * 会泄漏到圆角容器外且可被拖拽溢出（issue #2 P0）。在 style 中展开即可禁用。
+ */
+export const noWebResize = Platform.OS === 'web' ? ({ resize: 'none' } as any) : {};
