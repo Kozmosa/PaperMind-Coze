@@ -31,12 +31,16 @@ async function getSupabase() {
 async function main() {
   const supabase = await getSupabase();
 
-  // 1. 找目标资料（旧 seed 用户路径）
-  const { data: targets } = await supabase
+  // 1. 找目标资料（旧 seed 用户路径；可选 --prefix 参数按文件名前缀过滤，如 Bi_）
+  const prefixArg = process.argv.find((a) => a.startsWith('--prefix='));
+  const prefix = prefixArg ? prefixArg.split('=')[1] : '';
+  let query = supabase
     .from('materials')
     .select('id, name, logical_path')
-    .eq('user_id', GUEST)
-    .like('logical_path', '%学习资料%');
+    .eq('user_id', GUEST);
+  if (prefix) query = query.like('name', `${prefix}%`);
+  else query = query.like('logical_path', '%学习资料%');
+  const { data: targets } = await query;
   console.log(`🎯 找到 ${targets?.length || 0} 份待对齐资料`);
 
   if (!targets || targets.length === 0) {
