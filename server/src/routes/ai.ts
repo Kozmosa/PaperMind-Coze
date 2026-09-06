@@ -7,6 +7,15 @@ import { unifiedVectorIndex } from '../utils/unified-vector-index.js';
 const router = Router();
 const client = getSupabaseClient();
 
+// 前端用 KaTeX 渲染公式，非法 LaTeX 会显示为红色错误源码（issue #25），
+// 在 prompt 层约束输出作为第一道兜底
+const LATEX_RULES = `
+数学公式输出规范（前端用 KaTeX 渲染，非法公式会显示为乱码源码，必须严格遵守）：
+- 行内公式用 $...$，独立成段的公式用 $$...$$，不要使用 \\( \\) 或 \\[ \\] 以外的变体
+- 公式内部只能包含 ASCII 字符和 LaTeX 命令，禁止出现中文和全角符号；中文说明一律写在公式外面
+- 公式内部禁止使用任何 Markdown 语法（如 #、>、**、列表符号）
+- 只使用 KaTeX 支持的常见命令，避免嵌套过深或冷门宏；不确定时用简洁的线性写法（如 a/b 而非 \\dfrac{a}{b}）`;
+
 /**
  * POST /api/v1/ai/chat
  * 统一的 AI 智能体对话接口（SSE 流式输出）
@@ -885,7 +894,8 @@ ${imageInstruction}
 
 ⚠️ 请先告知用户"知识库中没有相应内容"，然后用你的常识给出解答，最后询问用户是否需要将解答补充进知识库。
 
-回答要求：条理清晰、有具体示例、可给出后续学习方向。`,
+回答要求：条理清晰、有具体示例、可给出后续学习方向。
+${LATEX_RULES}`,
       searchResults,
       allFileContents,
     };
@@ -905,7 +915,8 @@ ${knowledgeContext}${fileContentsContext}
 6. PDF/文件来源请明确引用页码，格式：【来源：{文件名}，第N页】
 7. 如需高亮关键原文位置，用「原文...」包裹引用内容
 8. 给出后续学习建议
-9. 回答完后，在消息末尾添加引用来源汇总，格式：「引用来源：来源名称1、来源名称2」`,
+9. 回答完后，在消息末尾添加引用来源汇总，格式：「引用来源：来源名称1、来源名称2」
+${LATEX_RULES}`,
     searchResults,
     allFileContents,
   };
