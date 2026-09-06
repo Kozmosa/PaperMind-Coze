@@ -3,7 +3,7 @@ import type { Request, Response } from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
 import { getSupabaseClient } from '../storage/database/supabase-client.js';
-import { anthropic, DEFAULT_MODEL } from '../config/ai.js';
+import { anthropic, NOTE_MODEL } from '../config/ai.js';
 import { scheduleIndexRebuild } from '../utils/index-refresh.js';
 import { isReadableText } from '../utils/extract-text.js';
 
@@ -58,7 +58,7 @@ ${course.L2}下已有L3标签：${existingL3s.join(', ') || '(尚无)'}
     let c = '';
     for (const budget of [4096, 16384]) {
       const resp = await anthropic.messages.create({
-        model: DEFAULT_MODEL,
+        model: NOTE_MODEL, // 分类管线用快速模型：短结构化输出无需深度思考
         max_tokens: budget,
         temperature: 0.3,
         messages: [{ role: 'user', content: prompt }],
@@ -372,7 +372,7 @@ async function generatePapercore(
     let content = '';
     for (const budget of [4096, 16384]) {
       const response = await anthropic.messages.create({
-        model: DEFAULT_MODEL,
+        model: NOTE_MODEL, // 分类管线用快速模型：短结构化输出无需深度思考
         max_tokens: budget,
         temperature: 0.3,
         messages: [{ role: 'user', content: prompt }],
@@ -530,7 +530,7 @@ ${papercore.slice(0, 800)}
     let c = '';
     for (const budget of [4096, 16384]) {
       const resp = await anthropic.messages.create({
-        model: DEFAULT_MODEL,
+        model: NOTE_MODEL, // 分类管线用快速模型：短结构化输出无需深度思考
         max_tokens: budget,
         temperature: 0.3,
         messages: [{ role: 'user', content: globalPrompt }],
@@ -627,7 +627,7 @@ ${papercore.slice(0, 600)}
 
     try {
       const resp = await anthropic.messages.create({
-        model: DEFAULT_MODEL,
+        model: NOTE_MODEL, // 分类管线用快速模型：短结构化输出无需深度思考
         max_tokens: 4096,
         temperature: 0.3,
         messages: [{ role: 'user', content: l3Prompt }],
@@ -2300,7 +2300,7 @@ ${l2Summaries}
 
     try {
       const response = await anthropic.messages.create({
-        model: DEFAULT_MODEL,
+        model: NOTE_MODEL, // 分类管线用快速模型：短结构化输出无需深度思考
         max_tokens: 1024,
         temperature: 0.1,
         messages: [{ role: 'user', content: prompt }],
@@ -2593,7 +2593,7 @@ ${papercore.slice(0, 600)}
 
       try {
         const resp2 = await anthropic.messages.create({
-          model: DEFAULT_MODEL,
+          model: NOTE_MODEL, // 分类管线用快速模型：短结构化输出无需深度思考
           max_tokens: 1024,
           temperature: 0.2,
           messages: [{ role: 'user', content: reassignPrompt }],
@@ -2692,7 +2692,7 @@ ${course.L2}下已有L3标签：${existingL3s.join(', ') || '(尚无)'}
 
       try {
         const resp = await anthropic.messages.create({
-          model: DEFAULT_MODEL,
+          model: NOTE_MODEL, // 分类管线用快速模型：短结构化输出无需深度思考
           max_tokens: 2048,
           temperature: 0.3,
           messages: [{ role: 'user', content: coursePrompt }],
@@ -2771,7 +2771,7 @@ ${courseL3s.join('\n')}
 
       try {
         const resp = await anthropic.messages.create({
-          model: DEFAULT_MODEL,
+          model: NOTE_MODEL, // 分类管线用快速模型：短结构化输出无需深度思考
           max_tokens: 1024,
           temperature: 0.2,
           messages: [{ role: 'user', content: l3ConsolidatePrompt }],
