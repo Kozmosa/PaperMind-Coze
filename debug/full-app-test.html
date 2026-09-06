@@ -4045,8 +4045,7 @@ viewMaterialFullscreen = async function(id, title) {
     if (logicalPath) footerHtml += '<div class="meta-text" style="margin-top:6px;">📁 ' + esc(fmtPath(logicalPath)) + '</div>';
     footerHtml += '</div>';
 
-    // PDF：立即渲染 iframe + 文本占位槽，提取完成后只填充文本槽（不重载 iframe）
-    let textSlot = '';
+    // PDF：立即渲染原文件（iframe），不请求提取文本——扫描件直接看原图即可
     if (isPdf && filePath) {
       const fullUrl = 'http://localhost:9091' + (filePath.startsWith('/') ? filePath : '/' + filePath);
       const pdfHtml = '<div style="flex:1;display:flex;flex-direction:column;min-height:45vh;">' +
@@ -4055,11 +4054,12 @@ viewMaterialFullscreen = async function(id, title) {
         '<a href="' + esc(fullUrl) + '" target="_blank" class="btn btn-neu" style="display:inline-block;text-decoration:none;font-size:12px;">在新窗口打开 PDF</a>' +
         '</div>' +
         '</div>';
-      textSlot = '<div id="fs-mat-text-slot" style="padding:0 18px;overflow-y:auto;flex:1;"><div style="text-align:center;padding:16px 0;font-size:12px;color:var(--text3);">正在提取文本…</div></div>';
-      document.getElementById('fs-mat-body').innerHTML = pdfHtml + textSlot + footerHtml;
+      document.getElementById('fs-mat-body').innerHTML = pdfHtml + footerHtml;
+      safeFetch(API + '/control-center/mark-viewed', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'material', id }) }).catch(() => {});
+      return;
     }
 
-    // 2) 文本提取（扫描件首次 20-30s；超时放宽到 90s）
+    // 2) 非 PDF：请求提取文本（MD/TXT/PPTX 的正文视图）
     const fcRes = await safeFetch(API + '/materials/' + id + '/file-content', undefined, 90000);
     if (!fcRes.ok) throw new Error('HTTP ' + fcRes.status);
     const fc = await fcRes.json();
@@ -4082,15 +4082,8 @@ viewMaterialFullscreen = async function(id, title) {
       textHtml += '</div>';
     }
 
-    // PDF：填充文本槽；非 PDF：整体渲染
-    const slot = document.getElementById('fs-mat-text-slot');
-    if (slot) {
-      if (textHtml) {
-        slot.innerHTML = '<div class="section-title">提取文本</div>' + textHtml;
-      } else {
-        slot.innerHTML = '';
-      }
-    } else {
+    // 非 PDF：整体渲染（PDF 已提前返回，只显示原文件）
+    {
       let html = '';
       if (fileType === 'PPT') {
         html += '<div class="empty-state"><div class="empty-icon">📄</div><div class="empty-title">.ppt 旧格式暂不支持在线预览</div><div class="empty-desc">请转存为 PPTX 格式后重新上传查看</div></div>';

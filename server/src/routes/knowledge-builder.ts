@@ -918,6 +918,10 @@ export async function handleProcessContent(req: Request, res: Response) {
 
     if (file_content && file_content.trim().length >= 5) {
       text = stripTOC(file_content);
+    } else if (type === 'material' && (record as any).extracted_text && ((record as any).extracted_text as string).trim().length >= 5) {
+      // 入库的提取文本（上传同步提取 / 视觉分析回写）优先：不重复读盘
+      text = stripTOC((record as any).extracted_text);
+      console.log(`[process-content] 使用入库提取文本（${text.length} 字）for material ${id}`);
     } else if (type === 'material') {
       // For materials without file_content, always try reading from disk first
       // (DB record only has filename, not useful for AI)

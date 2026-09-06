@@ -36,6 +36,9 @@ interface IndexRecord {
   pageNumber?: number;
   draftId?: number;
   fileName?: string;
+  // material 记录的提取文本（视觉分析产物）：检索嵌入与引用片段使用
+  extractedText?: string;
+  contentSnippet?: string;
   vec: number[];
 }
 
@@ -139,7 +142,7 @@ class UnifiedVectorIndex {
         console.log('[UnifiedVectorIndex] Loading materials...');
         const { data: materials, error: mErr } = await client
           .from('materials')
-          .select('id, papercore, tags, name')
+          .select('id, papercore, tags, name, extracted_text')
           .eq('ai_processed', true)
           .not('papercore', 'is', null)
           .order('created_at', { ascending: false });
@@ -156,6 +159,9 @@ class UnifiedVectorIndex {
                 title: (row as any).name || `资料${(row as any).id}`,
                 papercore,
                 tags: (row as any).tags || [],
+                // 提取文本（扫描件视觉分析产物）进入索引：检索/引用片段用
+                extractedText: (row as any).extracted_text || '',
+                contentSnippet: ((row as any).extracted_text || '').replace(/\s+/g, ' ').slice(0, 200),
                 vec: [], // placeholder
               });
             }
@@ -222,7 +228,12 @@ class UnifiedVectorIndex {
 
         // ── 5. Embed all papercores ──────────────────────────────
         console.log(`[UnifiedVectorIndex] Embedding ${records.length} records...`);
-        const texts = records.map((r) => r.papercore);
+        // material 记录把提取文本（视觉分析产物）前 1500 字并入嵌入，检索质量对齐真实内容
+        const texts = records.map((r: any) =>
+          r.sourceType === 'material' && r.extractedText
+            ? `${r.papercore}\n${r.extractedText.slice(0, 1500)}`
+            : r.papercore,
+        );
         const vectors = await embedBatch(texts);
 
         for (let i = 0; i < records.length; i++) {

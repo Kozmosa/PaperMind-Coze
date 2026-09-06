@@ -239,7 +239,9 @@ async function extractCitations(
         snippet: cleanCitationSnippet(
           r.sourceType === 'file_content'
             ? r.papercore // already snipped in index
-            : r.papercore?.substring(0, 200),
+            : r.sourceType === 'material'
+              ? (r.contentSnippet || r.papercore?.substring(0, 200))
+              : r.papercore?.substring(0, 200),
         ),
         fileName: r.fileName,
         draftId: r.draftId,
@@ -1289,7 +1291,12 @@ async function findPageForSnippet(material: any, snippet: string): Promise<numbe
       if (fs.existsSync(candidate)) filePath = candidate;
     }
     if (!filePath) return null;
-    const extracted = await extractText(filePath, material?.file_type || '', material?.name || '');
+    // 优先用入库的提取文本（上传/分类时已产生），缺失才重新提取
+    const storedText = material?.extracted_text;
+    const extracted: { text: string; pageCount?: number } =
+      storedText && storedText.trim().length >= 5
+        ? { text: storedText }
+        : await extractText(filePath, material?.file_type || '', material?.name || '');
     const text = extracted.text || '';
     if (!text) return null;
     const pages = text.split(/\f+|\n\n+/).filter((p) => p.trim().length > 0);

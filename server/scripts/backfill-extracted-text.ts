@@ -14,8 +14,8 @@ async function main() {
   const { createClient } = await import('@supabase/supabase-js');
   const { extractText } = await import('../src/utils/extract-text.js');
   const supabase = createClient(
-    process.env.COZE_SUPABASE_URL,
-    process.env.COZE_SUPABASE_SERVICE_ROLE_KEY,
+    process.env.COZE_SUPABASE_URL!,
+    process.env.COZE_SUPABASE_SERVICE_ROLE_KEY!,
   );
   const { data: materials } = await supabase
     .from('materials')
