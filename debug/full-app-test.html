@@ -3945,11 +3945,16 @@ viewMaterialFullscreen = async function(id, title) {
       html += '<div class="empty-state"><div class="empty-icon">📄</div><div class="empty-title">.ppt 旧格式暂不支持在线预览</div><div class="empty-desc">请转存为 PPTX 格式后重新上传查看</div></div>';
     } else if (data.pages && data.pages.some(p => (typeof p === 'string' ? p : (p.text || '')).trim())) {
       // PPTX/DOCX/MD/TXT 等：文本分页降级视图（与 PDF 的 file-content 分页同路径）
+      // MD/TXT 走 markdown 渲染（标题/加粗/表格/公式），PDF/PPTX 提取文本保持原文
+      const useMd = fileType === 'MD' || fileType === 'TXT';
       html += '<div style="padding:10px 18px;overflow-y:auto;flex:1;">';
       html += '<div class="mat-text-pages">';
       data.pages.forEach((page, i) => {
+        const raw = typeof page === 'string' ? page : (page.text || '');
         html += (i > 0 ? '<div class="page-sep">— 第 ' + (i + 1) + ' 页 —</div>' : '');
-        html += '<p style="margin-bottom:12px;">' + esc(typeof page === 'string' ? page : (page.text || '')) + '</p>';
+        html += useMd
+          ? '<div style="margin-bottom:12px;" class="body-text">' + simpleMarkdown(raw) + '</div>'
+          : '<p style="margin-bottom:12px;">' + esc(raw) + '</p>';
       });
       html += '</div></div>';
     } else {
@@ -3962,6 +3967,7 @@ viewMaterialFullscreen = async function(id, title) {
     html += '<div class="section-title" style="margin-bottom:0;">AI 摘要</div>';
     html += '<div style="display:flex;align-items:center;gap:8px;">';
     if (processStatus === 'failed') html += '<span style="background:#fdecea;color:#c0392b;font-size:11px;padding:3px 10px;border-radius:10px;">⚠️ 分类失败</span>';
+    if (processStatus === 'processing') html += '<span style="background:#fff3cd;color:#856404;font-size:11px;padding:3px 10px;border-radius:10px;">⏳ 处理中</span>';
     if (processStatus === 'pending') html += '<span style="background:#fff4e5;color:#b9770e;font-size:11px;padding:3px 10px;border-radius:10px;">⏳ 待分类</span>';
     html += '<button class="btn btn-neu" style="font-size:11px;padding:5px 12px;border-radius:12px;" onclick="reprocessMaterial(\'' + esc(id) + '\')">🔄 重新分析</button>';
     html += '</div></div>';
