@@ -274,13 +274,11 @@ export default function DraftPoolScreen() {
                   }}
                 >
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Feather name="check-circle" size={18} color="#00B894" />
                     <Text
                       style={{
                         flex: 1,
                         fontSize: 15,
                         color: '#636E72',
-                        marginLeft: 10,
                         textDecorationLine: 'line-through',
                       }}
                       numberOfLines={2}
@@ -288,7 +286,7 @@ export default function DraftPoolScreen() {
                       {draft.content}
                     </Text>
                   </View>
-                  <Text style={{ fontSize: 11, color: '#B2BEC3', marginTop: 8, marginLeft: 28 }}>
+                  <Text style={{ fontSize: 11, color: '#B2BEC3', marginTop: 8 }}>
                     {new Date(draft.created_at).toLocaleString()}
                   </Text>
                 </View>

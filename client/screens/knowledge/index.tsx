@@ -1013,6 +1013,21 @@ export default function KnowledgePage() {
               <Text style={{ marginTop: 4, fontSize: 13, color: C.text3 }}>
                 创建学习纪要或上传资料即可自动构建知识图谱
               </Text>
+              <TouchableOpacity
+                style={{
+                  marginTop: 20,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: C.primary,
+                  paddingHorizontal: 24,
+                  paddingVertical: 10,
+                  borderRadius: 14,
+                }}
+                onPress={() => router.push('/draft-pool')}
+              >
+                <Feather name="upload" size={16} color="#FFF" />
+                <Text style={{ marginLeft: 8, color: '#FFF', fontWeight: '600' }}>去上传资料</Text>
+              </TouchableOpacity>
             </ScrollView>
           ) : viewMode === 'graph' ? (
             <View style={{ flex: 1 }}>
