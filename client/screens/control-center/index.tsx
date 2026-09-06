@@ -1,5 +1,5 @@
 import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, Alert } from 'react-native';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -38,6 +38,7 @@ type RecentRecord = {
   logical_path?: string;
   ai_processed?: boolean;
   viewed_after_process?: boolean;
+  process_status?: 'processing' | 'processed' | 'failed';
   record_type: 'study_note' | 'material';
   created_at: string;
 };
@@ -79,6 +80,10 @@ export default function ControlCenterScreen() {
 
   // Detail modal (quick view)
   const [detailRecord, setDetailRecord] = useState<RecentRecord | null>(null);
+
+  // Failed-process retry state
+  const [retryingIds, setRetryingIds] = useState<Set<string>>(new Set());
+  const pollingRef = useRef(false);
 
   // Multi-select mode
   const [selectMode, setSelectMode] = useState(false);
@@ -144,9 +149,9 @@ export default function ControlCenterScreen() {
     return { content: fullContent, citations: extractedCitations };
   };
 
-  const loadData = async () => {
+  const loadData = async (silent = false): Promise<RecentRecord[]> => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const res = await api.getRecentRecords(500);
       const records: RecentRecord[] = res.data || [];
       setAllRecords(records);
@@ -161,6 +166,7 @@ export default function ControlCenterScreen() {
         materials: materials.length,
         unviewed: unviewed.length,
       });
+      return records;
     } catch (e) {
       console.error('Failed to load records', e);
       // Fallback: load separately
@@ -185,17 +191,64 @@ export default function ControlCenterScreen() {
           materials: mats.length,
           unviewed: unviewed.length,
         });
+        return combined;
       } catch (e2) {
         console.error('Fallback load failed', e2);
+        return [];
       }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
+    }
+  };
+
+  // 处理中记录的后台轮询：每 5 秒静默刷新一次，最多 1 分钟
+  const startProcessingPoll = () => {
+    if (pollingRef.current) return;
+    pollingRef.current = true;
+    let attempts = 0;
+    const tick = async () => {
+      attempts += 1;
+      const records = await loadData(true);
+      const stillProcessing = records.some((r) => r.process_status === 'processing');
+      if (stillProcessing && attempts < 12) {
+        setTimeout(tick, 5000);
+      } else {
+        pollingRef.current = false;
+      }
+    };
+    setTimeout(tick, 5000);
+  };
+
+  const handleRetryProcess = async (record: RecentRecord) => {
+    const key = `${record.record_type}_${record.id}`;
+    if (retryingIds.has(key)) return;
+    setRetryingIds((prev) => new Set(prev).add(key));
+    try {
+      const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
+      const res = await fetch(`${BASE_URL}/api/v1/knowledge-builder/process-content`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: record.record_type, id: record.id }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await loadData(true);
+      startProcessingPoll();
+    } catch {
+      Alert.alert('错误', '重新分析失败，请稍后再试');
+    } finally {
+      setRetryingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
     }
   };
 
   useFocusEffect(
     useCallback(() => {
-      loadData();
+      loadData().then((records) => {
+        if (records.some((r) => r.process_status === 'processing')) startProcessingPoll();
+      });
     }, [refreshKey]),
   );
 
@@ -318,44 +371,31 @@ export default function ControlCenterScreen() {
       Alert.alert('提示', '请先选择要上传的文件');
       return;
     }
+
+    // 客户端先行校验扩展名，与服务端 fileFilter 保持一致，避免无效上传
+    const ext = (materialFileName || '').split('.').pop()?.toLowerCase() || '';
+    if (ext === 'doc' || ext === 'ppt') {
+      Alert.alert('提示', '暂不支持 .doc/.ppt 格式，请先转换为 .docx/.pptx 后上传');
+      return;
+    }
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) {
+      Alert.alert('提示', '暂不支持图片资料上传，请在 AI 问答中直接上传图片');
+      return;
+    }
+
     setMaterialSubmitting(true);
     try {
-      const uploadRes = await api.uploadFile(
-        materialFileUri,
-        materialFileName || 'file',
-        'application/octet-stream',
-      );
-
-      // 上传接口已在服务端同步创建 material 并完成分类（返回 materialId），
-      // 客户端不再二次 createMaterial，避免一次上传产生两条记录/双倍 LLM 成本
-      const newId = uploadRes.materialId;
+      // 上传接口立即返回（material 已创建），AI 分类由服务端在后台进行，
+      // 客户端不再二次 createMaterial / 补偿重试，避免重复记录与双倍 LLM 成本
+      await api.uploadFile(materialFileUri, materialFileName || 'file', 'application/octet-stream');
 
       // Close modal immediately — file is captured
       setMaterialModalVisible(false);
       setMaterialFileUri(null);
       setMaterialFileName(null);
       loadData();
-      Alert.alert(
-        '上传成功',
-        uploadRes.classification?.error
-          ? '文件已上传，AI 分类未完成，正在后台重试，完成后小红点提示'
-          : '文件已上传，AI 已自动编排分类，完成后小红点提示',
-      );
-
-      // 服务端同步分类失败时，后台重试一次（issue #7 Task 2 的临时兜底）
-      if (newId && uploadRes.classification?.error) {
-        const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
-        fetch(`${BASE_URL}/api/v1/knowledge-builder/process-content`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ type: 'material', id: newId }),
-        })
-          .then(async () => {
-            // After AI finishes, reload data so red dot appears
-            loadData();
-          })
-          .catch(() => {});
-      }
+      startProcessingPoll();
+      Alert.alert('上传成功', '文件已上传，AI 正在后台分类，完成后小红点提示');
     } catch (e: any) {
       Alert.alert('错误', e.message || '上传失败');
     } finally {
@@ -643,6 +683,11 @@ export default function ControlCenterScreen() {
                               }}
                             />
                           )}
+                          <ProcessStatusBadge
+                            status={record.process_status}
+                            retrying={retryingIds.has(`${record.record_type}_${record.id}`)}
+                            onRetry={() => handleRetryProcess(record)}
+                          />
                         </View>
                         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
                           <Text style={{ fontSize: 12, color: COLORS.textSecondary }}>
@@ -1011,6 +1056,11 @@ export default function ControlCenterScreen() {
                               }}
                             />
                           )}
+                          <ProcessStatusBadge
+                            status={record.process_status}
+                            retrying={retryingIds.has(`${record.record_type}_${record.id}`)}
+                            onRetry={() => handleRetryProcess(record)}
+                          />
                         </View>
                         <Text style={{ fontSize: 12, color: COLORS.textSecondary, marginTop: 2 }}>
                           {isNote ? '学习纪要' : '资料'} · {formatDate(record.created_at)}
@@ -1142,6 +1192,53 @@ export default function ControlCenterScreen() {
       />
     </>
   );
+}
+
+// 处理状态徽标：processing → 处理中；failed → 失败（可点击重试）；其余不显示
+function ProcessStatusBadge({
+  status,
+  retrying,
+  onRetry,
+}: {
+  status?: string;
+  retrying?: boolean;
+  onRetry?: () => void;
+}) {
+  if (status === 'processing') {
+    return (
+      <View
+        style={{
+          marginLeft: 6,
+          backgroundColor: 'rgba(108,99,255,0.12)',
+          borderRadius: 8,
+          paddingHorizontal: 6,
+          paddingVertical: 2,
+        }}
+      >
+        <Text style={{ fontSize: 10, color: COLORS.primary, fontWeight: '600' }}>处理中</Text>
+      </View>
+    );
+  }
+  if (status === 'failed') {
+    return (
+      <TouchableOpacity
+        onPress={onRetry}
+        disabled={retrying}
+        style={{
+          marginLeft: 6,
+          backgroundColor: 'rgba(255,59,48,0.12)',
+          borderRadius: 8,
+          paddingHorizontal: 6,
+          paddingVertical: 2,
+        }}
+      >
+        <Text style={{ fontSize: 10, color: COLORS.red, fontWeight: '600' }}>
+          {retrying ? '重试中...' : '失败 · 点击重试'}
+        </Text>
+      </TouchableOpacity>
+    );
+  }
+  return null;
 }
 
 // File picker helper (supports all file types: PDF, PPT, DOC, images, etc.)

@@ -40,8 +40,18 @@ async function getExistingTagHierarchy(userId: string): Promise<{
   const supabase = getSupabaseClient();
 
   const [notesRes, materialsRes] = await Promise.all([
-    supabase.from('study_notes').select('tags').eq('user_id', userId).not('tags', 'is', null),
-    supabase.from('materials').select('tags').eq('user_id', userId).not('tags', 'is', null),
+    supabase
+      .from('study_notes')
+      .select('tags')
+      .eq('user_id', userId)
+      .not('tags', 'is', null)
+      .limit(500),
+    supabase
+      .from('materials')
+      .select('tags')
+      .eq('user_id', userId)
+      .not('tags', 'is', null)
+      .limit(500),
   ]);
 
   const allTags: string[][] = [];
@@ -161,8 +171,18 @@ function isReadableText(text: string): boolean {
 async function buildL1L2Tree(userId: string): Promise<Map<string, Set<string>>> {
   const supabase = getSupabaseClient();
   const [notesRes, materialsRes] = await Promise.all([
-    supabase.from('study_notes').select('tags').eq('user_id', userId).not('tags', 'is', null),
-    supabase.from('materials').select('tags').eq('user_id', userId).not('tags', 'is', null),
+    supabase
+      .from('study_notes')
+      .select('tags')
+      .eq('user_id', userId)
+      .not('tags', 'is', null)
+      .limit(500),
+    supabase
+      .from('materials')
+      .select('tags')
+      .eq('user_id', userId)
+      .not('tags', 'is', null)
+      .limit(500),
   ]);
 
   const tree = new Map<string, Set<string>>();
@@ -205,12 +225,14 @@ async function getTopL3sUnderL2(
       .from('study_notes')
       .select('tags, papercore')
       .eq('user_id', userId)
-      .not('tags', 'is', null),
+      .not('tags', 'is', null)
+      .limit(500),
     supabase
       .from('materials')
       .select('tags, papercore')
       .eq('user_id', userId)
-      .not('tags', 'is', null),
+      .not('tags', 'is', null)
+      .limit(500),
   ]);
 
   const l3Set = new Map<string, string>(); // l3_name → papercore
@@ -365,8 +387,18 @@ function charOverlapRatio(a: string, b: string): number {
 async function getAllL3NamesUnderL2(userId: string, l1: string, l2: string): Promise<string[]> {
   const supabase = getSupabaseClient();
   const [notesRes, materialsRes] = await Promise.all([
-    supabase.from('study_notes').select('tags').eq('user_id', userId).not('tags', 'is', null),
-    supabase.from('materials').select('tags').eq('user_id', userId).not('tags', 'is', null),
+    supabase
+      .from('study_notes')
+      .select('tags')
+      .eq('user_id', userId)
+      .not('tags', 'is', null)
+      .limit(500),
+    supabase
+      .from('materials')
+      .select('tags')
+      .eq('user_id', userId)
+      .not('tags', 'is', null)
+      .limit(500),
   ]);
   const l3Set = new Set<string>();
   for (const r of [...(notesRes.data || []), ...(materialsRes.data || [])]) {
