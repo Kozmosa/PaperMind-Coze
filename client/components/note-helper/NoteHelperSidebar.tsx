@@ -9,11 +9,16 @@ import {
   Dimensions,
   Platform,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  runOnJS,
+} from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
 import { useCSSVariable } from 'uniwind';
 import { api } from '@/utils/api';
 import MarkdownRenderer from '@/components/markdown/MarkdownRenderer';
-import Animated, { FadeIn, SlideInLeft } from 'react-native-reanimated';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SIDEBAR_WIDTH = SCREEN_WIDTH * 0.85;
@@ -88,6 +93,31 @@ export default function NoteHelperSidebar({
   const [fileViewUrl, setFileViewUrl] = useState<string>('');
   const [loadingContent, setLoadingContent] = useState(false);
 
+  // 滑入滑出 + 遮罩淡入淡出（issue #4 Task 6）；rendered 保证退出动画播完后再卸载
+  const [rendered, setRendered] = useState(false);
+  const translateX = useSharedValue(SIDEBAR_WIDTH);
+  const backdropOpacity = useSharedValue(0);
+
+  useEffect(() => {
+    if (visible) {
+      setRendered(true);
+      translateX.value = withTiming(0, { duration: 260 });
+      backdropOpacity.value = withTiming(1, { duration: 260 });
+    } else {
+      translateX.value = withTiming(SIDEBAR_WIDTH, { duration: 220 });
+      backdropOpacity.value = withTiming(0, { duration: 220 }, (finished) => {
+        if (finished) runOnJS(setRendered)(false);
+      });
+    }
+  }, [visible]);
+
+  const sidebarAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
+  const backdropAnimStyle = useAnimatedStyle(() => ({
+    opacity: backdropOpacity.value,
+  }));
+
   // Reset when closed
   useEffect(() => {
     if (!visible) {
@@ -141,17 +171,17 @@ export default function NoteHelperSidebar({
     return citations.filter((c) => c.sourceId === fileId).length;
   };
 
-  if (!visible) return null;
+  if (!rendered) return null;
 
   return (
     <View style={styles.container}>
-      {/* Backdrop（淡入） */}
-      <Animated.View entering={FadeIn.duration(200)} style={StyleSheet.absoluteFill}>
-        <TouchableOpacity style={styles.backdrop} onPress={onClose} activeOpacity={1} />
+      {/* Backdrop */}
+      <Animated.View style={[styles.backdrop, backdropAnimStyle]}>
+        <TouchableOpacity style={styles.backdropTouch} onPress={onClose} activeOpacity={1} />
       </Animated.View>
 
-      {/* Sidebar（左侧滑入，issue #4 Task 6） */}
-      <Animated.View entering={SlideInLeft.duration(260).springify()} style={styles.sidebar}>
+      {/* Sidebar */}
+      <Animated.View style={[styles.sidebar, sidebarAnimStyle]}>
         {/* Header */}
         <View style={[styles.header, { borderBottomColor: borderColor }]}>
           {selectedFile ? (
@@ -278,6 +308,9 @@ const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  backdropTouch: {
+    flex: 1,
   },
   sidebar: {
     width: SIDEBAR_WIDTH,

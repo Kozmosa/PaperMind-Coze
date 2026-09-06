@@ -2133,7 +2133,7 @@ async function generateNoteStream() {
     const res = await fetch(API + '/ai/generate-note', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sourceIds, stylePreferences: _nhStylePrefs || undefined }),
+      body: JSON.stringify({ sourceIds }),
       signal: _nhGenAbort.signal
     });
 
@@ -3181,7 +3181,7 @@ async function refineNote(prompt) {
     const res = await fetch(API + '/ai/refine-note', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ currentNote: _nhFullContent, refinementPrompt: prompt, sourceIds, stylePreferences: _nhStylePrefs || undefined })
+      body: JSON.stringify({ currentNote: _nhFullContent, refinementPrompt: prompt, sourceIds })
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
 
@@ -3274,7 +3274,7 @@ generateNoteStream = async function() {
     const res = await fetch(API + '/ai/generate-note', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sourceIds, stylePreferences: _nhStylePrefs || undefined })
+      body: JSON.stringify({ sourceIds })
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
 

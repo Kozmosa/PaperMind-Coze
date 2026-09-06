@@ -9,10 +9,11 @@ import {
   Dimensions,
   Platform,
 } from 'react-native';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
 import { useCSSVariable } from 'uniwind';
 import { api } from '@/utils/api';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import { withPdfPage } from '@/utils/file-type';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CARD_WIDTH = Math.min(SCREEN_WIDTH * 0.92, 400);
@@ -32,14 +33,16 @@ type ReferenceCardProps = {
   onClose: () => void;
 };
 
-function PDFViewer({ url }: { url: string }) {
+function PDFViewer({ url, pageNumber }: { url: string; pageNumber?: number | null }) {
+  // Web 端浏览器内置 PDF viewer 支持 #page=N 片段定位到对应页（issue #4 Task 1）
+  const displayUrl = withPdfPage(url, pageNumber);
   const encodedUrl = encodeURIComponent(url);
   const googleViewerUrl = `https://docs.google.com/viewer?url=${encodedUrl}&embedded=true`;
 
   if (Platform.OS === 'web') {
     return (
       <iframe
-        src={url}
+        src={displayUrl}
         style={{ width: '100%', height: 280, border: 'none', borderRadius: 8 }}
         title="PDF"
       />
@@ -50,7 +53,7 @@ function PDFViewer({ url }: { url: string }) {
     const WebView = require('react-native-webview').WebView;
     return (
       <WebView
-        source={{ uri: url }}
+        source={{ uri: displayUrl }}
         style={{ flex: 1, minHeight: 280, backgroundColor: 'transparent' }}
         originWhitelist={['*']}
         javaScriptEnabled={true}
@@ -73,6 +76,24 @@ export default function ReferenceCard({ citation, visible, onClose }: ReferenceC
   const [fileType, setFileType] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // 展开时淡入 + 轻微放大（issue #4 Task 6）
+  const fade = useSharedValue(0);
+  const scale = useSharedValue(0.96);
+
+  useEffect(() => {
+    if (visible && citation) {
+      fade.value = 0;
+      scale.value = 0.96;
+      fade.value = withTiming(1, { duration: 180 });
+      scale.value = withTiming(1, { duration: 180 });
+    }
+  }, [visible, citation?.sourceId, citation?.index]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: fade.value,
+    transform: [{ scale: scale.value }],
+  }));
 
   useEffect(() => {
     if (visible && citation) {
@@ -193,10 +214,7 @@ export default function ReferenceCard({ citation, visible, onClose }: ReferenceC
   return (
     <View style={styles.overlay}>
       <TouchableOpacity style={styles.backdrop} onPress={onClose} activeOpacity={1} />
-      <Animated.View
-        entering={FadeInDown.duration(220).springify()}
-        style={[styles.card, isMaterialPDF && styles.cardWide]}
-      >
+      <Animated.View style={[styles.card, isMaterialPDF && styles.cardWide, animatedStyle]}>
         {/* Header */}
         <View style={[styles.header, { borderBottomColor: borderColor }]}>
           <View style={styles.headerLeft}>
@@ -255,7 +273,7 @@ export default function ReferenceCard({ citation, visible, onClose }: ReferenceC
                 <Text style={styles.highlightContent}>{citation.highlightText}</Text>
               </View>
             ) : null}
-            <PDFViewer url={viewUrl} />
+            <PDFViewer url={viewUrl} pageNumber={citation.pageNumber} />
           </View>
         ) : (
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
