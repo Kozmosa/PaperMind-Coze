@@ -1037,6 +1037,16 @@
     <div class="fs-body" id="fs-mat-body" style="padding:0;display:flex;flex-direction:column;"><div class="spinner"></div></div>
   </div>
 
+  <!-- ======== Fullscreen All Records ======== -->
+  <div class="fs-overlay" id="fs-records">
+    <div class="fs-header">
+      <button class="fs-back" onclick="closeAllRecords()">←</button>
+      <div style="flex:1;min-width:0;"><div style="font-size:16px;font-weight:800;color:var(--text);">全部记录</div></div>
+      <span class="tag" id="fs-records-count" style="background:var(--pri-pale);color:var(--primary);visibility:hidden;"></span>
+    </div>
+    <div class="fs-body" id="fs-records-body"><div class="spinner"></div></div>
+  </div>
+
   <!-- ======== NoteHelper FAB ======== -->
   <button class="nh-fab" id="nh-fab" onclick="event.stopPropagation();openNoteHelperPanel()">⚡</button>
 
@@ -1333,6 +1343,7 @@ function switchTab(idx) {
 function refreshCurrentTab(){switchTab(currentTab);}
 
 // ── TAB 1: CONTROL CENTER ──
+let _ccPollTimer = null; // 处理中记录轮询（上传后自动刷新）
 async function loadControlCenter() {
   try {
     const [gr,rr] = await Promise.all([
@@ -1354,9 +1365,11 @@ async function loadControlCenter() {
     else records.slice(0,12).forEach((r,i)=>{
       const icon=r.record_type==='study_note'?'📝':'📄';
       const unread=r.ai_processed&&!r.viewed_after_process;
+      const st=r.process_status;
+      const badge=st==='processing'?'<span class="tag" style="background:#fff3cd;color:#856404;font-size:10px;padding:2px 7px;margin-left:6px;">⏳ 处理中</span>':st==='failed'?'<span class="tag" style="background:#f8d7da;color:#721c24;font-size:10px;padding:2px 7px;margin-left:6px;">⚠️ 失败</span>':'';
       h+=`<div class="list-item" onclick="viewRecord(${i})">
         <span class="li-left" style="position:relative;">${icon}<span class="li-dot" style="position:absolute;top:-2px;right:-2px;width:8px;height:8px;border-radius:50%;background:var(--primary);visibility:${unread?'visible':'hidden'};"></span></span>
-        <div class="li-body"><div class="li-title">${esc(r.title||r.name||'未命名')}</div><div class="li-sub">${esc(fmtPath(r.logical_path))}</div></div>
+        <div class="li-body"><div class="li-title">${esc(r.title||r.name||'未命名')}${badge}</div><div class="li-sub">${esc(fmtPath(r.logical_path))}</div></div>
         <div class="li-meta">
           <span class="li-date">${fmtDate(r.created_at)}</span>
           <button class="btn-icon" style="width:26px;height:26px;font-size:12px;flex-shrink:0;margin-left:6px;box-shadow:none;" onclick="event.stopPropagation();moveFromList(${i})" title="移动到其他文件夹">📁</button>
@@ -1366,6 +1379,23 @@ async function loadControlCenter() {
       h += '<div style="text-align:center;padding:12px 0 4px;"><button class="btn btn-neu" style="font-size:13px;padding:8px 24px;border-radius:16px;" onclick="loadMoreRecords()">查看更多记录 →</button></div>';
     }
     h+='</div>';document.getElementById('ctrl-records').innerHTML=h;
+    // 有后台处理中的记录时轮询刷新，处理完成后自动重渲染（上传后「有反应」）
+    if (records.some(x => x.process_status === 'processing') && !_ccPollTimer) {
+      _ccPollTimer = setInterval(async () => {
+        try {
+          const pr = await safeFetch(API + '/control-center/recent-records?limit=500');
+          if (!pr.ok) return;
+          const pj = await pr.json();
+          const prec = pj.data || [];
+          if (!prec.some(x => x.process_status === 'processing')) {
+            clearInterval(_ccPollTimer); _ccPollTimer = null;
+            if (currentTab === 0) loadControlCenter();
+          }
+        } catch {}
+      }, 5000);
+    } else if (!records.some(x => x.process_status === 'processing') && _ccPollTimer) {
+      clearInterval(_ccPollTimer); _ccPollTimer = null;
+    }
   }catch(e){
     document.getElementById('ctrl-stats').innerHTML='<div class="stat-card" style="grid-column:1/-1;"><div class="label" style="color:var(--primary);">后端连接失败</div><div class="label" style="font-size:10px;margin-top:4px;">请确认 localhost:9091 已启动</div></div>';
     document.getElementById('ctrl-records').innerHTML='<div class="empty-state"><div class="empty-icon">🔌</div><div class="empty-title">无法连接后端</div><div class="empty-desc">请启动后端服务 (端口 9091)，然后点击下方按钮刷新</div><button class="btn btn-primary" onclick="refreshCurrentTab()" style="margin-top:12px;">🔄 重新加载</button></div>';
@@ -1384,6 +1414,55 @@ function moveFromList(idx){
   const r=_ctrlRecords[idx];if(!r)return;
   const currentPath = fmtPath(r.logical_path);
   showMoveFileDialog(r.id, r.record_type||'study_note', r.title||r.name||'', currentPath);
+}
+
+// 「查看更多记录」：拉取全部记录，进入完整历史记录页（全屏页，非弹窗）
+let _allRecords=[];
+function closeAllRecords(){document.getElementById('fs-records').classList.remove('show');}
+async function loadMoreRecords(){
+  const body=document.getElementById('fs-records-body');
+  const countEl=document.getElementById('fs-records-count');
+  countEl.style.visibility='hidden';
+  document.getElementById('fs-records').classList.add('show');
+  body.innerHTML='<div style="padding:32px;text-align:center;color:var(--text2);"><div class="spinner"></div><div style="margin-top:10px;font-size:13px;">加载全部记录…</div></div>';
+  try{
+    const r=await safeFetch(API+'/control-center/recent-records?limit=500');
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const j=await r.json();
+    _allRecords=j.data||[];
+    countEl.textContent=_allRecords.length+' 条';
+    countEl.style.visibility='visible';
+    if(!_allRecords.length){
+      body.innerHTML='<div class="empty-state" style="padding:48px 0;"><div class="empty-icon">📭</div><div class="empty-title">暂无记录</div><div class="empty-desc">创建学习纪要或上传资料开始使用</div></div>';
+      return;
+    }
+    let h='';
+    _allRecords.forEach((rec,i)=>{
+      const icon=rec.record_type==='study_note'?'📝':'📄';
+      const unread=rec.ai_processed&&!rec.viewed_after_process;
+      const time=new Date(rec.created_at).toLocaleString('zh-CN',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+      h+='<div class="list-item" style="cursor:pointer;" onclick="viewAllRecord('+i+')">'
+        +'<span class="li-left" style="position:relative;">'+icon+'<span class="li-dot" style="position:absolute;top:-2px;right:-2px;width:8px;height:8px;border-radius:50%;background:var(--primary);visibility:'+(unread?'visible':'hidden')+';"></span></span>'
+        +'<div class="li-body"><div class="li-title">'+esc(rec.title||rec.name||'未命名')+'</div><div class="li-sub">'+esc(fmtPath(rec.logical_path))+'</div></div>'
+        +'<div class="li-meta"><span class="li-date">'+time+'</span>'
+        +'<button class="btn-icon" style="width:26px;height:26px;font-size:12px;flex-shrink:0;margin-left:6px;box-shadow:none;" onclick="event.stopPropagation();moveFromAllList('+i+')" title="移动到其他文件夹">📁</button>'
+        +'</div></div>';
+    });
+    body.innerHTML=h;
+  }catch(e){
+    body.innerHTML='<div class="empty-state" style="padding:48px 0;"><div class="empty-icon">⚠️</div><div class="empty-title">加载失败</div><div class="empty-desc">'+esc(e.message)+'</div><button class="btn btn-primary" onclick="loadMoreRecords()" style="margin-top:12px;">🔄 重试</button></div>';
+  }
+}
+function viewAllRecord(idx){
+  const rec=_allRecords[idx];if(!rec)return;
+  closeAllRecords();
+  if(rec.record_type==='study_note'){viewNoteFullscreen(rec.id,rec.title||rec.name);return;}
+  if(rec.record_type==='material'){viewMaterialFullscreen(rec.id,rec.title||rec.name||'未命名');return;}
+  showAppModal('<h3>📄 '+esc(rec.title||rec.name||'未命名')+'</h3><div class="body-text">'+simpleMarkdown(rec.papercore||'暂无内容')+'</div>');
+}
+function moveFromAllList(idx){
+  const rec=_allRecords[idx];if(!rec)return;
+  showMoveFileDialog(rec.id, rec.record_type||'study_note', rec.title||rec.name||'', fmtPath(rec.logical_path));
 }
 
 // Transient toast for success/error feedback
@@ -1551,7 +1630,7 @@ async function loadFolderView(){
 }
 function buildFolderTree(records){
   const root=new Map();
-  records.forEach(rec=>{let path=rec.logical_path||'';try{const p=JSON.parse(path);if(Array.isArray(p)&&p.length>0)path=p[0];}catch{}path=path.replace(/^\[?"?\/?/,'/').replace(/\/?"?\]?$/,'/');const parts=path.split('/').filter(Boolean);if(!parts.length)return;let cur=root,full='';parts.forEach((part,i)=>{full+='/'+part;if(!cur.has(part))cur.set(part,{name:part,fullPath:full+'/',subs:new Map(),docs:[]});const node=cur.get(part);if(i===parts.length-1)node.docs.push({id:rec.id,title:rec.title||rec.name||'',type:rec.record_type||'study_note'});cur=node.subs;});});
+  records.forEach(rec=>{let path=rec.logical_path||'';try{const p=JSON.parse(path);if(Array.isArray(p)&&p.length>0)path=p[0];}catch{}path=path.replace(/^\[?"?\/?/,'/').replace(/\/?"?\]?$/,'/');const parts=path.split('/').filter(Boolean);if(!parts.length)return;let cur=root,full='';parts.forEach((part,i)=>{full+='/'+part;if(!cur.has(part))cur.set(part,{name:part,fullPath:full+'/',subs:new Map(),docs:[]});const node=cur.get(part);if(i===parts.length-1)node.docs.push({id:rec.id,title:rec.title||rec.name||'',type:rec.record_type||'study_note',status:rec.process_status||''});cur=node.subs;});});
   return root;
 }
 function renderFolderTree(folders,depth=0){
@@ -1560,7 +1639,7 @@ function renderFolderTree(folders,depth=0){
     h+=`<div class="folder-row" style="padding-left:${16+depth*24}px;" onclick="const n=this.nextElementSibling;n.style.display=n.style.display==='none'?'block':'none';const ch=this.querySelector('.chev');if(ch)ch.textContent=n.style.display!=='none'?'▼':'▶';"><span class="chev" style="font-size:11px;color:var(--text4);">▶</span><span style="font-size:17px;">📁</span><span style="flex:1;font-size:15px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(node.name)}</span><span style="font-size:12px;color:var(--text3);font-weight:600;">${count}</span></div>`;
     h+=`<div style="display:none;">`;
     if(node.subs.size>0)h+=renderFolderTree(node.subs,depth+1);
-    node.docs.forEach(doc=>{h+=`<div class="doc-row" onclick="event.stopPropagation();viewFolderDoc('${esc(doc.id)}','${esc(doc.type)}','${esc(doc.title)}')" style="cursor:pointer;"><span style="font-size:14px;">${doc.type==='study_note'?'📝':'📄'}</span><span style="flex:1;font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(doc.title)}</span><button class="btn-icon" style="width:28px;height:28px;font-size:14px;flex-shrink:0;box-shadow:none;" onclick="event.stopPropagation();showMoveFileDialog('${esc(doc.id)}','${esc(doc.type)}','${esc(doc.title)}','${esc(node.fullPath)}')" title="移动到其他文件夹">📁</button></div>`;});
+    node.docs.forEach(doc=>{const stBadge=doc.status==='processing'?' <span style="font-size:11px;color:#856404;">⏳</span>':doc.status==='failed'?' <span style="font-size:11px;color:#721c24;">⚠️</span>':'';h+=`<div class="doc-row" onclick="event.stopPropagation();viewFolderDoc('${esc(doc.id)}','${esc(doc.type)}','${esc(doc.title)}')" style="cursor:pointer;"><span style="font-size:14px;">${doc.type==='study_note'?'📝':'📄'}</span><span style="flex:1;font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(doc.title)}${stBadge}</span><button class="btn-icon" style="width:28px;height:28px;font-size:14px;flex-shrink:0;box-shadow:none;" onclick="event.stopPropagation();showMoveFileDialog('${esc(doc.id)}','${esc(doc.type)}','${esc(doc.title)}','${esc(node.fullPath)}')" title="移动到其他文件夹">📁</button></div>`;});
     h+='</div>';});
   return h;
 }
@@ -2017,7 +2096,7 @@ async function viewMaterialFullscreen(id, title) {
     const viewUrl = data.viewUrl || '';
 
     // Find metadata from materials list
-    let papercore = '', tags = [], logicalPath = '';
+    let papercore = '', tags = [], logicalPath = '', processStatus = '';
     if (matRes) {
       const matData = (matRes.data || matRes).data || matRes.data || [];
       const found = Array.isArray(matData) ? matData.find(m => m.id === id) : null;
@@ -2025,6 +2104,7 @@ async function viewMaterialFullscreen(id, title) {
         papercore = found.papercore || '';
         tags = found.tags || [];
         logicalPath = found.logical_path || '';
+        processStatus = found.process_status || '';
       }
     }
 
@@ -2041,21 +2121,28 @@ async function viewMaterialFullscreen(id, title) {
     }
     // Textual content
     else if (data.pages && data.pages.length > 0) {
+      // MD/TXT 走 markdown 渲染（标题/加粗/表格/公式），PDF 提取文本保持原文
+      const useMd = fileType === 'MD' || fileType === 'TXT';
       html += '<div style="padding:10px 18px;overflow-y:auto;flex:1;">';
       html += '<div class="mat-text-pages">';
       data.pages.forEach((page, i) => {
+        const raw = typeof page === 'string' ? page : (page.text || '');
         html += (i > 0 ? '<div class="page-sep">— 第 ' + (i + 1) + ' 页 —</div>' : '');
-        html += '<p style="margin-bottom:12px;">' + esc(typeof page === 'string' ? page : (page.text || '')) + '</p>';
+        html += useMd
+          ? '<div style="margin-bottom:12px;" class="body-text">' + simpleMarkdown(raw) + '</div>'
+          : '<p style="margin-bottom:12px;">' + esc(raw) + '</p>';
       });
       html += '</div></div>';
     } else {
       html += '<div class="empty-state"><div class="empty-icon">📄</div><div class="empty-title">暂无可预览内容</div><div class="empty-desc">此文件类型不支持在线预览</div></div>';
     }
 
-    // Papercore & tags footer
-    if (papercore || tags.length > 0) {
+    // Papercore & tags footer（处理中/失败时给出明确状态提示）
+    if (papercore || tags.length > 0 || processStatus === 'processing' || processStatus === 'failed') {
       html += '<div style="padding:14px 18px;border-top:1px solid var(--border);flex-shrink:0;max-height:180px;overflow-y:auto;">';
       if (papercore) html += '<div class="section-title">AI 摘要</div><div class="body-text" style="font-size:13px;line-height:1.7;margin-bottom:8px;">' + simpleMarkdown(papercore) + '</div>';
+      else if (processStatus === 'processing') html += '<div style="font-size:13px;color:#856404;background:#fff3cd;border-radius:10px;padding:8px 12px;">⏳ AI 正在处理中（提取文本 + 生成摘要 + 文件夹分类），稍后自动更新</div>';
+      else if (processStatus === 'failed') html += '<div style="font-size:13px;color:#721c24;background:#f8d7da;border-radius:10px;padding:8px 12px;">⚠️ 处理失败，请到控制中心重新上传或重新分析</div>';
       if (tags.length > 0) html += tags.map(t => '<span class="tag" style="background:var(--pri-pale);color:var(--primary);margin-right:4px;">' + esc(t) + '</span>').join('');
       html += '</div>';
     }

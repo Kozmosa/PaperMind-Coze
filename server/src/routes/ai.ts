@@ -64,7 +64,8 @@ router.post('/chat', async (req: Request, res: Response) => {
 
     const stream = anthropic.messages.stream({
       model: DEFAULT_MODEL,
-      max_tokens: 4096,
+      // 思考型模型先出 thinking blocks，预算过低会耗尽 max_tokens 导致正文为空（流式无法重试，直接给足）
+      max_tokens: 16384,
       system: systemPrompt,
       messages: [{ role: 'user', content: message }],
     });
@@ -135,7 +136,8 @@ router.post('/tutor', async (req: Request, res: Response) => {
 
     const stream = anthropic.messages.stream({
       model: DEFAULT_MODEL,
-      max_tokens: 4096,
+      // 思考型模型先出 thinking blocks，预算过低会耗尽 max_tokens 导致正文为空（流式无法重试，直接给足）
+      max_tokens: 16384,
       system: systemPrompt,
       messages,
     });
@@ -1149,7 +1151,8 @@ router.post('/generate-reflection', async (req: Request, res: Response) => {
 
     const stream = anthropic.messages.stream({
       model: DEFAULT_MODEL,
-      max_tokens: 4096,
+      // 思考型模型先出 thinking blocks，预算过低会耗尽 max_tokens 导致正文为空（流式无法重试，直接给足）
+      max_tokens: 16384,
       system: systemPrompt,
       messages: [
         {
@@ -1250,7 +1253,8 @@ router.post('/note-helper', async (req: Request, res: Response) => {
 
     const stream = anthropic.messages.stream({
       model: DEFAULT_MODEL,
-      max_tokens: 4096,
+      // 思考型模型先出 thinking blocks，预算过低会耗尽 max_tokens 导致正文为空（流式无法重试，直接给足）
+      max_tokens: 16384,
       system: systemPrompt,
       messages: [{ role: 'user', content: '请为这个知识节点生成一份结构化的学习笔记。' }],
     });
@@ -1447,7 +1451,8 @@ ${sourcesText}
 
     const stream = anthropic.messages.stream({
       model: DEFAULT_MODEL,
-      max_tokens: 8192,
+      // 思考型模型先出 thinking blocks，预算过低会耗尽 max_tokens 导致正文为空（流式无法重试，直接给足）
+      max_tokens: 16384,
       system: systemPrompt,
       messages: [{ role: 'user', content: '请根据以上所有来源资料，生成一份综合学习笔记。' }],
     });
@@ -1621,7 +1626,8 @@ ${sourcesContext}
 
     const stream = anthropic.messages.stream({
       model: DEFAULT_MODEL,
-      max_tokens: 8192,
+      // 思考型模型先出 thinking blocks，预算过低会耗尽 max_tokens 导致正文为空（流式无法重试，直接给足）
+      max_tokens: 16384,
       system: systemPrompt,
       messages: [{ role: 'user', content: `当前笔记：\n\n${currentNote}\n\n请按修正指令修改。` }],
     });
