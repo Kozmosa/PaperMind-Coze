@@ -46,6 +46,10 @@ export default function TabLayout() {
         tabBarStyle,
         tabBarActiveTintColor: '#6C63FF',
         tabBarInactiveTintColor: '#B2BEC3',
+        // 桌面 Web 下（宽≥768 被视作平板）默认切换为标签在图标右侧的横排布局，
+        // 行高不足导致标签被裁切（issue #2 P0），固定为「图标在上、标签在下」
+        tabBarVariant: 'uikit',
+        tabBarLabelPosition: 'below-icon',
         tabBarLabelStyle: {
           fontSize: 10,
           fontWeight: '600',
