@@ -1,57 +1,55 @@
-import axios from 'axios'
-import stylishFormatter from './stylish-formatter.mjs'
-import { createMinimalClient, CustomPlugin } from './reporter.mjs'
+import axios from 'axios';
+import stylishFormatter from './stylish-formatter.mjs';
+import { createMinimalClient, CustomPlugin } from './reporter.mjs';
 
-const client = createMinimalClient()
-const projectId = process.env.COZE_PROJECT_ID ?? ''
+const client = createMinimalClient();
+const projectId = process.env.COZE_PROJECT_ID ?? '';
 
 CustomPlugin(client);
 
 client.init({
   bid: 'coze_vibe_app',
   transport: {
-    get: ({
-      success,
-      fail,
-      ...otherOptions
-    }) => {
+    get: ({ success, fail, ...otherOptions }) => {
       axios({
         method: 'get',
         ...otherOptions,
-      }).then((res) => {
-        success && success(res.data)
-      }).catch(fail)
+      })
+        .then((res) => {
+          success && success(res.data);
+        })
+        .catch(fail);
     },
-    post: options => {
+    post: (options) => {
       axios({
         method: 'post',
         ...options,
       }).finally(() => {
-        console.log('\n')
-      })
+        console.log('\n');
+      });
     },
-  }
-})
+  },
+});
 
-client.start()
+client.start();
 
 function normalizeESLintRuleId(ruleId) {
-  return ruleId?.replace(/[/-]/g, '_')
+  return ruleId?.replace(/[/-]/g, '_');
 }
 
 function reportESLintRulesMetrics(results) {
-  const metrics = {}
+  const metrics = {};
   for (const { messages } of results) {
     for (const message of messages) {
       if (message.severity !== 2) {
-        continue
+        continue;
       }
 
-      const normalizedRuleId = normalizeESLintRuleId(message.ruleId)
+      const normalizedRuleId = normalizeESLintRuleId(message.ruleId);
       if (!normalizedRuleId) {
-        continue
+        continue;
       }
-      metrics[normalizedRuleId] = (metrics[normalizedRuleId] ?? 0) + 1
+      metrics[normalizedRuleId] = (metrics[normalizedRuleId] ?? 0) + 1;
     }
   }
   try {
@@ -61,18 +59,16 @@ function reportESLintRulesMetrics(results) {
       categories: {
         project_id: projectId,
       },
-    })
-  } catch (e) {
-
-  }
+    });
+  } catch (e) {}
 }
 
 function formatter(results, data) {
   if (projectId) {
-    reportESLintRulesMetrics(results)
+    reportESLintRulesMetrics(results);
   }
 
-  return stylishFormatter(results, data)
+  return stylishFormatter(results, data);
 }
 
-export default formatter
+export default formatter;

@@ -43,8 +43,9 @@ import { Base64 } from 'js-base64';
 const PAYLOAD_KEY = '__safeRouterPayload__';
 const LOG_PREFIX = '[SafeRouter]';
 
-
-const getCurrentParams = (rawParams: Record<string, string | string[]>): Record<string, unknown> => {
+const getCurrentParams = (
+  rawParams: Record<string, string | string[]>,
+): Record<string, unknown> => {
   const payload = rawParams[PAYLOAD_KEY];
   if (payload && typeof payload === 'string') {
     const decoded = deserializeParams<Record<string, unknown>>(payload);
@@ -61,13 +62,17 @@ const serializeParams = (params: Record<string, unknown>): string => {
     const jsonStr = JSON.stringify(params);
     return Base64.encode(jsonStr);
   } catch (error) {
-    console.error(LOG_PREFIX, 'serialize failed:', error instanceof Error ? error.message : 'Unknown error');
+    console.error(
+      LOG_PREFIX,
+      'serialize failed:',
+      error instanceof Error ? error.message : 'Unknown error',
+    );
     return '';
   }
 };
 
 const deserializeParams = <T = Record<string, unknown>>(
-  payload: string | string[] | undefined
+  payload: string | string[] | undefined,
 ): T | null => {
   if (!payload || typeof payload !== 'string') {
     return null;
@@ -76,11 +81,14 @@ const deserializeParams = <T = Record<string, unknown>>(
     const jsonStr = Base64.decode(payload);
     return JSON.parse(jsonStr) as T;
   } catch (error) {
-    console.error(LOG_PREFIX, 'deserialize failed:', error instanceof Error ? error.message : 'Unknown error');
+    console.error(
+      LOG_PREFIX,
+      'deserialize failed:',
+      error instanceof Error ? error.message : 'Unknown error',
+    );
     return null;
   }
 };
-
 
 /**
  * 安全路由 Hook，用于页面跳转，代替 useRouter

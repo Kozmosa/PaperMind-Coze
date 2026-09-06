@@ -14,14 +14,14 @@
   // Port forwarding (visible in Codespaces / local VS Code)
   // ------------------------------------------------------------------
   "forwardPorts": [
-    5000,   // Expo Web
-    9091,   // Express API server
-    5432    // PostgreSQL (internal — label only)
+    5000, // Expo Web
+    9091, // Express API server
+    5432 // PostgreSQL (internal — label only)
   ],
   "portsAttributes": {
-    "5000":  { "label": "Expo Web",  "onAutoForward": "notify" },
-    "9091":  { "label": "API Server", "onAutoForward": "notify" },
-    "5432":  { "label": "PostgreSQL", "onAutoForward": "silent" }
+    "5000": { "label": "Expo Web", "onAutoForward": "notify" },
+    "9091": { "label": "API Server", "onAutoForward": "notify" },
+    "5432": { "label": "PostgreSQL", "onAutoForward": "silent" }
   },
 
   // ------------------------------------------------------------------

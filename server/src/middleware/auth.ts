@@ -5,11 +5,7 @@ const GUEST_USER_ID = '11111111-1111-1111-1111-111111111111';
 
 const tokenUserCache = new Map<string, { userId: string; expiresAt: number }>();
 
-export async function authMiddleware(
-  req: Request,
-  res: Response,
-  next: NextFunction
-) {
+export async function authMiddleware(req: Request, res: Response, next: NextFunction) {
   const token = req.headers['x-session'] as string;
 
   if (!token) {
@@ -42,7 +38,7 @@ export async function authMiddleware(
     });
 
     if (response.ok) {
-      const user = await response.json() as { id: string };
+      const user = (await response.json()) as { id: string };
       const userId = user?.id || GUEST_USER_ID;
       // Cache for 5 minutes
       tokenUserCache.set(token, { userId, expiresAt: Date.now() + 5 * 60 * 1000 });

@@ -33,11 +33,11 @@ function WebOnlyPrettyScrollbar({ children }: { children: ReactNode }) {
         if (existingStyle) {
           existingStyle.remove();
         }
-      }
+      };
     }
   }, []);
 
-  return <>{children}</>
+  return <>{children}</>;
 }
 
-export { WebOnlyPrettyScrollbar }
+export { WebOnlyPrettyScrollbar };

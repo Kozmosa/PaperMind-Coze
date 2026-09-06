@@ -13,6 +13,7 @@ import {
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
+import { useCSSVariable } from 'uniwind';
 import MarkdownRenderer from '@/components/markdown/MarkdownRenderer';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -52,6 +53,8 @@ export default function NoteHelperPanel({
 }: NoteHelperPanelProps) {
   const router = useSafeRouter();
   const insets = useSafeAreaInsets();
+  const [border] = useCSSVariable(['--color-border']) as string[];
+  const borderColor = border || '#E3DED9';
   const [status, setStatus] = useState<'idle' | 'generating' | 'done' | 'error'>('idle');
   const [noteContent, setNoteContent] = useState('');
   const [citations, setCitations] = useState<Citation[]>([]);
@@ -121,27 +124,17 @@ export default function NoteHelperPanel({
   const sourceCount = sourceFiles.length;
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent
-      onRequestClose={onClose}
-    >
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
         <TouchableOpacity style={styles.backdrop} onPress={onClose} activeOpacity={1} />
-        <View
-          style={[
-            styles.panel,
-            { paddingBottom: insets.bottom + 16 },
-          ]}
-        >
+        <View style={[styles.panel, { paddingBottom: insets.bottom + 16 }]}>
           {/* Handle bar */}
           <View style={styles.handleBar}>
             <View style={styles.handle} />
           </View>
 
           {/* Header */}
-          <View style={styles.header}>
+          <View style={[styles.header, { borderBottomColor: borderColor }]}>
             <View style={styles.headerLeft}>
               {status === 'generating' ? (
                 <ActivityIndicator size="small" color="#6C63FF" />
@@ -152,10 +145,10 @@ export default function NoteHelperPanel({
                 {status === 'generating'
                   ? `正在生成笔记... (${sourceCount} 个文件)`
                   : status === 'done'
-                  ? `已生成 (${sourceCount} 个文件)`
-                  : status === 'error'
-                  ? '生成失败'
-                  : `准备生成 (${sourceCount} 个文件)`}
+                    ? `已生成 (${sourceCount} 个文件)`
+                    : status === 'error'
+                      ? '生成失败'
+                      : `准备生成 (${sourceCount} 个文件)`}
               </Text>
             </View>
             <View style={styles.headerRight}>
@@ -186,7 +179,7 @@ export default function NoteHelperPanel({
                 <ActivityIndicator size="large" color="#6C63FF" />
                 <Text style={styles.generatingText}>AI 正在分析源文件...</Text>
                 <Text style={styles.generatingSubtext}>
-                  正在读取 {sourceFiles.map(f => f.title).join('、')}
+                  正在读取 {sourceFiles.map((f) => f.title).join('、')}
                 </Text>
               </View>
             )}
@@ -230,11 +223,8 @@ export default function NoteHelperPanel({
 
           {/* Bottom bar */}
           {status === 'done' && (
-            <View style={styles.bottomBar}>
-              <TouchableOpacity
-                style={styles.fullscreenLargeBtn}
-                onPress={handleFullscreen}
-              >
+            <View style={[styles.bottomBar, { borderTopColor: borderColor }]}>
+              <TouchableOpacity style={styles.fullscreenLargeBtn} onPress={handleFullscreen}>
                 <Feather name="maximize-2" size={18} color="#FFF" />
                 <Text style={styles.fullscreenLargeText}>全屏编辑</Text>
               </TouchableOpacity>
@@ -286,7 +276,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F3',
   },
   headerLeft: {
     flexDirection: 'row',
@@ -385,7 +374,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: '#F0F0F3',
   },
   fullscreenLargeBtn: {
     flexDirection: 'row',

@@ -9,8 +9,11 @@ import {
   Dimensions,
   Platform,
 } from 'react-native';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
+import { useCSSVariable } from 'uniwind';
 import { api } from '@/utils/api';
+import { withPdfPage } from '@/utils/file-type';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CARD_WIDTH = Math.min(SCREEN_WIDTH * 0.92, 400);
@@ -21,6 +24,7 @@ export type Citation = {
   sourceType: string;
   fileName: string;
   highlightText?: string;
+  pageNumber?: number | null;
 };
 
 type ReferenceCardProps = {
@@ -29,14 +33,16 @@ type ReferenceCardProps = {
   onClose: () => void;
 };
 
-function PDFViewer({ url }: { url: string }) {
+function PDFViewer({ url, pageNumber }: { url: string; pageNumber?: number | null }) {
+  // Web 端浏览器内置 PDF viewer 支持 #page=N 片段定位到对应页（issue #4 Task 1）
+  const displayUrl = withPdfPage(url, pageNumber);
   const encodedUrl = encodeURIComponent(url);
   const googleViewerUrl = `https://docs.google.com/viewer?url=${encodedUrl}&embedded=true`;
 
   if (Platform.OS === 'web') {
     return (
       <iframe
-        src={url}
+        src={displayUrl}
         style={{ width: '100%', height: 280, border: 'none', borderRadius: 8 }}
         title="PDF"
       />
@@ -47,7 +53,7 @@ function PDFViewer({ url }: { url: string }) {
     const WebView = require('react-native-webview').WebView;
     return (
       <WebView
-        source={{ uri: url }}
+        source={{ uri: displayUrl }}
         style={{ flex: 1, minHeight: 280, backgroundColor: 'transparent' }}
         originWhitelist={['*']}
         javaScriptEnabled={true}
@@ -58,18 +64,36 @@ function PDFViewer({ url }: { url: string }) {
       />
     );
   } catch {
-    return (
-      <Text style={styles.contentText}>PDF 预览需要 WebView 支持</Text>
-    );
+    return <Text style={styles.contentText}>PDF 预览需要 WebView 支持</Text>;
   }
 }
 
 export default function ReferenceCard({ citation, visible, onClose }: ReferenceCardProps) {
+  const [border] = useCSSVariable(['--color-border']) as string[];
+  const borderColor = border || '#E3DED9';
   const [content, setContent] = useState('');
   const [viewUrl, setViewUrl] = useState('');
   const [fileType, setFileType] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // 展开时淡入 + 轻微放大（issue #4 Task 6）
+  const fade = useSharedValue(0);
+  const scale = useSharedValue(0.96);
+
+  useEffect(() => {
+    if (visible && citation) {
+      fade.value = 0;
+      scale.value = 0.96;
+      fade.value = withTiming(1, { duration: 180 });
+      scale.value = withTiming(1, { duration: 180 });
+    }
+  }, [visible, citation?.sourceId, citation?.index]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: fade.value,
+    transform: [{ scale: scale.value }],
+  }));
 
   useEffect(() => {
     if (visible && citation) {
@@ -88,7 +112,10 @@ export default function ReferenceCard({ citation, visible, onClose }: ReferenceC
     setError('');
     setViewUrl('');
     try {
-      const res = await api.getSourceFileContent(citation.sourceId, citation.sourceType);
+      const res: any = await api.getSourceFileContent(
+        citation.sourceId,
+        citation.sourceType as any,
+      );
       const data = res.data;
       if (data) {
         if (citation.sourceType === 'study_note') {
@@ -100,13 +127,41 @@ export default function ReferenceCard({ citation, visible, onClose }: ReferenceC
               .join('\n\n');
           }
           setContent(text.substring(0, 3000));
+        } else if (citation.sourceType === 'knowledge_node') {
+          // Fetch knowledge node details
+          try {
+            const nodeRes: any = await api.getKnowledgeNodes();
+            const nodes: any[] = nodeRes?.data?.data || nodeRes?.data || [];
+            const node = Array.isArray(nodes)
+              ? nodes.find((n: any) => String(n.id) === String(citation.sourceId))
+              : null;
+            if (node) {
+              const parts: string[] = [];
+              if (node.papercore) parts.push(`📝 Papercore:\n${node.papercore}`);
+              if (node.tags?.length)
+                parts.push(`🏷️ 标签: ${node.tags.map((t: string) => `#${t}`).join(' ')}`);
+              if (node.relations && Object.keys(node.relations).length > 0) {
+                parts.push(`🔗 关联: ${JSON.stringify(node.relations)}`);
+              }
+              setContent(parts.join('\n\n') || '(无内容)');
+            } else {
+              setContent('(知识节点已加载)');
+            }
+          } catch {
+            setContent('(知识节点)');
+          }
         } else {
           // material: show original file, not OCR text
           if (data.viewUrl) {
             setViewUrl(data.viewUrl);
             setFileType(data.fileType || '');
           } else if (data.pages && Array.isArray(data.pages)) {
-            setContent(data.pages.map((p: any) => p.text || '').join('\n\n').substring(0, 2000));
+            setContent(
+              data.pages
+                .map((p: any) => p.text || '')
+                .join('\n\n')
+                .substring(0, 2000),
+            );
           } else {
             setContent('(文件不可用)');
           }
@@ -123,23 +178,77 @@ export default function ReferenceCard({ citation, visible, onClose }: ReferenceC
 
   if (!visible || !citation) return null;
 
-  const isMaterialPDF = citation.sourceType === 'material' && viewUrl;
+  // Pick icon based on sourceType
+  const sourceIcon =
+    citation.sourceType === 'knowledge_node'
+      ? 'book-open'
+      : citation.sourceType === 'study_note'
+        ? 'edit-3'
+        : citation.sourceType === 'material'
+          ? 'file-text'
+          : citation.sourceType === 'file_content'
+            ? 'file-text'
+            : 'file-text';
+
+  const sourceColor =
+    citation.sourceType === 'knowledge_node'
+      ? '#6C63FF'
+      : citation.sourceType === 'study_note'
+        ? '#00B894'
+        : citation.sourceType === 'material'
+          ? '#FF9F43'
+          : '#636E72';
+
+  const sourceLabel =
+    citation.sourceType === 'knowledge_node'
+      ? '知识节点'
+      : citation.sourceType === 'study_note'
+        ? '学习纪要'
+        : citation.sourceType === 'material'
+          ? '学习资料'
+          : '文件';
+
+  const isMaterialPDF =
+    (citation.sourceType === 'material' || citation.sourceType === 'file_content') && viewUrl;
 
   return (
     <View style={styles.overlay}>
       <TouchableOpacity style={styles.backdrop} onPress={onClose} activeOpacity={1} />
-      <View style={[styles.card, isMaterialPDF && styles.cardWide]}>
+      <Animated.View style={[styles.card, isMaterialPDF && styles.cardWide, animatedStyle]}>
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { borderBottomColor: borderColor }]}>
           <View style={styles.headerLeft}>
-            <Feather
-              name={citation.sourceType === 'study_note' ? 'edit-3' : 'file-text'}
-              size={16}
-              color={citation.sourceType === 'study_note' ? '#00B894' : '#FF9F43'}
-            />
+            <Feather name={sourceIcon} size={16} color={sourceColor} />
             <Text style={styles.headerTitle} numberOfLines={1}>
               来自：{citation.fileName}
             </Text>
+            <View
+              style={{
+                backgroundColor: `${sourceColor}20`,
+                borderRadius: 6,
+                paddingHorizontal: 6,
+                paddingVertical: 2,
+              }}
+            >
+              <Text style={{ color: sourceColor, fontSize: 10, fontWeight: '600' }}>
+                {sourceLabel}
+              </Text>
+            </View>
+            {citation.pageNumber ? (
+              <View
+                style={{
+                  backgroundColor: '#0984E320',
+                  borderRadius: 6,
+                  paddingHorizontal: 6,
+                  paddingVertical: 2,
+                  marginLeft: 4,
+                }}
+              >
+                <Text style={{ color: '#0984E3', fontSize: 10, fontWeight: '600' }}>
+                  第{citation.pageNumber}页
+                </Text>
+              </View>
+            ) : null}
           </View>
           <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
             <Feather name="x" size={18} color="#636E72" />
@@ -151,11 +260,20 @@ export default function ReferenceCard({ citation, visible, onClose }: ReferenceC
           <View style={styles.pdfContainer}>
             {citation.highlightText ? (
               <View style={styles.highlightBox}>
-                <Text style={styles.highlightLabel}>引用内容：</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                  <Text style={styles.highlightLabel}>引用内容：</Text>
+                  {citation.pageNumber ? (
+                    <Text
+                      style={{ fontSize: 11, color: '#0984E3', fontWeight: '600', marginLeft: 4 }}
+                    >
+                      第{citation.pageNumber}页
+                    </Text>
+                  ) : null}
+                </View>
                 <Text style={styles.highlightContent}>{citation.highlightText}</Text>
               </View>
             ) : null}
-            <PDFViewer url={viewUrl} />
+            <PDFViewer url={viewUrl} pageNumber={citation.pageNumber} />
           </View>
         ) : (
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -169,7 +287,21 @@ export default function ReferenceCard({ citation, visible, onClose }: ReferenceC
               <>
                 {citation.highlightText ? (
                   <View style={styles.highlightBox}>
-                    <Text style={styles.highlightLabel}>引用内容：</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                      <Text style={styles.highlightLabel}>引用内容：</Text>
+                      {citation.pageNumber ? (
+                        <Text
+                          style={{
+                            fontSize: 11,
+                            color: '#0984E3',
+                            fontWeight: '600',
+                            marginLeft: 4,
+                          }}
+                        >
+                          第{citation.pageNumber}页
+                        </Text>
+                      ) : null}
+                    </View>
                     <Text style={styles.highlightContent}>{citation.highlightText}</Text>
                   </View>
                 ) : null}
@@ -180,7 +312,7 @@ export default function ReferenceCard({ citation, visible, onClose }: ReferenceC
             )}
           </ScrollView>
         )}
-      </View>
+      </Animated.View>
     </View>
   );
 }
@@ -219,7 +351,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F3',
     backgroundColor: '#FAFAFE',
   },
   headerLeft: {

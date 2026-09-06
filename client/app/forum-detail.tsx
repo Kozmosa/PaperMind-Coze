@@ -1,1 +1,1 @@
-export { default } from "@/screens/forum-detail";
+export { default } from '@/screens/forum-detail';

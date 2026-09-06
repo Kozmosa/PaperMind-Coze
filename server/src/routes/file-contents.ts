@@ -60,7 +60,8 @@ router.post('/search', async (req: Request, res: Response) => {
       if (idx > 0) {
         const start = Math.max(0, idx - 80);
         const end = Math.min(text.length, idx + 120);
-        snippet = (start > 0 ? '...' : '') + text.slice(start, end) + (end < text.length ? '...' : '');
+        snippet =
+          (start > 0 ? '...' : '') + text.slice(start, end) + (end < text.length ? '...' : '');
       } else {
         snippet = text.slice(0, 200) + (text.length > 200 ? '...' : '');
       }

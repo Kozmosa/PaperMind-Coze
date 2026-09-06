@@ -46,6 +46,10 @@ export default function TabLayout() {
         tabBarStyle,
         tabBarActiveTintColor: '#6C63FF',
         tabBarInactiveTintColor: '#B2BEC3',
+        // 桌面 Web 下（宽≥768 被视作平板）默认切换为标签在图标右侧的横排布局，
+        // 行高不足导致标签被裁切（issue #2 P0），固定为「图标在上、标签在下」
+        tabBarVariant: 'uikit',
+        tabBarLabelPosition: 'below-icon',
         tabBarLabelStyle: {
           fontSize: 10,
           fontWeight: '600',
@@ -57,32 +61,32 @@ export default function TabLayout() {
         name="control-center"
         options={{
           title: '控制中心',
-          tabBarIcon: ({ color }) => (
-            <Feather name="grid" size={22} color={color} />
-          ),
+          tabBarIcon: ({ color }) => <Feather name="grid" size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="knowledge"
         options={{
           title: '知识库',
-          tabBarIcon: ({ color }) => (
-            <Feather name="book-open" size={22} color={color} />
-          ),
+          tabBarIcon: ({ color }) => <Feather name="book-open" size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="index"
         options={{
           title: 'AI 助手',
-          tabBarIcon: ({ color, focused }) => (
+          tabBarIcon: ({ color, focused }) =>
             focused ? (
               <LinearGradient
                 colors={['#6C63FF', '#8B7BF7']}
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
                 style={{
-                  width: 44, height: 44, borderRadius: 22,
-                  justifyContent: 'center', alignItems: 'center',
+                  width: 44,
+                  height: 44,
+                  borderRadius: 22,
+                  justifyContent: 'center',
+                  alignItems: 'center',
                   marginTop: -12,
                   shadowColor: '#6C63FF',
                   shadowOffset: { width: 0, height: 4 },
@@ -94,34 +98,34 @@ export default function TabLayout() {
                 <Feather name="message-circle" size={22} color="#FFF" />
               </LinearGradient>
             ) : (
-              <View style={{
-                width: 44, height: 44, borderRadius: 22,
-                backgroundColor: '#E8E8EB',
-                justifyContent: 'center', alignItems: 'center',
-                marginTop: -12,
-              }}>
+              <View
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 22,
+                  backgroundColor: '#E8E8EB',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  marginTop: -12,
+                }}
+              >
                 <Feather name="message-circle" size={22} color={color} />
               </View>
-            )
-          ),
+            ),
         }}
       />
       <Tabs.Screen
         name="community"
         options={{
           title: '社区',
-          tabBarIcon: ({ color }) => (
-            <Feather name="users" size={22} color={color} />
-          ),
+          tabBarIcon: ({ color }) => <Feather name="users" size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: '我的',
-          tabBarIcon: ({ color }) => (
-            <Feather name="user" size={22} color={color} />
-          ),
+          tabBarIcon: ({ color }) => <Feather name="user" size={22} color={color} />,
         }}
       />
     </Tabs>

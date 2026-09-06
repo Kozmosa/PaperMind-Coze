@@ -11,6 +11,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { useCSSVariable } from 'uniwind';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSafeSearchParams } from '@/hooks/useSafeRouter';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
@@ -21,6 +22,8 @@ import ReferenceCard from '@/components/common/ReferenceCard';
 import type { SourceFileMeta } from '@/components/note-helper/NoteHelperSidebar';
 import type { Citation } from '@/components/common/ReferenceCard';
 import { api } from '@/utils/api';
+import Toast from 'react-native-toast-message';
+import { noWebResize } from '@/utils';
 
 type SourceFile = {
   id: string;
@@ -30,25 +33,33 @@ type SourceFile = {
 };
 
 const QUICK_ACTIONS = [
-  { label: '更详细', icon: 'align-left' as const, prompt: '请把内容写得更详细，补充更多解释和背景。' },
+  {
+    label: '更详细',
+    icon: 'align-left' as const,
+    prompt: '请把内容写得更详细，补充更多解释和背景。',
+  },
   { label: '更简洁', icon: 'minimize-2' as const, prompt: '请把内容精简，只保留最核心的知识点。' },
   { label: '表格对比', icon: 'grid' as const, prompt: '请用表格形式整理关键概念的对比。' },
-  { label: '举例子', icon: 'lightbulb' as const, prompt: '请为重要概念添加具体的例子帮助理解。' },
+  { label: '举例子', icon: 'zap' as const, prompt: '请为重要概念添加具体的例子帮助理解。' },
   { label: '突出重点', icon: 'star' as const, prompt: '请突出标记重点内容和易错点。' },
 ];
 
 const COLORS = {
-  bg: '#FFFFFF',
   primary: '#6C63FF',
   text: '#2D3436',
   textSecondary: '#636E72',
   textMuted: '#B2BEC3',
-  border: '#F0F0F3',
 };
 
 export default function NoteHelperFullscreenScreen() {
   const router = useSafeRouter();
   const insets = useSafeAreaInsets();
+  const [backgroundSecondary, border] = useCSSVariable([
+    '--color-background-secondary',
+    '--color-border',
+  ]) as string[];
+  const bgSecondary = backgroundSecondary || '#E7E7EC';
+  const borderColor = border || '#E3DED9';
   const params = useSafeSearchParams<{
     noteContent: string;
     citations: string;
@@ -58,14 +69,22 @@ export default function NoteHelperFullscreenScreen() {
   // Parse params
   const initialContent = params.noteContent || '';
   const parsedCitations: Citation[] = (() => {
-    try { return JSON.parse(params.citations || '[]'); } catch { return []; }
+    try {
+      return JSON.parse(params.citations || '[]');
+    } catch {
+      return [];
+    }
   })();
   const parsedSourceFiles: SourceFile[] = (() => {
-    try { return JSON.parse(params.sourceFiles || '[]'); } catch { return []; }
+    try {
+      return JSON.parse(params.sourceFiles || '[]');
+    } catch {
+      return [];
+    }
   })();
 
   const [noteContent, setNoteContent] = useState(initialContent);
-  const [citations] = useState<Citation[]>(parsedCitations);
+  const [citations, setCitations] = useState<Citation[]>(parsedCitations);
   const [sourceFiles] = useState<SourceFile[]>(parsedSourceFiles);
 
   const [sidebarVisible, setSidebarVisible] = useState(false);
@@ -78,19 +97,22 @@ export default function NoteHelperFullscreenScreen() {
   const abortRef = useRef({ aborted: false });
 
   // Source files with metadata for sidebar
-  const sourceFilesMeta: SourceFileMeta[] = sourceFiles.map(f => ({
+  const sourceFilesMeta: SourceFileMeta[] = sourceFiles.map((f) => ({
     id: f.id,
     type: f.type,
     title: f.title,
   }));
 
   // Handle citation tap
-  const handleCitationTap = useCallback((citationIndex: number) => {
-    const cit = citations.find(c => c.index === citationIndex);
-    if (cit) {
-      setActiveCitation(cit);
-    }
-  }, [citations]);
+  const handleCitationTap = useCallback(
+    (citationIndex: number) => {
+      const cit = citations.find((c) => c.index === citationIndex);
+      if (cit) {
+        setActiveCitation(cit);
+      }
+    },
+    [citations],
+  );
 
   // Handle refinement
   const handleRefine = async (prompt: string) => {
@@ -111,9 +133,14 @@ export default function NoteHelperFullscreenScreen() {
         },
         undefined,
         abortRef.current,
+        citations,
+        (synced) => {
+          // 修正后引用同步（issue #4 Task 4）：正文删掉的 [来源:N] 对应卡片一并移除
+          if (synced) setCitations(synced);
+        },
       );
     } catch (e: any) {
-      Alert.alert('修正失败', e.message || '网络错误');
+      Toast.show({ type: 'error', text1: '修正失败', text2: e.message || '网络错误' });
     } finally {
       setRefining(false);
     }
@@ -130,19 +157,19 @@ export default function NoteHelperFullscreenScreen() {
         content,
       }));
 
-      const sourceLogicalPath = sourceFiles.find(f => f.logicalPath)?.logicalPath;
+      const sourceLogicalPath = sourceFiles.find((f) => f.logicalPath)?.logicalPath;
       const res = await api.createStudyNote({
-        title: sourceFiles.map(f => f.title).join(' + ') + ' 综合笔记',
+        title: sourceFiles.map((f) => f.title).join(' + ') + ' 综合笔记',
         content: noteContent,
         blocks,
         tags: [],
         logical_path: sourceLogicalPath || undefined,
       });
 
-      Alert.alert('保存成功', '笔记已保存到知识库');
+      Toast.show({ type: 'success', text1: '保存成功', text2: '笔记已保存到知识库' });
       router.back();
     } catch (e: any) {
-      Alert.alert('保存失败', e.message || '网络错误');
+      Toast.show({ type: 'error', text1: '保存失败', text2: e.message || '网络错误' });
     } finally {
       setSaving(false);
     }
@@ -179,10 +206,12 @@ export default function NoteHelperFullscreenScreen() {
   };
 
   return (
-    <Screen backgroundColor={COLORS.bg}>
+    <Screen>
       <View style={styles.container}>
         {/* Top Bar */}
-        <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
+        <View
+          style={[styles.topBar, { paddingTop: insets.top + 8, borderBottomColor: borderColor }]}
+        >
           <View style={styles.topBarRow}>
             <View style={styles.topLeft}>
               <TouchableOpacity onPress={() => router.back()} style={styles.topBtn}>
@@ -219,7 +248,9 @@ export default function NoteHelperFullscreenScreen() {
           contentContainerStyle={styles.noteContentInner}
           showsVerticalScrollIndicator={false}
         >
-          {noteContent ? renderContent() : (
+          {noteContent ? (
+            renderContent()
+          ) : (
             <View style={styles.emptyState}>
               <Feather name="file-text" size={48} color={COLORS.textMuted} />
               <Text style={styles.emptyText}>暂无笔记内容</Text>
@@ -229,7 +260,12 @@ export default function NoteHelperFullscreenScreen() {
         </ScrollView>
 
         {/* Bottom Refinement Bar */}
-        <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 8 }]}>
+        <View
+          style={[
+            styles.bottomBar,
+            { paddingBottom: insets.bottom + 8, borderTopColor: borderColor },
+          ]}
+        >
           {/* Quick Actions */}
           <ScrollView
             horizontal
@@ -239,11 +275,18 @@ export default function NoteHelperFullscreenScreen() {
             {QUICK_ACTIONS.map((action, i) => (
               <TouchableOpacity
                 key={i}
-                style={[styles.quickBtn, refining && styles.quickBtnDisabled]}
+                style={[
+                  styles.quickBtn,
+                  refining && { backgroundColor: bgSecondary, borderColor: '#E8E8ED' },
+                ]}
                 onPress={() => handleRefine(action.prompt)}
                 disabled={refining}
               >
-                <Feather name={action.icon} size={14} color={refining ? COLORS.textMuted : COLORS.primary} />
+                <Feather
+                  name={action.icon}
+                  size={14}
+                  color={refining ? COLORS.textMuted : COLORS.primary}
+                />
                 <Text style={[styles.quickBtnText, refining && styles.quickBtnTextDisabled]}>
                   {action.label}
                 </Text>
@@ -254,7 +297,7 @@ export default function NoteHelperFullscreenScreen() {
           {/* Free text input */}
           <View style={styles.refineInputContainer}>
             <TextInput
-              style={styles.refineInput}
+              style={[styles.refineInput, { backgroundColor: bgSecondary }, noWebResize]}
               placeholder="输入修改需求..."
               placeholderTextColor={COLORS.textMuted}
               value={refineInput}
@@ -301,14 +344,11 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
   },
   topBar: {
     paddingHorizontal: 16,
     paddingBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F3',
-    backgroundColor: '#FFFFFF',
   },
   topBarRow: {
     flexDirection: 'row',
@@ -366,8 +406,6 @@ const styles = StyleSheet.create({
   },
   bottomBar: {
     borderTopWidth: 1,
-    borderTopColor: '#F0F0F3',
-    backgroundColor: '#FFFFFF',
   },
   quickActionsContainer: {
     paddingHorizontal: 12,
@@ -384,10 +422,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0EDFF',
     borderWidth: 1,
     borderColor: '#E8E3FF',
-  },
-  quickBtnDisabled: {
-    backgroundColor: '#F0F0F3',
-    borderColor: '#E8E8ED',
   },
   quickBtnText: {
     fontSize: 12,
@@ -406,7 +440,6 @@ const styles = StyleSheet.create({
   },
   refineInput: {
     flex: 1,
-    backgroundColor: '#F0F0F3',
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 10,

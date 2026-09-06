@@ -1,8 +1,7 @@
 export default function (results) {
-  
   return results
-    .flatMap(file =>
-      file.messages.map(m => {
+    .flatMap((file) =>
+      file.messages.map((m) => {
         // split into lines
         const lines = m.message.split('\n');
 
@@ -12,7 +11,7 @@ export default function (results) {
         // 附加解释：过滤掉所有 codeframe/箭头/行号/重复路径
         const details = lines
           .slice(1)
-          .filter(l => {
+          .filter((l) => {
             // 移除空行
             if (!l.trim()) return false;
 
@@ -43,7 +42,7 @@ export default function (results) {
         if (details) output += `\n${details}\n`;
 
         return output;
-      })
+      }),
     )
     .join('\n');
-};
+}

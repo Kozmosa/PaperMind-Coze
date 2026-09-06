@@ -1,1 +1,1 @@
-export { default } from "@/screens/draft-pool";
+export { default } from '@/screens/draft-pool';

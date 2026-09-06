@@ -4,14 +4,17 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>PaperMind · 完整APP测试</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
 <style>
   /* ============================================================
-     PaperMind — Neumorphic · 浅灰+蓝 · 纯色体系
+     PaperMind — Neumorphic · 暖灰薰衣草 · per DESIGN.md
      ============================================================ */
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
   body {
-    background: #E2E4EB;
+    background: #E8EAEF;
     display: flex; justify-content: center; align-items: center;
     min-height: 100vh;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', sans-serif;
@@ -20,27 +23,30 @@
 
   /* ── Neumorphic Color System ── */
   :root {
-    --bg:        #EEF0F5;
-    --surface:   #F7F8FC;
-    --card:      #FFFFFF;
-    --primary:   #5B5FEF;
-    --pri-light: #8B8FF5;
-    --pri-pale:  #EDEEFD;
-    --pri-soft:  #D6D9FB;
-    --text:      #1E1E2E;
-    --text2:     #6B7280;
+    --bg:        #F0F0F3;
+    --surface:   #F0F0F3;
+    --card:      #F0F0F3;
+    --primary:   #6C63FF;
+    --pri-light: #896BFF;
+    --pri-pale:  #EDECFF;
+    --pri-soft:  #D9D6FF;
+    --text:      #2D3436;
+    --text2:     #636E72;
     --text3:     #A0A5B5;
     --text4:     #C4C8D8;
-    --border:    #E8EAF0;
-    --shadow:    #C8CCD8;
-    --shadow-dk: #A0A5B5;
+    --border:    #E4E6ED;
+    --shadow:    #D0D3DB;
+    --shadow-dk: #B8BBC4;
+    --success:   #00B894;
+    --warn:      #FDCB6E;
+    --accent:    #FF6B9D;
 
     /* Neumorphic shadows */
-    --neu-raised:    4px 4px 8px #D1D9E6, -4px -4px 8px #FFFFFF;
-    --neu-raised-sm: 2px 2px 4px #D1D9E6, -2px -2px 4px #FFFFFF;
-    --neu-pressed:   inset 2px 2px 4px #D1D9E6, inset -2px -2px 4px #FFFFFF;
-    --neu-convex:    6px 6px 12px #D1D9E6, -6px -6px 12px #FFFFFF;
-    --neu-flat:      0px 0px 0px #EEF0F5, 0px 0px 0px #FFFFFF;
+    --neu-raised:    4px 4px 8px #D0D3DB, -4px -4px 8px #FFFFFF;
+    --neu-raised-sm: 2px 2px 4px #D0D3DB, -2px -2px 4px #FFFFFF;
+    --neu-pressed:   inset 2px 2px 4px #D0D3DB, inset -2px -2px 4px #FFFFFF;
+    --neu-convex:    6px 6px 12px #D0D3DB, -6px -6px 12px #FFFFFF;
+    --neu-flat:      0px 0px 0px #F0F0F3, 0px 0px 0px #FFFFFF;
 
     --radius-sm:   12px;
     --radius:      16px;
@@ -129,10 +135,9 @@
     padding: 18px;
     box-shadow: var(--neu-raised);
   }
-  .card-white {
-    background: var(--card); border-radius: var(--radius-xl);
+  .card-flat {
+    background: var(--bg); border-radius: var(--radius-xl);
     padding: 18px;
-    box-shadow: var(--neu-raised);
   }
 
   /* ── Segmented Control (Neumorphic) ── */
@@ -196,7 +201,6 @@
     background: var(--card); border-radius: var(--radius-xl);
     overflow: hidden; position: relative;
     box-shadow: var(--neu-raised);
-    border: 1px solid var(--border);
   }
   .graph-wrap svg { width: 100%; height: 100%; display: block; user-select: none; -webkit-user-select: none; }
   .graph-wrap svg text { pointer-events: none; }
@@ -207,7 +211,6 @@
   .zoom-btn {
     width: 36px; height: 36px; border-radius: 18px;
     background: rgba(255,255,255,0.85);
-    border: 1px solid var(--border);
     font-size: 18px; cursor: pointer;
     backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
     display: flex; align-items: center; justify-content: center;
@@ -425,6 +428,412 @@
   .outer-info button:hover { box-shadow: 0 6px 16px rgba(91,95,239,0.4); }
   .outer-info button:active { transform: scale(0.97); }
   .outer-info .conn { font-size: 12px; margin-top: 6px; font-weight: 600; }
+
+  /* ── Fullscreen Overlay ── */
+  .fs-overlay {
+    position: absolute; inset: 0; z-index: 100;
+    background: var(--bg); display: none; flex-direction: column;
+    transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+  }
+  .fs-overlay.show { display: flex; transform: translateX(0); }
+  .fs-header {
+    display: flex; align-items: center; gap: 12px; padding: 12px 18px;
+    border-bottom: 1px solid var(--border); flex-shrink: 0; background: var(--bg);
+  }
+  .fs-body { flex: 1; overflow-y: auto; padding: 18px; -webkit-overflow-scrolling: touch; }
+  .fs-back { font-size: 22px; cursor: pointer; color: var(--text2); padding: 4px; background: none; border: none; }
+
+  /* ── Note content (sticky-note style) ── */
+  .sticky-note {
+    background: #FFF9E6; border-radius: 12px 12px 12px 4px;
+    padding: 20px; margin-bottom: 14px; line-height: 1.85;
+    font-size: 15px; color: var(--text);
+    box-shadow: 1px 2px 6px rgba(0,0,0,0.06);
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .sticky-note h1,.sticky-note h2,.sticky-note h3 { font-weight: 800; margin: 12px 0 6px; }
+  .sticky-note h1 { font-size: 20px; } .sticky-note h2 { font-size: 17px; } .sticky-note h3 { font-size: 15px; }
+  .sticky-note ul,.sticky-note ol { padding-left: 20px; margin: 6px 0; }
+  .sticky-note code { background: #F0E8D0; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+  .sticky-note pre { background: #F5F0E0; padding: 12px; border-radius: 8px; overflow-x: auto; font-size: 13px; margin: 8px 0; }
+  .sticky-note blockquote { border-left: 3px solid #E0D5B0; padding-left: 14px; color: var(--text2); margin: 8px 0; }
+  .sticky-note table { border-collapse: collapse; width: 100%; margin: 8px 0; }
+  .sticky-note th,.sticky-note td { border: 1px solid #E0D5B0; padding: 8px 12px; text-align: left; font-size: 13px; }
+  .sticky-note th { background: #FDF5E0; font-weight: 700; }
+
+  /* ── PDF / Material viewer ── */
+  .pdf-frame { width: 100%; height: 100%; border: none; border-radius: 12px; background: #FFF; }
+  .mat-text-pages { font-size: 15px; line-height: 1.8; color: var(--text); }
+  .mat-text-pages .page-sep { text-align: center; color: var(--text3); font-size: 12px; margin: 20px 0; border-top: 1px dashed var(--border); padding-top: 10px; }
+
+  /* ── NoteHelper FAB ── */
+  .nh-fab {
+    position: absolute; bottom: 80px; right: 18px; z-index: 90;
+    width: 52px; height: 52px; border-radius: 26px;
+    background: var(--primary); color: #FFF; border: none;
+    font-size: 22px; cursor: pointer;
+    box-shadow: 0 4px 16px rgba(108,99,255,0.4);
+    display: none; align-items: center; justify-content: center;
+    transition: all 0.2s ease;
+  }
+  .nh-fab.show { display: flex; }
+  .nh-fab:active { transform: scale(0.92); }
+  .nh-fab-label {
+    position: absolute; right: 60px; top: 50%; transform: translateY(-50%);
+    background: var(--text); color: #FFF; font-size: 12px; font-weight: 700;
+    padding: 4px 10px; border-radius: 10px; white-space: nowrap;
+  }
+
+  /* ── NoteHelper Panel ── */
+  .nh-panel-mask {
+    position: absolute; inset: 0; z-index: 105;
+    background: rgba(45,52,54,0.35);
+    display: none; flex-direction: column; justify-content: flex-end;
+  }
+  .nh-panel-mask.show { display: flex; }
+  .nh-panel {
+    background: var(--bg); border-radius: 28px 28px 0 0;
+    max-height: 55%; display: flex; flex-direction: column;
+    box-shadow: 0 -8px 24px rgba(184,187,196,0.3);
+  }
+  .nh-panel-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px 12px; border-bottom: 1px solid var(--border);
+  }
+  .nh-panel-body { flex: 1; overflow-y: auto; padding: 16px 20px; }
+  .nh-panel-body .generating-cursor::after { content: '▌'; animation: blink 1s infinite; }
+  @keyframes blink { 0%,50% { opacity: 1; } 51%,100% { opacity: 0; } }
+
+  /* ── Form elements ── */
+  .form-group { margin-bottom: 14px; }
+  .form-label { font-size: 13px; font-weight: 700; color: var(--text2); margin-bottom: 4px; display: block; }
+  .form-input,.form-textarea {
+    width: 100%; padding: 12px 16px; border: none; outline: none;
+    border-radius: 16px; font-size: 15px; font-family: inherit;
+    background: var(--bg); color: var(--text);
+    box-shadow: var(--neu-pressed);
+  }
+  .form-textarea { resize: vertical; min-height: 100px; }
+  .form-input:focus,.form-textarea:focus { box-shadow: 0 0 0 3px var(--pri-pale), var(--neu-pressed); }
+
+  /* Upload dropzone */
+  .upload-dropzone {
+    border: 2px dashed var(--border); border-radius: 18px;
+    padding: 28px 20px; text-align: center; cursor: pointer;
+    background: var(--bg); transition: all 0.2s;
+    box-shadow: var(--neu-pressed);
+  }
+  .upload-dropzone:hover { border-color: var(--primary); background: var(--pri-pale); }
+  .upload-dropzone:active { transform: scale(0.98); }
+  .upload-dropzone.has-file { border-color: var(--primary); border-style: solid; background: var(--pri-pale); }
+  .upload-dropzone-icon { font-size: 40px; margin-bottom: 8px; }
+  .upload-dropzone-text { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+  .upload-dropzone-hint { font-size: 11px; color: var(--text3); line-height: 1.5; }
+  .upload-file-info {
+    margin-top: 8px; padding: 8px 14px; background: var(--pri-pale);
+    border-radius: 12px; font-size: 13px; font-weight: 600; color: var(--primary);
+    display: none; align-items: center; gap: 6px;
+  }
+  .upload-file-info.show { display: flex; }
+
+  /* Folder select (inline picker) */
+  .folder-select {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 16px; border-radius: 14px; cursor: pointer;
+    background: var(--bg); box-shadow: var(--neu-raised-sm);
+    font-size: 14px; color: var(--text2); transition: all 0.15s;
+  }
+  .folder-select:active { box-shadow: var(--neu-pressed); }
+  .folder-select.has-value { color: var(--primary); font-weight: 700; }
+  .folder-select-list {
+    margin-top: 4px; max-height: 180px; overflow-y: auto;
+    background: var(--bg); border-radius: 14px;
+    box-shadow: var(--neu-pressed); padding: 6px 0;
+  }
+  .folder-select-item {
+    padding: 10px 16px; font-size: 13px; cursor: pointer; color: var(--text2);
+    display: flex; align-items: center; gap: 8px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+  }
+  .folder-select-item:last-child { border-bottom: none; }
+  .folder-select-item:active { background: var(--surface); }
+  .folder-select-item.selected { background: var(--pri-pale); color: var(--primary); font-weight: 700; }
+
+  /* ── Folder picker for move ── */
+  .folder-picker-item {
+    display: flex; align-items: center; gap: 10px; padding: 12px 16px;
+    cursor: pointer; border-bottom: 1px solid var(--border); transition: background 0.1s;
+  }
+  .folder-picker-item:active { background: var(--surface); }
+  .folder-picker-item.selected { background: var(--pri-pale); color: var(--primary); font-weight: 700; }
+
+
+  /* ── NoteHelper Fullscreen ── */
+  .nh-fullscreen {
+    position: absolute; inset: 0; z-index: 105; background: var(--bg);
+    display: none; flex-direction: column;
+    transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+  }
+  .nh-fullscreen.show { display: flex; transform: translateY(0); }
+  .nh-fs-topbar {
+    display: flex; align-items: center; gap: 10px; padding: 10px 16px;
+    background: var(--bg); border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .nh-fs-content {
+    flex: 1; overflow-y: auto; padding: 18px; -webkit-overflow-scrolling: touch;
+  }
+  .nh-fs-content h1 { font-size: 22px; font-weight: 800; margin: 18px 0 10px; text-align: left; }
+  .nh-fs-content h2,.nh-fs-content h3,.nh-fs-content h4 { text-align: left; }
+  .nh-fs-content h2 { font-size: 18px; font-weight: 800; margin: 14px 0 8px; }
+  .nh-fs-content h3 { font-size: 16px; font-weight: 800; margin: 12px 0 6px; }
+  .nh-fs-content h4 { font-size: 15px; font-weight: 700; margin: 10px 0 6px; }
+  .nh-fs-content p,.nh-fs-content li,.nh-fs-content blockquote { margin: 8px 0; line-height: 1.85; text-align: left; }
+  .nh-fs-content ul,.nh-fs-content ol { padding-left: 22px; margin: 6px 0; line-height: 1.8; }
+  .nh-fs-content code { background: var(--pri-pale); padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+  .nh-fs-content pre { background: var(--bg); padding: 14px; border-radius: 12px; overflow-x: auto; font-size: 13px; margin: 10px 0; box-shadow: var(--neu-pressed); }
+  .nh-fs-content blockquote { border-left: 3px solid var(--primary); padding-left: 14px; color: var(--text2); margin: 10px 0; }
+  .nh-fs-content table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 13px; }
+  .nh-fs-content th,.nh-fs-content td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; }
+  .nh-fs-content th { background: var(--pri-pale); font-weight: 700; }
+  .nh-fs-content .katex { font-size: 1.1em; }
+  .citation-mark {
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--pri-pale); color: var(--primary); font-weight: 700;
+    font-size: 11px; padding: 1px 6px; border-radius: 8px; cursor: pointer;
+    vertical-align: super; margin: 0 2px; transition: all 0.15s;
+  }
+  .citation-mark:active { background: var(--primary); color: #FFF; }
+  .nh-fs-bottombar {
+    display: flex; flex-direction: column; gap: 0; padding: 0; flex-shrink: 0;
+    border-top: 1px solid var(--border); background: var(--bg);
+  }
+  /* Style preference row (compact, clickable) */
+  .nh-style-card {
+    display: flex; align-items: center; gap: 10px;
+    padding: 11px 16px; border-bottom: 1px solid var(--border);
+    background: var(--bg); cursor: pointer;
+    transition: background 0.15s;
+  }
+  .nh-style-card:active { background: var(--surface); }
+  .nh-style-card .nh-style-icon {
+    width: 34px; height: 34px; border-radius: 10px;
+    background: var(--primary); color: #FFF; display: flex;
+    align-items: center; justify-content: center; font-size: 16px;
+    flex-shrink: 0;
+  }
+  .nh-style-card .nh-style-info { flex: 1; min-width: 0; }
+  .nh-style-card .nh-style-info .nh-style-label {
+    font-size: 13px; font-weight: 700; color: var(--text);
+  }
+  .nh-style-card .nh-style-info .nh-style-desc {
+    font-size: 11px; color: var(--text3); overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap; margin-top: 1px;
+  }
+  .nh-style-card .nh-style-arrow {
+    font-size: 16px; color: var(--text4); flex-shrink: 0;
+  }
+  /* Style Memo Overlay (sticky note page) */
+  .style-memo-overlay {
+    position: absolute; inset: 0; z-index: 115; background: var(--bg);
+    display: none; flex-direction: column;
+    transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+  }
+  .style-memo-overlay.show { display: flex; transform: translateY(0); }
+  .style-memo-topbar {
+    display: flex; align-items: center; gap: 10px; padding: 10px 16px;
+    background: var(--bg); border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .style-memo-body {
+    flex: 1; overflow-y: auto; padding: 16px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  /* Sticky note pad */
+  .style-memo-pad {
+    background: #FFFBE6; border-radius: 16px; padding: 4px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04);
+    position: relative;
+  }
+  .style-memo-pad::before {
+    content: '📌'; position: absolute; top: -14px; left: 50%;
+    transform: translateX(-50%); font-size: 20px; z-index: 1;
+  }
+  .style-memo-pad textarea {
+    width: 100%; min-height: 220px; padding: 18px 20px; border: none; outline: none;
+    border-radius: 14px; font-size: 15px; font-family: inherit;
+    background: transparent; color: #4A3728; resize: vertical;
+    line-height: 1.9;
+    background-image: repeating-linear-gradient(
+      transparent, transparent 33px, #E8E0C8 33px, #E8E0C8 34px
+    );
+    background-position: 0 10px;
+  }
+  .style-memo-pad textarea::placeholder { color: #B8A88A; }
+  .style-memo-pad textarea:focus { outline: none; }
+  /* Hint chips */
+  .style-memo-hints {
+    background: var(--bg); border-radius: 14px; padding: 14px 16px;
+    box-shadow: var(--neu-pressed);
+  }
+  .style-memo-hints .hint-chips {
+    display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;
+  }
+  .hint-chip {
+    font-size: 12px; padding: 5px 12px; border-radius: 12px;
+    background: var(--pri-pale); color: var(--primary); cursor: pointer;
+    font-weight: 600; transition: all 0.15s; white-space: nowrap;
+  }
+  .hint-chip:active { background: var(--primary); color: #FFF; }
+  /* Learning history */
+  .style-memo-history {
+    background: var(--bg); border-radius: 14px; padding: 14px 16px;
+    box-shadow: var(--neu-pressed);
+  }
+  .style-memo-history .history-line {
+    font-size: 12px; color: var(--text3); padding: 4px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .style-memo-history .history-line:last-child { border-bottom: none; }
+  /* Quick action chips row */
+  .nh-quick-row {
+    display: flex; gap: 6px; padding: 10px 16px;
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+    border-bottom: 1px solid var(--border);
+    scrollbar-width: none;
+  }
+  .nh-quick-row::-webkit-scrollbar { display: none; }
+  .quick-chip {
+    padding: 7px 14px; border-radius: 16px; border: none;
+    background: var(--bg); color: var(--text2); font-size: 12px; font-weight: 600;
+    cursor: pointer; font-family: inherit; white-space: nowrap; flex-shrink: 0;
+    box-shadow: var(--neu-raised-sm); transition: all 0.15s;
+  }
+  .quick-chip:active { box-shadow: var(--neu-pressed); background: var(--primary); color: #FFF; transform: scale(0.95); }
+  /* NL input row */
+  .nh-input-row {
+    display: flex; gap: 8px; padding: 10px 16px; align-items: center;
+  }
+  .nh-input-row input {
+    flex: 1; font-size: 13px; padding: 10px 16px; border-radius: 20px;
+    border: none; outline: none; font-family: inherit;
+    background: var(--bg); color: var(--text);
+    box-shadow: var(--neu-pressed); transition: box-shadow 0.2s;
+  }
+  .nh-input-row input:focus {
+    box-shadow: 0 0 0 3px var(--pri-pale), var(--neu-pressed);
+  }
+  .nh-input-row .nh-send-btn {
+    font-size: 13px; padding: 10px 18px; border-radius: 20px; flex-shrink: 0;
+    font-weight: 700;
+  }
+  .quick-btn {
+    padding: 8px 16px; border-radius: 18px; border: none;
+    background: var(--bg); color: var(--text2); font-size: 13px; font-weight: 600;
+    cursor: pointer; font-family: inherit; white-space: nowrap;
+    box-shadow: var(--neu-raised-sm); transition: all 0.15s;
+  }
+  .quick-btn:active { box-shadow: var(--neu-pressed); background: var(--primary); color: #FFF; }
+
+  /* Source File Sidebar */
+  .nh-sidebar {
+    position: absolute; inset: 0; z-index: 110; display: none;
+    flex-direction: row;
+  }
+  .nh-sidebar.show { display: flex; }
+  .nh-sidebar-backdrop {
+    flex: 1; background: rgba(45,52,54,0.4);
+  }
+  .nh-sidebar-panel {
+    width: 85%; max-width: 330px; background: var(--bg);
+    display: flex; flex-direction: column;
+    box-shadow: -4px 0 16px rgba(0,0,0,0.1);
+  }
+  .nh-sb-header {
+    display: flex; align-items: center; gap: 10px; padding: 12px 16px;
+    border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .nh-sb-body { flex: 1; overflow-y: auto; }
+  .nh-sb-file-item {
+    display: flex; align-items: center; gap: 12px; padding: 14px 16px;
+    cursor: pointer; border-bottom: 1px solid var(--border); transition: background 0.1s;
+  }
+  .nh-sb-file-item:active { background: var(--surface); }
+  .nh-sb-file-icon {
+    width: 38px; height: 38px; border-radius: 12px; display: flex; align-items: center;
+    justify-content: center; font-size: 18px; flex-shrink: 0;
+  }
+  .nh-sb-file-preview { padding: 16px; font-size: 14px; line-height: 1.8; color: var(--text); }
+
+  /* ── Block Editor ── */
+  .be-overlay {
+    position: absolute; inset: 0; z-index: 100; background: var(--bg);
+    display: none; flex-direction: column;
+  }
+  .be-overlay.show { display: flex; }
+  .be-topbar {
+    display: flex; align-items: center; gap: 8px; padding: 8px 16px;
+    border-bottom: 1px solid var(--border); flex-shrink: 0; background: var(--bg);
+  }
+  .be-title-input {
+    width: 100%; padding: 12px 16px; border: none; outline: none; font-size: 20px;
+    font-weight: 800; font-family: inherit; background: transparent; color: var(--text);
+  }
+  .be-title-input::placeholder { color: var(--text3); }
+  .be-block-list { flex: 1; overflow-y: auto; padding: 12px 16px; }
+  .be-text-block {
+    background: var(--card); border-radius: var(--radius-lg); margin-bottom: 10px;
+    box-shadow: var(--neu-raised-sm); position: relative;
+  }
+  .be-text-block.dragging { opacity: 0.5; }
+  .be-textarea {
+    width: 100%; min-height: 90px; padding: 14px 40px 14px 16px; border: none;
+    border-radius: var(--radius-lg); font-size: 15px; font-family: inherit;
+    resize: vertical; outline: none; background: transparent; color: var(--text);
+    line-height: 1.75;
+  }
+  .be-textarea:focus { box-shadow: 0 0 0 2px var(--pri-pale); }
+  .be-block-handle {
+    position: absolute; top: 10px; right: 8px; cursor: grab; color: var(--text4);
+    font-size: 16px; padding: 4px; user-select: none; background: none; border: none;
+  }
+  .be-block-handle:active { cursor: grabbing; }
+  .be-block-delete {
+    position: absolute; bottom: 8px; right: 8px; cursor: pointer; color: var(--accent);
+    font-size: 14px; padding: 2px 6px; background: none; border: none;
+  }
+  .be-img-block,.be-file-block {
+    display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+    background: var(--card); border-radius: var(--radius-lg); margin-bottom: 10px;
+    box-shadow: var(--neu-raised-sm); position: relative;
+  }
+  .be-img-block img { max-width: 100%; max-height: 200px; border-radius: 10px; object-fit: cover; }
+  .be-img-block .be-img-wrap { flex: 1; min-width: 0; }
+  .be-bottom-bar {
+    display: flex; gap: 6px; padding: 8px 16px; border-top: 1px solid var(--border);
+    background: var(--bg); flex-shrink: 0; flex-wrap: wrap; align-items: center;
+  }
+  .fmt-btn {
+    width: 34px; height: 34px; border-radius: 10px; border: none;
+    background: var(--bg); color: var(--text2); font-size: 14px; font-weight: 700;
+    cursor: pointer; font-family: monospace; display: flex; align-items: center;
+    justify-content: center; box-shadow: var(--neu-raised-sm); transition: all 0.1s;
+  }
+  .fmt-btn:active { box-shadow: var(--neu-pressed); background: var(--primary); color: #FFF; }
+
+  /* Block reading mode */
+  .be-read-block {
+    padding: 14px 16px; line-height: 1.85; font-size: 15px; color: var(--text);
+  }
+  .be-read-block h1 { font-size: 22px; font-weight: 800; margin: 16px 0 8px; text-align: left; }
+  .be-read-block h2 { font-size: 18px; font-weight: 800; margin: 12px 0 6px; text-align: left; }
+  .be-read-block h3 { font-size: 16px; font-weight: 800; margin: 10px 0 6px; text-align: left; }
+  .be-read-block p,.be-read-block li,.be-read-block blockquote { margin: 6px 0; text-align: left; }
+  .be-read-block ul,.be-read-block ol { padding-left: 22px; margin: 4px 0; }
+  .be-read-block code { background: var(--pri-pale); padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+  .be-read-block pre { background: var(--bg); padding: 12px; border-radius: 10px; overflow-x: auto; font-size: 13px; }
+  .be-read-block blockquote { border-left: 3px solid var(--primary); padding-left: 14px; color: var(--text2); }
+  .be-read-block .katex { font-size: 1.1em; }
+
 </style>
 </head>
 <body>
@@ -447,8 +856,8 @@
       </div>
 
       <div style="display:flex;gap:12px;margin-bottom:22px;">
-        <button class="btn btn-primary" style="flex:1;padding:13px;border-radius:16px;" onclick="switchTab(2)">✏️ 写入学习纪要</button>
-        <button class="btn btn-neu" style="flex:1;padding:13px;border-radius:16px;" onclick="showCreateModal('material')">📤 上传资料</button>
+        <button class="btn btn-primary" style="flex:1;padding:13px;border-radius:16px;" onclick="openCreateNote()">✏️ 写入学习纪要</button>
+        <button class="btn btn-neu" style="flex:1;padding:13px;border-radius:16px;" onclick="openUploadMaterial()">📤 上传资料</button>
       </div>
 
       <div class="section-title">最近记录</div>
@@ -507,6 +916,7 @@
 
       <div style="display:flex;gap:8px;padding:14px 18px;overflow-x:auto;flex-shrink:0;" id="chat-agents">
         <button class="btn btn-primary" style="font-size:13px;padding:8px 18px;border-radius:18px;" onclick="selectAgent('tutor',this)">🤖 智能导师</button>
+        <button class="btn btn-neu" style="font-size:13px;padding:8px 18px;border-radius:18px;" onclick="selectAgent('reflection_mind',this)">💡 反思助手</button>
       </div>
 
       <div class="scroll" style="flex:1;padding:14px 18px;" id="chat-messages">
@@ -517,8 +927,16 @@
         </div>
       </div>
 
-      <div style="display:flex;gap:10px;padding:12px 18px;flex-shrink:0;">
-        <button class="btn-icon" onclick="showAppModal('<h3>📎 选择文件</h3><div style=\\'text-align:center;padding:20px;color:var(--text3);\\'>在完整 App 中，此处会打开文件选择器。<br/>（演示模式）</div><div style=\\'display:flex;gap:10px;justify-content:flex-end;margin-top:16px;\\'><button class=\\'btn btn-primary\\' onclick=\\'closeAppModal()\\'>确定</button></div>')" style="flex-shrink:0;">📎</button>
+      <div id="chat-file-preview" style="display:none;padding:0 18px 8px;flex-shrink:0;">
+        <div style="display:flex;align-items:center;gap:8px;background:var(--pri-pale);border-radius:12px;padding:6px 12px;font-size:12px;color:var(--text);">
+          <span id="chat-file-icon">📄</span>
+          <span id="chat-file-name" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+          <button style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;" onclick="clearChatFile()">✕</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;padding:0 18px 12px;flex-shrink:0;">
+        <input type="file" id="chat-file-input" accept="image/*,.pdf,.doc,.docx,.txt,.md,.pptx,.xlsx" style="display:none;" onchange="handleFileSelected(event)">
+        <button class="btn-icon" onclick="triggerFileInput()" style="flex-shrink:0;" id="chat-attach-btn">📎</button>
         <input class="input" id="chat-input" placeholder="输入你的问题..."
           onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChatMessage();}">
         <button class="btn btn-primary" style="border-radius:50%;width:42px;height:42px;padding:0;flex-shrink:0;"
@@ -571,7 +989,7 @@
       </div>
 
       <div class="card" style="padding:0;overflow:hidden;margin-bottom:14px;" id="profile-menu">
-        <div class="menu-item" onclick="showStyleModal()">
+        <div class="menu-item" onclick="openStyleMemo()">
           <div class="mi-icon" style="background:var(--pri-pale);">🪶</div>
           <div class="mi-body"><div class="mi-title">笔记风格偏好</div><div class="mi-sub" id="style-status">加载中...</div></div>
           <div class="mi-badge" style="background:var(--pri-pale);color:var(--primary);visibility:hidden;">--</div>
@@ -598,7 +1016,231 @@
   </div>
 
   <!-- ======== Bottom Tab Bar ======== -->
-  <div class="tab-bar">
+  
+  <!-- ======== Fullscreen Note Viewer ======== -->
+  <div class="fs-overlay" id="fs-note">
+    <div class="fs-header">
+      <button class="fs-back" onclick="closeFullscreenNote()">←</button>
+      <div style="flex:1;min-width:0;"><div style="font-size:16px;font-weight:800;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" id="fs-note-title">笔记</div></div>
+      <button class="btn btn-neu" style="font-size:12px;padding:6px 14px;border-radius:14px;" onclick="triggerNoteHelper()" id="fs-nh-btn">⚡ AI 生成</button>
+    </div>
+    <div class="fs-body" id="fs-note-body"><div class="spinner"></div></div>
+  </div>
+
+  <!-- ======== Fullscreen Material Viewer ======== -->
+  <div class="fs-overlay" id="fs-material">
+    <div class="fs-header">
+      <button class="fs-back" onclick="closeFullscreenMaterial()">←</button>
+      <div style="flex:1;min-width:0;"><div style="font-size:16px;font-weight:800;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" id="fs-mat-title">资料</div></div>
+      <button class="btn btn-neu" style="font-size:12px;padding:6px 14px;border-radius:14px;" onclick="triggerNoteHelper()" id="fs-mat-nh-btn">⚡ AI 生成</button>
+    </div>
+    <div class="fs-body" id="fs-mat-body" style="padding:0;display:flex;flex-direction:column;"><div class="spinner"></div></div>
+  </div>
+
+  <!-- ======== NoteHelper FAB ======== -->
+  <button class="nh-fab" id="nh-fab" onclick="event.stopPropagation();openNoteHelperPanel()">⚡</button>
+
+  <!-- ======== NoteHelper Panel ======== -->
+  <div class="nh-panel-mask" id="nh-panel-mask" onclick="closeNoteHelperPanel(event)">
+    <div class="nh-panel" id="nh-panel" onclick="event.stopPropagation()">
+      <div class="nh-panel-header">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:17px;font-weight:800;color:var(--text);">⚡ AI 笔记助手</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;" id="nh-panel-style-preview" onclick="openNHStyleFromPanel()" title="点击编辑风格偏好">未设置风格偏好</div>
+        </div>
+        <button style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text2);flex-shrink:0;" onclick="closeNoteHelperPanel()">✕</button>
+      </div>
+      <div class="nh-panel-body" id="nh-panel-body">
+        <div style="text-align:center;padding:20px 0;" id="nh-panel-loading"><div class="meta-text" style="margin-top:8px;">思考中...</div></div>
+        <div id="nh-panel-result" style="display:none;font-size:15px;line-height:1.8;color:var(--text);max-height:260px;overflow-y:auto;"></div>
+        <div id="nh-panel-actions" style="display:none;margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== Create Note Modal ======== -->
+  <div class="modal-mask" id="create-note-mask" onclick="closeCreateNote()">
+    <div class="modal" onclick="event.stopPropagation()" style="width:340px;max-height:85%;">
+      <h3>✏️ 写入学习纪要</h3>
+      <div class="form-group"><label class="form-label">标题</label><input class="form-input" id="cn-title" placeholder="输入标题..."></div>
+      <div class="form-group"><label class="form-label">内容（支持 Markdown）</label><textarea class="form-textarea" id="cn-content" placeholder="输入笔记内容..." style="min-height:160px;"></textarea></div>
+      <div class="form-group"><label class="form-label">分类路径（可选）</label><input class="form-input" id="cn-path" placeholder="例如: /数学/复分析/留数定理/"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button class="btn btn-neu" onclick="closeCreateNote()">取消</button>
+        <button class="btn btn-primary" id="cn-submit-btn" onclick="submitCreateNote()">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== Upload Material Modal ======== -->
+  <div class="modal-mask" id="upload-mat-mask" onclick="closeUploadMaterial()">
+    <div class="modal" onclick="event.stopPropagation()" style="width:380px;">
+      <h3>📤 上传资料</h3>
+      <!-- Big file drop zone -->
+      <div class="form-group">
+        <div class="upload-dropzone" id="um-dropzone" onclick="document.getElementById('um-file').click()">
+          <div class="upload-dropzone-icon">📂</div>
+          <div class="upload-dropzone-text">点击选择文件</div>
+          <div class="upload-dropzone-hint">支持 PDF · PPTX · PPT · DOCX · MD · TXT · CSV · 图片</div>
+        </div>
+        <input type="file" id="um-file" accept=".pdf,.pptx,.ppt,.docx,.md,.txt,.csv,.xlsx,.jpg,.png" style="position:absolute;opacity:0;width:0;height:0;overflow:hidden;" onchange="onFileSelected(this)">
+        <div class="upload-file-info" id="um-file-info"></div>
+      </div>
+      <div class="form-group"><label class="form-label">标题（可选，默认用文件名）</label><input class="form-input" id="um-title" placeholder="输入标题..."></div>
+      <!-- Folder picker -->
+      <div class="form-group">
+        <label class="form-label">分类路径</label>
+        <div class="folder-select" id="um-folder-select" onclick="toggleUmFolderPicker()">
+          <span style="font-size:16px;">📁</span>
+          <span id="um-path-display" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">点击选择分类路径</span>
+          <span id="um-folder-arrow" style="font-size:11px;color:var(--text4);">▼</span>
+        </div>
+        <input type="hidden" id="um-path" value="">
+        <div class="folder-select-list" id="um-folder-list" style="display:none;"></div>
+      </div>
+      <div id="um-progress" style="display:none;margin-bottom:12px;"><div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden;"><div id="um-progress-bar" style="height:100%;background:var(--primary);width:0%;transition:width 0.3s;"></div></div><div class="meta-text" style="margin-top:4px;text-align:center;" id="um-progress-text">上传中...</div></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button class="btn btn-neu" onclick="closeUploadMaterial()">取消</button>
+        <button type="button" class="btn btn-primary" id="um-submit-btn" onclick="submitUploadMaterial()">上传</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== Folder Picker Modal (for file moving) ======== -->
+  <div class="modal-mask" id="move-file-mask" onclick="closeMoveFile()">
+    <div class="modal" onclick="event.stopPropagation()" style="width:340px;max-height:80%;">
+      <h3>📁 移动到文件夹</h3>
+      <div style="margin-bottom:12px;"><div class="meta-text">当前路径: <b id="move-cur-path">--</b></div></div>
+      <div style="max-height:300px;overflow-y:auto;background:var(--bg);border-radius:16px;padding:8px 0;box-shadow:var(--neu-pressed);" id="move-folder-list">
+        <div style="text-align:center;padding:20px;"><div class="spinner"></div></div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;margin-top:14px;">
+        <button class="btn btn-neu" style="background:rgba(231,76,60,.12);color:#e74c3c;border-radius:14px;font-weight:700;" onclick="deleteFromMoveDialog()">🗑 删除</button>
+        <div style="flex:1;"></div>
+        <button class="btn btn-neu" onclick="closeMoveFile()">取消</button>
+        <button class="btn btn-primary" id="move-submit-btn" onclick="submitMoveFile()">移动</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ======== NoteHelper Fullscreen ======== -->
+  <div class="nh-fullscreen" id="nh-fullscreen">
+    <div class="nh-fs-topbar">
+      <button class="fs-back" onclick="closeNHFullscreen()">←</button>
+      <button class="btn btn-neu" style="font-size:12px;padding:6px 12px;border-radius:12px;" onclick="toggleNHSidebar()" id="nh-sidebar-btn">📂 源文件</button>
+      <div style="flex:1;font-size:16px;font-weight:800;color:var(--text);text-align:center;">AI 生成笔记</div>
+      <button class="btn btn-primary" style="font-size:12px;padding:6px 16px;border-radius:14px;" onclick="saveNHNote()">💾 保存</button>
+    </div>
+    <div class="nh-fs-content" id="nh-fs-content">
+      <div style="text-align:center;padding:60px 0;color:var(--text3);">内容加载中...</div>
+    </div>
+    <div class="nh-fs-bottombar" id="nh-fs-bottombar">
+      <!-- Row 1: Style preference (compact, opens memo page) -->
+      <div class="nh-style-card" id="nh-style-card" onclick="openStyleMemo()">
+        <div class="nh-style-icon">🎨</div>
+        <div class="nh-style-info">
+          <div class="nh-style-label">学习风格偏好</div>
+          <div class="nh-style-desc" id="nh-style-preview">未设置 · AI 将使用默认风格生成笔记</div>
+        </div>
+        <div class="nh-style-arrow">›</div>
+      </div>
+      <!-- Row 2: Quick action chips -->
+      <div class="nh-quick-row">
+        <button class="quick-chip" onclick="refineNote('请把内容写得更详细，补充更多解释和背景。')">📝 更详细</button>
+        <button class="quick-chip" onclick="refineNote('请把内容精简，只保留最核心的知识点。')">📋 更简洁</button>
+        <button class="quick-chip" onclick="refineNote('请用表格形式整理关键概念的对比。')">📊 表格对比</button>
+        <button class="quick-chip" onclick="refineNote('请为重要概念添加具体的例子帮助理解。')">💡 举例子</button>
+        <button class="quick-chip" onclick="refineNote('请突出标记重点内容和易错点。')">⭐ 突出重点</button>
+      </div>
+      <!-- Row 3: Natural language custom input -->
+      <div class="nh-input-row">
+        <input id="nh-refine-input" placeholder="✏️ 输入自定义修改指令，如：用更学术化的语言重写第一段..."
+          onkeydown="if(event.key==='Enter'){refineNote(this.value);this.value='';}">
+        <button class="btn btn-primary nh-send-btn" onclick="const inp=document.getElementById('nh-refine-input');if(inp.value.trim()){refineNote(inp.value);inp.value='';}">➤ 发送</button>
+      </div>
+    </div>
+    <!-- Source File Sidebar -->
+    <div class="nh-sidebar" id="nh-sidebar">
+      <div class="nh-sidebar-backdrop" onclick="toggleNHSidebar()"></div>
+      <div class="nh-sidebar-panel">
+        <div class="nh-sb-header">
+          <button class="fs-back" onclick="toggleNHSidebar()">←</button>
+          <div style="font-size:14px;font-weight:800;color:var(--text);">源文件</div>
+        </div>
+        <div class="nh-sb-body" id="nh-sb-body">
+          <div style="text-align:center;padding:40px;color:var(--text3);">暂无源文件</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== Block Editor Overlay ======== -->
+  <div class="be-overlay" id="be-overlay">
+    <div class="be-topbar">
+      <button class="fs-back" onclick="closeBlockEditor()">←</button>
+      <div style="flex:1;"></div>
+      <button class="btn btn-neu" style="font-size:13px;padding:7px 16px;border-radius:14px;" id="be-mode-btn" onclick="toggleBEMode()">📖 阅读</button>
+      <button class="btn btn-primary" style="font-size:13px;padding:7px 18px;border-radius:14px;" onclick="saveBlockEditor()">💾 保存</button>
+    </div>
+    <input class="be-title-input" id="be-title" placeholder="笔记标题...">
+    <div class="be-block-list" id="be-block-list"></div>
+    <div class="be-bottom-bar" id="be-bottom-bar">
+      <button class="fmt-btn" onclick="applyFormat('# ','H1')" title="标题1">H1</button>
+      <button class="fmt-btn" onclick="applyFormat('## ','H2')" title="标题2">H2</button>
+      <button class="fmt-btn" onclick="applyFormat('### ','H3')" title="标题3">H3</button>
+      <button class="fmt-btn" onclick="applyFormat('#### ','H4')" title="标题4">H4</button>
+      <span style="color:var(--text4);margin:0 4px;">|</span>
+      <button class="fmt-btn" onclick="applyFormat('- ','list')" title="无序列表">•</button>
+      <button class="fmt-btn" onclick="applyFormat('> ','quote')" title="引用">❝</button>
+      <button class="fmt-btn" onclick="applyFormat('\n\`\`\`\n\`\`\`\n','code')" title="代码块">&lt;/&gt;</button>
+      <span style="flex:1;"></span>
+      <button class="btn btn-neu" style="font-size:12px;padding:7px 14px;border-radius:14px;" onclick="addImageBlock()">🖼️ 图片</button>
+      <button class="btn btn-neu" style="font-size:12px;padding:7px 14px;border-radius:14px;" onclick="addFileBlock()">📎 文件</button>
+      <button class="btn btn-neu" style="font-size:12px;padding:7px 14px;border-radius:14px;" onclick="addTextBlock()">+ 文本块</button>
+    </div>
+  </div>
+
+  <!-- ======== Style Memo Overlay (Sticky Note) ======== -->
+  <div class="style-memo-overlay" id="style-memo-overlay">
+    <div class="style-memo-topbar">
+      <button class="fs-back" onclick="closeStyleMemo()">←</button>
+      <div style="flex:1;font-size:16px;font-weight:800;color:var(--text);text-align:center;">🎨 学习风格偏好</div>
+      <button class="btn btn-primary" style="font-size:12px;padding:6px 16px;border-radius:14px;" onclick="saveStyleMemo()">💾 保存</button>
+    </div>
+    <div class="style-memo-body">
+      <!-- Sticky note pad -->
+      <div class="style-memo-pad">
+        <textarea id="style-memo-textarea" placeholder="在这里写下你喜欢的笔记风格偏好..."></textarea>
+      </div>
+      <!-- Quick hint chips -->
+      <div class="style-memo-hints">
+        <div style="font-size:12px;font-weight:700;color:var(--text2);">💡 点击快速添加风格提示</div>
+        <div class="hint-chips">
+          <span class="hint-chip" onclick="appendStyleHint('侦探式纠错与溯源，不盲从原文内容')">🔍 侦探式纠错</span>
+          <span class="hint-chip" onclick="appendStyleHint('按数学逻辑流重组知识点，而非页码流')">🔗 逻辑流重组</span>
+          <span class="hint-chip" onclick="appendStyleHint('定理使用需要条件审查与主动验证')">✅ 定理验证</span>
+          <span class="hint-chip" onclick="appendStyleHint('强调反例与边界情况的警示')">⚠️ 边界警示</span>
+          <span class="hint-chip" onclick="appendStyleHint('使用学术化语言，保持严谨简洁')">📐 学术语言</span>
+          <span class="hint-chip" onclick="appendStyleHint('补充更多解释和背景，让内容更详细')">📝 详细展开</span>
+          <span class="hint-chip" onclick="appendStyleHint('用表格形式整理关键概念的对比')">📊 表格对比</span>
+          <span class="hint-chip" onclick="appendStyleHint('为重要概念添加具体的例子帮助理解')">💡 举例子</span>
+        </div>
+      </div>
+      <!-- Auto-learned history -->
+      <div class="style-memo-history" id="style-memo-history" style="display:none;">
+        <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px;">🧠 自动学习记录</div>
+        <div id="style-memo-history-list"></div>
+      </div>
+      <!-- Bottom actions -->
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button class="btn btn-neu" style="font-size:13px;padding:8px 18px;border-radius:14px;" onclick="clearStyleMemo()">🗑️ 清空</button>
+        <button class="btn btn-primary" style="font-size:13px;padding:8px 24px;border-radius:14px;" onclick="saveStyleMemo()">💾 保存并应用到 AI</button>
+      </div>
+    </div>
+  </div>
+
+<div class="tab-bar">
     <button class="tab-item active" onclick="switchTab(0)">主页</button>
     <button class="tab-item" onclick="switchTab(1)">知识</button>
     <button class="tab-item" onclick="switchTab(2)">AI</button>
@@ -608,7 +1250,7 @@
 </div>
 
 <div class="outer-info">
-  <b>PaperMind</b> · 390×844 · 浅灰+蓝 Neumorphic 设计
+  <b>PaperMind</b> · 390×844 · 暖灰薰衣草 Neumorphic 设计
   <div style="margin-top:6px;">
     <button onclick="refreshCurrentTab()">🔄 刷新当前页</button>
     <button onclick="switchTab(1);loadGraphIfNeeded();">🧠 打开图谱</button>
@@ -628,12 +1270,17 @@ let kLegendVisible = false;
 let kViewMode = 'graph';
 let comSubTab = 'public';
 let _ctrlRecords = [];
+let _currentAgent = 'tutor';
+let _chatLoading = false;
+let _reflGenActive = false;
+let _reflGenAbort = null;
+let _chatUploadFile = null;
 
 let gvx = 0, gvy = 0, gvw = 500, gvh = 650;
 let gDragging = false, gDragSX = 0, gDragSY = 0, gDragVX = 0, gDragVY = 0;
 let gPinchDist = 0, gPinchVW = 0, gPinchVH = 0, gPinchCX = 0, gPinchCY = 0;
 
-function esc(s) { if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function esc(s) { if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/`/g,'&#96;').replace(/\$/g,'&#36;'); }
 function fmtDate(d) { if(!d)return'';return new Date(d).toLocaleDateString('zh-CN',{month:'short',day:'numeric'}); }
 
 // Parse logical_path JSON array into clean display string
@@ -708,44 +1355,78 @@ async function loadControlCenter() {
       const icon=r.record_type==='study_note'?'📝':'📄';
       const unread=r.ai_processed&&!r.viewed_after_process;
       h+=`<div class="list-item" onclick="viewRecord(${i})">
-        <span class="li-left">${icon}</span>
+        <span class="li-left" style="position:relative;">${icon}<span class="li-dot" style="position:absolute;top:-2px;right:-2px;width:8px;height:8px;border-radius:50%;background:var(--primary);visibility:${unread?'visible':'hidden'};"></span></span>
         <div class="li-body"><div class="li-title">${esc(r.title||r.name||'未命名')}</div><div class="li-sub">${esc(fmtPath(r.logical_path))}</div></div>
         <div class="li-meta">
-          <span class="li-dot" style="visibility:${unread?'visible':'hidden'};"></span>
           <span class="li-date">${fmtDate(r.created_at)}</span>
+          <button class="btn-icon" style="width:26px;height:26px;font-size:12px;flex-shrink:0;margin-left:6px;box-shadow:none;" onclick="event.stopPropagation();moveFromList(${i})" title="移动到其他文件夹">📁</button>
         </div></div>`;
-    });h+='</div>';document.getElementById('ctrl-records').innerHTML=h;
+    });
+    if (records.length > 12) {
+      h += '<div style="text-align:center;padding:12px 0 4px;"><button class="btn btn-neu" style="font-size:13px;padding:8px 24px;border-radius:16px;" onclick="loadMoreRecords()">查看更多记录 →</button></div>';
+    }
+    h+='</div>';document.getElementById('ctrl-records').innerHTML=h;
   }catch(e){
     document.getElementById('ctrl-stats').innerHTML='<div class="stat-card" style="grid-column:1/-1;"><div class="label" style="color:var(--primary);">后端连接失败</div><div class="label" style="font-size:10px;margin-top:4px;">请确认 localhost:9091 已启动</div></div>';
     document.getElementById('ctrl-records').innerHTML='<div class="empty-state"><div class="empty-icon">🔌</div><div class="empty-title">无法连接后端</div><div class="empty-desc">请启动后端服务 (端口 9091)，然后点击下方按钮刷新</div><button class="btn btn-primary" onclick="refreshCurrentTab()" style="margin-top:12px;">🔄 重新加载</button></div>';
   }
 }
-function showCreateModal(t){alert((t==='material'?'上传资料':'创建学习纪要')+'\n\n在完整 App 中，此处会打开文件选择器或编辑器。\n（演示模式）');}
+function showCreateModal(t){if(t==='material'){openUploadMaterial();}else{alert('创建学习纪要\n\n在完整 App 中，此处会打开编辑器。\n（演示模式）');}}
 function viewRecord(idx){
-	const r=_ctrlRecords[idx];if(!r)return;
-	const path=esc(fmtPath(r.logical_path));
-	const title=esc(r.title||r.name||'未命名');
-	const type=r.record_type==='study_note'?'学习纪要':'学习资料';
-	const papercore=r.papercore||'暂无AI摘要';
-	const tags=(r.tags||[]).join(', ')||'无';
-	showAppModal(`<h3>${r.record_type==='study_note'?'📝':'📄'} ${title}</h3>
-		<div style="margin-bottom:12px;"><span class="tag" style="background:var(--pri-pale);color:var(--primary);margin-right:6px;">${type}</span><span class="tag" style="background:var(--pri-pale);color:var(--text2);">${path}</span></div>
-		<div class="section-title">AI 摘要</div>
-		<div class="body-text" style="background:var(--surface);border-radius:14px;padding:14px;max-height:240px;overflow-y:auto;line-height:1.8;">${esc(papercore)}</div>
-		<div style="margin-top:12px;"><div class="section-title">知识标签</div><div style="color:var(--text2);font-size:14px;">${esc(tags)}</div></div>
-		<div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-neu" onclick="closeAppModal()">关闭</button></div>`);
+  const r=_ctrlRecords[idx];if(!r)return;
+  if(r.record_type==='study_note'){viewNoteFullscreen(r.id,r.title||r.name);return;}
+  if(r.record_type==='material'){viewMaterialFullscreen(r.id,r.title||r.name||'未命名');return;}
+  showAppModal(`<h3>📄 ${esc(r.title||r.name||'未命名')}</h3><div class="body-text">${simpleMarkdown(r.papercore||'暂无内容')}</div>`);
+}
+
+// Move file from control center list
+function moveFromList(idx){
+  const r=_ctrlRecords[idx];if(!r)return;
+  const currentPath = fmtPath(r.logical_path);
+  showMoveFileDialog(r.id, r.record_type||'study_note', r.title||r.name||'', currentPath);
+}
+
+// Transient toast for success/error feedback
+function appToast(msg, type){
+  let t=document.getElementById('app-toast'); if(t)t.remove();
+  t=document.createElement('div'); t.id='app-toast';
+  t.textContent=msg;
+  const col=type==='error'?'#e74c3c':'#2ecc71';
+  t.style.cssText='position:fixed;bottom:100px;left:50%;transform:translateX(-50%);z-index:300;background:'+col+';color:#fff;font-size:13px;font-weight:600;padding:10px 20px;border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.18);opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;max-width:90%;overflow:hidden;text-overflow:ellipsis;';
+  document.body.appendChild(t);
+  t.style.opacity='1';
+  setTimeout(()=>{t.style.opacity='0';setTimeout(()=>{if(t&&t.parentNode)t.remove();},400);},2200);
+}
+
+// Delete a file record (material / study note)
+async function deleteFile(id, type, title){
+  if(!confirm('确定删除「'+title+'」吗？此操作不可恢复。'))return;
+  const ep = type==='material' ? '/materials/' : '/study-notes/';
+  try{
+    const res=await safeFetch(API+ep+id,{method:'DELETE'});
+    if(res.ok){ appToast('已删除「'+title+'」'); refreshCurrentTab(); }
+    else{ const t=await res.text().catch(()=>''); alert('删除失败 HTTP '+res.status+(t?' — '+t.slice(0,120):'')); }
+  }catch(e){ alert('删除失败: '+e.message); }
+}
+
+// Delete from the move dialog (📁 弹窗底部的删除键)
+function deleteFromMoveDialog(){
+  const id=_moveFileId, type=_moveFileType, title=_moveFileTitle||'';
+  if(!id)return;
+  closeMoveFile();
+  deleteFile(id, type, title);
 }
 
 function viewReflection(idx){
 	const r=_profileReflectionsData[idx];if(!r)return;
 	showAppModal(`<h3>📊 ${esc(r.period_label||'反思报告')}</h3>
 		<div style="margin-bottom:12px;"><span class="tag" style="background:var(--pri-pale);color:var(--primary);">${esc(r.period_type||'weekly')}</span><span class="tag" style="background:var(--pri-pale);color:var(--text2);margin-left:6px;">${fmtDate(r.created_at)}</span></div>
-		<div class="body-text" style="background:var(--surface);border-radius:14px;padding:14px;max-height:320px;overflow-y:auto;line-height:1.8;">${esc(r.content||r.papercore||'暂无内容')}</div>
+		<div class="body-text" style="background:var(--surface);border-radius:14px;padding:14px;max-height:320px;overflow-y:auto;line-height:1.8;">${simpleMarkdown(r.content||r.papercore||'暂无内容')}</div>
 		<div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-neu" onclick="closeAppModal()">关闭</button></div>`);
 }
 
 // ── TAB 2: KNOWLEDGE GRAPH ──
-function loadGraphIfNeeded(){if(currentTab!==1)return;if(graphData){renderGraph();return;}loadGraphData();}
+function loadGraphIfNeeded(){if(currentTab!==1)return;if(kViewMode==='folder'){loadFolderView();return;}if(graphData){renderGraph();return;}loadGraphData();}
 function switchKMode(mode){
   kViewMode=mode;
   document.getElementById('k-btn-graph').classList.toggle('active',mode==='graph');
@@ -787,7 +1468,7 @@ function tagMaskHTML() {
   return '<div class="tag-mask" id="k-tag-mask" onclick="closeKTagPopup()"><div class="tag-sheet" id="k-tag-sheet" onclick="event.stopPropagation()"></div></div>';
 }
 
-const L2C=['#EDEEFD','#E8EAFD','#E3E5FC','#DEE0FC','#F0F1FD','#EBECFC','#E6E8FB','#E1E3FB'];
+const L2C=['#EDECFF','#E8E7FF','#E3E2FE','#DEDDFE','#F0EFFF','#EBEAFF','#E6E5FD','#E1E0FD'];
 
 function renderGraph(){
   if(!graphData)return;
@@ -801,14 +1482,14 @@ function renderGraph(){
     const cx=(Math.min(...xs)+Math.max(...xs))/2,cy=(Math.min(...ys)+Math.max(...ys))/2;
     const rx=Math.max(55,(Math.max(...xs)-Math.min(...xs))/2+50),ry=Math.max(45,(Math.max(...ys)-Math.min(...ys))/2+40),r=Math.max(85,rx,ry);
     p.push(`<ellipse cx="${cx}" cy="${cy}" rx="${r}" ry="${r}" fill="${L2C[i%L2C.length]}" opacity="0.7"/>`);
-    p.push(`<text x="${cx}" y="${cy-r+15}" text-anchor="middle" font-size="12" fill="#6B7280" font-weight="600">${esc(l2.name)}</text>`);
+    p.push(`<text x="${cx}" y="${cy-r+15}" text-anchor="middle" font-size="12" fill="#636E72" font-weight="600">${esc(l2.name)}</text>`);
   });
-  (domains||[]).forEach(d=>{if(d.cx!=null&&d.cy!=null&&d.r!=null)p.push(`<circle cx="${d.cx}" cy="${d.cy}" r="${d.r}" fill="none" stroke="#5B5FEF" stroke-width="1" stroke-dasharray="8,6" opacity="0.2"/>`);});
-  edges.filter(e=>e.type==='hierarchy').forEach(e=>{const f=tagMap.get(e.from),t=tagMap.get(e.to);if(!f||!t||f.level==='L1')return;p.push(`<line x1="${f.x}" y1="${f.y}" x2="${t.x}" y2="${t.y}" stroke="#8B8FF5" stroke-width="1.2" opacity="0.4"/>`);});
-  edges.filter(e=>e.type==='cooccurrence').slice(0,20).forEach(e=>{const f=tagMap.get(e.from),t=tagMap.get(e.to);if(!f||!t)return;const sw=Math.min((e.weight||1)*0.5+0.5,2);p.push(`<line x1="${f.x}" y1="${f.y}" x2="${t.x}" y2="${t.y}" stroke="#8B8FF5" stroke-width="${sw}" stroke-dasharray="3,4" opacity="0.3"/>`);});
-  l2s.forEach(n=>{const nm=esc(n.name);p.push(`<g onclick="selectKTag('${n.id}')" style="cursor:pointer;"><circle cx="${n.x}" cy="${n.y}" r="20" fill="#FFFFFF" stroke="#8B8FF5" stroke-width="2.5"/><text x="${n.x}" y="${n.y+4}" text-anchor="middle" font-size="11" fill="#1E1E2E" font-weight="700">${nm.length>4?nm.slice(0,4):nm}</text><text x="${n.x}" y="${n.y+36}" text-anchor="middle" font-size="10" fill="#A0A5B5" font-weight="600">${n.count}项</text></g>`);});
-  l1s.forEach(n=>{p.push(`<g onclick="selectKTag('${n.id}')" style="cursor:pointer;"><circle cx="${n.x}" cy="${n.y}" r="28" fill="#5B5FEF" stroke="#8B8FF5" stroke-width="3"/><text x="${n.x}" y="${n.y+5}" text-anchor="middle" font-size="14" fill="#FFFFFF" font-weight="800">${esc(n.name)}</text></g>`);});
-  l3s.forEach(n=>{const nm=esc(n.name);p.push(`<g onclick="selectKTag('${n.id}')" style="cursor:pointer;"><circle cx="${n.x}" cy="${n.y}" r="13" fill="#FFFFFF" stroke="#C4C8D8" stroke-width="1.5"/><text x="${n.x}" y="${n.y+26}" text-anchor="middle" font-size="9" fill="#6B7280" font-weight="500">${nm.length>5?nm.slice(0,5):nm}</text></g>`);});
+  (domains||[]).forEach(d=>{if(d.cx!=null&&d.cy!=null&&d.r!=null)p.push(`<circle cx="${d.cx}" cy="${d.cy}" r="${d.r}" fill="none" stroke="#6C63FF" stroke-width="1" stroke-dasharray="8,6" opacity="0.2"/>`);});
+  edges.filter(e=>e.type==='hierarchy').forEach(e=>{const f=tagMap.get(e.from),t=tagMap.get(e.to);if(!f||!t||f.level==='L1')return;p.push(`<line x1="${f.x}" y1="${f.y}" x2="${t.x}" y2="${t.y}" stroke="#896BFF" stroke-width="1.2" opacity="0.4"/>`);});
+  edges.filter(e=>e.type==='cooccurrence').slice(0,20).forEach(e=>{const f=tagMap.get(e.from),t=tagMap.get(e.to);if(!f||!t)return;const sw=Math.min((e.weight||1)*0.5+0.5,2);p.push(`<line x1="${f.x}" y1="${f.y}" x2="${t.x}" y2="${t.y}" stroke="#896BFF" stroke-width="${sw}" stroke-dasharray="3,4" opacity="0.3"/>`);});
+  l2s.forEach(n=>{const nm=esc(n.name);p.push(`<g onclick="selectKTag('${n.id}')" style="cursor:pointer;"><circle cx="${n.x}" cy="${n.y}" r="20" fill="#FFFFFF" stroke="#896BFF" stroke-width="2.5"/><text x="${n.x}" y="${n.y+4}" text-anchor="middle" font-size="11" fill="#2D3436" font-weight="700">${nm.length>4?nm.slice(0,4):nm}</text><text x="${n.x}" y="${n.y+36}" text-anchor="middle" font-size="10" fill="#A0A5B5" font-weight="600">${n.count}项</text></g>`);});
+  l1s.forEach(n=>{p.push(`<g onclick="selectKTag('${n.id}')" style="cursor:pointer;"><circle cx="${n.x}" cy="${n.y}" r="28" fill="#6C63FF" stroke="#896BFF" stroke-width="3"/><text x="${n.x}" y="${n.y+5}" text-anchor="middle" font-size="14" fill="#FFFFFF" font-weight="800">${esc(n.name)}</text></g>`);});
+  l3s.forEach(n=>{const nm=esc(n.name);p.push(`<g onclick="selectKTag('${n.id}')" style="cursor:pointer;"><circle cx="${n.x}" cy="${n.y}" r="13" fill="#FFFFFF" stroke="#C4C8D8" stroke-width="1.5"/><text x="${n.x}" y="${n.y+26}" text-anchor="middle" font-size="9" fill="#636E72" font-weight="500">${nm.length>5?nm.slice(0,5):nm}</text></g>`);});
   const c=document.getElementById('k-content');
   c.innerHTML=`<svg viewBox="${gvx} ${gvy} ${gvw} ${gvh}" preserveAspectRatio="xMidYMid meet">${p.join('')}</svg><div id="k-popup-ct"></div>`+zoomBtnsHTML()+tagMaskHTML();
   document.getElementById('k-zoom-btns').style.display='flex';
@@ -818,7 +1499,7 @@ function graphZoomIn(){const cx=gvx+gvw/2,cy=gvy+gvh/2;gvw*=0.75;gvh*=0.75;gvx=c
 function graphZoomOut(){const cx=gvx+gvw/2,cy=gvy+gvh/2;gvw*=1.35;gvh*=1.35;gvx=cx-gvw/2;gvy=cy-gvh/2;renderGraph();}
 async function selectKTag(id){
   const node=graphData.nodes.find(n=>n.id===id);if(!node)return;
-  const lc={L1:'#5B5FEF',L2:'#8B8FF5',L3:'#C4C8D8'};
+  const lc={L1:'#6C63FF',L2:'#896BFF',L3:'#C4C8D8'};
   const sheet=document.getElementById('k-tag-sheet');sheet.innerHTML='<div style="text-align:center;padding:40px 0;"><div class="spinner"></div></div>';
   document.getElementById('k-tag-mask').classList.add('show');
   try{
@@ -826,7 +1507,7 @@ async function selectKTag(id){
     if(!res.ok) throw new Error('HTTP '+res.status);
     const json=await res.json();const docs=json.data||[];
     let dh=docs.length===0?'<div style="text-align:center;color:var(--text3);padding:20px;">暂无关联文档</div>'
-      :docs.map(d=>`<div class="tag-doc"><span style="font-size:22px;">${d.type==='study_note'?'📝':'📄'}</span><div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(d.title||'未命名')}</div><div class="meta-text">${esc(fmtPath(d.logical_path))}</div></div><span style="color:var(--text4);">›</span></div>`).join('');
+      :docs.map(d=>`<div class="tag-doc" style="cursor:pointer;" onclick="event.stopPropagation();${d.type==='study_note'?'viewNoteFullscreen':'viewMaterialFullscreen'}('${d.id}','${esc((d.title||'未命名').replace(/'/g,"\\'"))}')"><span style="font-size:22px;">${d.type==='study_note'?'📝':'📄'}</span><div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(d.title||'未命名')}</div><div class="meta-text">${esc(fmtPath(d.logical_path))}</div></div><span style="color:var(--text4);">›</span></div>`).join('');
     sheet.innerHTML=`<div class="tag-sheet-handle"></div><div style="display:flex;justify-content:space-between;align-items:center;padding:0 18px 14px;border-bottom:1px solid var(--border);"><div style="display:flex;align-items:center;gap:10px;"><span style="display:inline-block;width:14px;height:14px;border-radius:7px;background:${lc[node.level]};"></span><span style="font-size:18px;font-weight:700;color:var(--text);">${esc(node.name)}</span><span class="tag" style="background:var(--pri-pale);color:var(--primary);">${node.level}</span></div><button onclick="closeKTagPopup()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--text2);">✕</button></div><div style="padding:14px 18px;font-size:13px;color:var(--text2);">共 ${node.count} 条关联记录</div><div style="overflow-y:auto;max-height:280px;padding:0 18px 20px;">${dh}</div>`;
   }catch(e){sheet.innerHTML=`<div class="tag-sheet-handle"></div><div style="padding:32px;text-align:center;color:var(--text2);">加载失败: ${esc(e.message)}</div>`;}
 }
@@ -870,7 +1551,7 @@ async function loadFolderView(){
 }
 function buildFolderTree(records){
   const root=new Map();
-  records.forEach(rec=>{let path=rec.logical_path||'';try{const p=JSON.parse(path);if(Array.isArray(p)&&p.length>0)path=p[0];}catch{}path=path.replace(/^\[?"?\/?/,'/').replace(/\/?"?\]?$/,'/');const parts=path.split('/').filter(Boolean);if(!parts.length)return;let cur=root,full='';parts.forEach((part,i)=>{full+='/'+part;if(!cur.has(part))cur.set(part,{name:part,fullPath:full+'/',subs:new Map(),docs:[]});const node=cur.get(part);if(i===parts.length-1)node.docs.push({title:rec.title||rec.name||'',type:rec.record_type||'study_note'});cur=node.subs;});});
+  records.forEach(rec=>{let path=rec.logical_path||'';try{const p=JSON.parse(path);if(Array.isArray(p)&&p.length>0)path=p[0];}catch{}path=path.replace(/^\[?"?\/?/,'/').replace(/\/?"?\]?$/,'/');const parts=path.split('/').filter(Boolean);if(!parts.length)return;let cur=root,full='';parts.forEach((part,i)=>{full+='/'+part;if(!cur.has(part))cur.set(part,{name:part,fullPath:full+'/',subs:new Map(),docs:[]});const node=cur.get(part);if(i===parts.length-1)node.docs.push({id:rec.id,title:rec.title||rec.name||'',type:rec.record_type||'study_note'});cur=node.subs;});});
   return root;
 }
 function renderFolderTree(folders,depth=0){
@@ -879,27 +1560,127 @@ function renderFolderTree(folders,depth=0){
     h+=`<div class="folder-row" style="padding-left:${16+depth*24}px;" onclick="const n=this.nextElementSibling;n.style.display=n.style.display==='none'?'block':'none';const ch=this.querySelector('.chev');if(ch)ch.textContent=n.style.display!=='none'?'▼':'▶';"><span class="chev" style="font-size:11px;color:var(--text4);">▶</span><span style="font-size:17px;">📁</span><span style="flex:1;font-size:15px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(node.name)}</span><span style="font-size:12px;color:var(--text3);font-weight:600;">${count}</span></div>`;
     h+=`<div style="display:none;">`;
     if(node.subs.size>0)h+=renderFolderTree(node.subs,depth+1);
-    node.docs.forEach(doc=>{h+=`<div class="doc-row"><span style="font-size:14px;">${doc.type==='study_note'?'📝':'📄'}</span><span style="font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(doc.title)}</span></div>`;});
+    node.docs.forEach(doc=>{h+=`<div class="doc-row" onclick="event.stopPropagation();viewFolderDoc('${esc(doc.id)}','${esc(doc.type)}','${esc(doc.title)}')" style="cursor:pointer;"><span style="font-size:14px;">${doc.type==='study_note'?'📝':'📄'}</span><span style="flex:1;font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(doc.title)}</span><button class="btn-icon" style="width:28px;height:28px;font-size:14px;flex-shrink:0;box-shadow:none;" onclick="event.stopPropagation();showMoveFileDialog('${esc(doc.id)}','${esc(doc.type)}','${esc(doc.title)}','${esc(node.fullPath)}')" title="移动到其他文件夹">📁</button></div>`;});
     h+='</div>';});
   return h;
 }
 function countFolderDocs(node){let c=node.docs.length;node.subs.forEach(s=>c+=countFolderDocs(s));return c;}
 
 // ── TAB 3: AI CHAT ──
+function getAgentWelcome(agent){
+  if(agent==='reflection_mind'){
+    return `<div class="empty-state"><div class="empty-icon">💡</div><div class="empty-title">你好，我是反思助手</div>
+      <div class="empty-desc">我可以分析你的学习行为、问题解决记录和知识节点活动，生成个性化的学习反思报告。</div>
+      <button class="btn btn-primary" onclick="startReflectionChat()" style="margin-top:16px;">📊 生成学习反思报告</button></div>`;
+  }
+  return `<div class="empty-state"><div class="empty-icon">🤖</div><div class="empty-title">你好，我是 PaperMind 智能导师</div>
+    <div class="empty-desc">可以向我提问任何学习相关的问题，我会基于你的知识库为你解答。</div></div>`;
+}
 function selectAgent(agent,btn){
+  _currentAgent=agent;
   document.querySelectorAll('#chat-agents button').forEach(b=>{b.className='btn btn-neu';b.style.cssText='font-size:13px;padding:8px 18px;border-radius:18px;';});
   btn.className='btn btn-primary';btn.style.cssText='font-size:13px;padding:8px 18px;border-radius:18px;';
+  document.getElementById('chat-messages').innerHTML=getAgentWelcome(agent);
+  var subtitles={tutor:'智能导师 · 知识问答与学习辅导',reflection_mind:'反思助手 · 学习分析报告生成'};
+  document.querySelector('#page-chat .meta-text').textContent=subtitles[agent]||'智能导师 · 知识问答与学习辅导';
+  var inputContainer=document.querySelector('#page-chat .scroll');
+  if(inputContainer)inputContainer.style.height=agent==='reflection_mind'?'calc(100% - 90px)':'';
+  var inputArea=inputContainer?inputContainer.nextElementSibling:null;
+  if(inputArea)inputArea.style.display=agent==='reflection_mind'?'none':'flex';
 }
-function sendChatMessage(){
-  const input=document.getElementById('chat-input'),msg=input.value.trim();if(!msg)return;input.value='';
-  const msgs=document.getElementById('chat-messages'),empty=msgs.querySelector('.empty-state');if(empty)empty.remove();
-  msgs.innerHTML+=`<div style="display:flex;justify-content:flex-end;margin-bottom:14px;"><div class="chat-msg-user">${esc(msg)}</div></div>`;
+function triggerFileInput(){
+  document.getElementById('chat-file-input').click();
+}
+function handleFileSelected(e){
+  const f=e.target.files[0];if(!f)return;
+  e.target.value='';
+  _chatUploadFile={file:f,name:f.name,type:f.type};
+  document.getElementById('chat-file-name').textContent=f.name;
+  document.getElementById('chat-file-icon').textContent=f.type.startsWith('image/')?'🖼️':'📄';
+  document.getElementById('chat-file-preview').style.display='flex';
+}
+function clearChatFile(){
+  _chatUploadFile=null;
+  document.getElementById('chat-file-preview').style.display='none';
+}
+async function sendChatMessage(){
+  const input=document.getElementById('chat-input'),msg=input.value.trim();
+  if((!msg&&!_chatUploadFile)||_chatLoading)return;
+  input.value='';
+  const file=_chatUploadFile;_chatUploadFile=null;clearChatFile();
+  const msgs=document.getElementById('chat-messages'),empty=msgs.querySelector('.empty-state');
+  if(empty)empty.remove();
+  let userContent=msg||'(上传文件)';
+  let imgHtml='';
+  if(file&&file.type.startsWith('image/')&&file.file instanceof File){
+    imgHtml='<div style="margin-bottom:6px;"><img src="'+URL.createObjectURL(file.file)+'" style="max-width:160px;max-height:160px;border-radius:8px;"></div>';
+  }
+  msgs.innerHTML+=`<div style="display:flex;justify-content:flex-end;margin-bottom:14px;"><div class="chat-msg-user">${imgHtml}${esc(userContent)}</div></div>`;
   const botId='bot-'+Date.now();
-  msgs.innerHTML+=`<div class="chat-msg-row" id="${botId}"><div class="avatar" style="width:34px;height:34px;background:var(--primary);font-size:16px;">🤖</div><div class="chat-msg-bot"><div class="spinner" style="width:16px;height:16px;border-width:2px;margin:4px 0;"></div></div></div>`;
+  msgs.innerHTML+=`<div class="chat-msg-row" id="${botId}"><div class="avatar" style="width:34px;height:34px;background:var(--primary);font-size:16px;">🤖</div><div class="chat-msg-bot"><div style="font-size:14px;color:var(--text3);padding:8px 2px;">思考中...</div></div></div>`;
   msgs.scrollTop=msgs.scrollHeight;
-  setTimeout(()=>{const bot=document.getElementById(botId);if(!bot)return;const replies=['这是一个很好的问题！基于你的知识库，我可以为你提供以下解答。','让我帮你分析一下这个问题——根据你之前的学习记录，这个知识点与以下几个方面相关。','我理解你的疑问。在 PaperMind 中，你可以通过知识图谱来探索相关的概念和联系。','很好的思考！建议你查看知识库中的相关标签来深入了解这个话题。'];bot.querySelector('.avatar').nextElementSibling.innerHTML=`<div style="line-height:1.7;">${replies[Math.floor(Math.random()*replies.length)]}</div><div style="margin-top:10px;display:flex;gap:8px;"><button class="btn btn-neu" style="font-size:12px;padding:6px 14px;border-radius:14px;" onclick="switchTab(1)">📊 查看知识图谱</button><button class="btn btn-neu" style="font-size:12px;padding:6px 14px;border-radius:14px;">👍 有帮助</button></div>`;},1200+Math.random()*1000);
+  _chatLoading=true;
+  const sendBtn=document.querySelector('#page-chat .btn-primary[onclick*="sendChatMessage"]');
+  if(sendBtn)sendBtn.style.opacity='0.5';
+  try{
+    let endpoint=API+'/ai/chat';
+    let body={agent:_currentAgent,message:msg||'(请分析上传的文件)'};
+    if(file){
+      if(file.type.startsWith('image/')){
+        endpoint=API+'/ai/tutor';
+        const reader=new FileReader();
+        const base64=await new Promise((res,rej)=>{reader.onload=()=>{const r=reader.result;res(r.split(',')[1]);};reader.onerror=rej;reader.readAsDataURL(file.file);});
+        body.context={imageBase64:base64,mediaType:file.type,imageFileName:file.name};
+      }else{
+        const fd=new FormData();
+        fd.append('file',file.file,file.name);
+        const upRes=await fetch(API+'/upload',{method:'POST',body:fd});
+        const upJson=await upRes.json();
+        if(upJson.draftId)body.context={draftId:upJson.draftId};
+      }
+    }
+    const resp=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const readerBody=resp.body.getReader();const decoder=new TextDecoder();let buf='',full='';
+    while(true){
+      const{done,value}=await readerBody.read();if(done)break;
+      buf+=decoder.decode(value,{stream:true});
+      const parts=buf.split('\n');buf=parts.pop()||'';
+      for(const line of parts){
+        if(!line.startsWith('data: '))continue;
+        const data=line.substring(6);
+        if(data==='[DONE]'){_chatLoading=false;if(sendBtn)sendBtn.style.opacity='1';break;}
+        try{const p=JSON.parse(data);if(p.content){full+=p.content;const bot=document.getElementById(botId);if(bot&&bot.querySelector('.avatar').nextElementSibling)bot.querySelector('.avatar').nextElementSibling.innerHTML=`<div style="line-height:1.7;">${simpleMarkdown(full)}</div>`;msgs.scrollTop=msgs.scrollHeight;}}catch(e){}
+      }
+    }
+  }catch(e){
+    const bot=document.getElementById(botId);
+    if(bot)bot.querySelector('.avatar').nextElementSibling.innerHTML='<div style="line-height:1.7;color:var(--accent);">抱歉，AI 回复出错，请重试。</div>';
+  }finally{_chatLoading=false;if(sendBtn)sendBtn.style.opacity='1';}
 }
-
+async function startReflectionChat(){
+  const msgs=document.getElementById('chat-messages'),empty=msgs.querySelector('.empty-state');if(empty)empty.remove();
+  const botId='refl-'+Date.now();
+  msgs.innerHTML+=`<div class="chat-msg-row" id="${botId}"><div class="avatar" style="width:34px;height:34px;background:#D97706;font-size:16px;">💡</div><div class="chat-msg-bot"><div style="font-size:14px;color:var(--text3);padding:8px 2px;">思考中...</div></div></div>`;
+  msgs.scrollTop=msgs.scrollHeight;_reflGenActive=true;
+  try{
+    const resp=await fetch(API+'/ai/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent:'reflection_mind',message:'请根据我的学习数据，生成本周的学习反思报告。'})});
+    const reader=resp.body.getReader();const decoder=new TextDecoder();let buf='',full='';
+    while(true){
+      const{done,value}=await reader.read();if(done)break;
+      buf+=decoder.decode(value,{stream:true});
+      const parts=buf.split('\n');buf=parts.pop()||'';
+      for(const line of parts){
+        if(!line.startsWith('data: '))continue;
+        const data=line.substring(6);
+        if(data==='[DONE]')break;
+        try{const p=JSON.parse(data);if(p.content){full+=p.content;const bot=document.getElementById(botId);if(bot&&bot.querySelector('.avatar').nextElementSibling)bot.querySelector('.avatar').nextElementSibling.innerHTML=`<div style="line-height:1.7;">${simpleMarkdown(full)}</div>`;msgs.scrollTop=msgs.scrollHeight;}}catch(e){}
+      }
+    }
+  }catch(e){
+    const bot=document.getElementById(botId);
+    if(bot)bot.querySelector('.avatar').nextElementSibling.innerHTML='<div style="line-height:1.7;color:var(--accent);">抱歉，反思报告生成出错，请重试。</div>';
+  }finally{_reflGenActive=false;}
+}
 // ── TAB 4: COMMUNITY ──
 function switchComTab(tab){
   comSubTab=tab;
@@ -972,7 +1753,7 @@ async function loadProfile(){
     _profileReflectionsData = rr.data || [];
     document.getElementById('profile-stats').style.gridTemplateColumns='repeat(2,1fr)';
     document.getElementById('profile-stats').innerHTML=`<div class="stat-card"><div class="num" style="color:var(--primary);">${tags}</div><div class="label">知识标签</div></div><div class="stat-card"><div class="num" style="color:var(--pri-light);">${reflCount}</div><div class="label">学习反思</div></div>`;
-    document.getElementById('style-status').textContent=sr.data?.general_preference?'已设置':'未设置';
+    document.getElementById('style-status').textContent=_nhStylePrefs?'已设置 · '+_nhStylePrefs.split(/[\\n。，]/)[0].substring(0,20)+'...':'未设置';
     document.querySelector('#mi-reflections .mi-badge').textContent=reflCount||'0';
     const badge=document.querySelector('#mi-reflections .mi-badge');if(badge)badge.textContent=reflCount||'0';
     const refls=_profileReflectionsData.slice(0,3);
@@ -981,41 +1762,128 @@ async function loadProfile(){
   }catch(e){document.getElementById('profile-stats').innerHTML='<div class="stat-card" style="grid-column:1/-1;"><div class="label">加载失败</div></div>';}
 }
 
+let _reflPeriod = '7days';
 function showReflectionsModal(){
   let h=`<h3>📊 学习反思助手</h3>
     <div class="meta-text" style="margin-bottom:14px;">选择时间段，自动生成学习反思报告</div>
     <div class="segmented" style="margin-bottom:14px;" id="refl-period">
-      <button class="seg-item active" onclick="selectReflPeriod('week',this)">本周</button>
-      <button class="seg-item" onclick="selectReflPeriod('month',this)">本月</button>
-      <button class="seg-item" onclick="selectReflPeriod('semester',this)">本学期</button>
+      <button class="seg-item" onclick="selectReflPeriod('3days',this)">近三天</button>
+      <button class="seg-item active" onclick="selectReflPeriod('7days',this)">近一周</button>
+      <button class="seg-item" onclick="selectReflPeriod('30days',this)">近一个月</button>
     </div>
-    <div style="display:flex;align-items:center;justify-content:space-between;background:var(--card);border-radius:16px;padding:14px 18px;margin-bottom:14px;box-shadow:var(--neu-raised-sm);">
-      <div><div style="font-size:14px;font-weight:700;color:var(--text);">启用反思助手</div><div class="meta-text">自动分析学习记录并生成报告</div></div>
-      <label style="width:48px;height:28px;background:var(--border);border-radius:14px;cursor:pointer;position:relative;transition:background 0.2s;box-shadow:var(--neu-pressed);" id="refl-toggle-label">
-        <input type="checkbox" style="display:none;" id="refl-toggle" onchange="toggleReflAssistant(this)">
-        <span style="position:absolute;top:2px;left:2px;width:24px;height:24px;border-radius:12px;background:white;transition:left 0.2s;box-shadow:var(--neu-raised-sm);" id="refl-toggle-knob"></span>
-      </label>
-    </div>
+    <button class="btn btn-primary" style="width:100%;margin-bottom:14px;" onclick="generateReflectionFromModal()">🤖 生成反思报告</button>
+    <div id="refl-stream-area" style="display:none;background:var(--surface);border-radius:14px;border:1px solid var(--border);margin-bottom:14px;max-height:300px;overflow-y:auto;padding:14px;font-size:13px;line-height:1.7;color:var(--text);"></div>
     <div class="section-title">已有反思报告</div>`;
-  if(!_profileReflectionsData.length)h+='<div style="text-align:center;padding:16px;color:var(--text3);font-size:13px;">暂无反思报告 — 开启助手后自动生成</div>';
+  if(!_profileReflectionsData.length)h+='<div style="text-align:center;padding:16px;color:var(--text3);font-size:13px;">暂无反思报告</div>';
   else _profileReflectionsData.forEach(r=>{
-    h+=`<div style="background:var(--bg);border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:var(--neu-raised-sm);">
+    h+=`<div style="background:var(--bg);border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:var(--neu-raised-sm);cursor:pointer;" onclick="viewReflectionDetail(${r.id})">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
         <div style="font-size:14px;font-weight:700;color:var(--text);">${esc(r.period_label||'反思报告')}</div>
-        <span class="tag" style="background:var(--pri-pale);color:var(--primary);">${esc(r.period_type||'weekly')}</span>
+        <span class="tag" style="background:var(--pri-pale);color:var(--primary);">${esc(r.period||'weekly')}</span>
       </div>
-      <div style="font-size:13px;color:var(--text2);line-height:1.7;max-height:100px;overflow-y:auto;">${esc(r.content||r.papercore||'').substring(0,300)}</div>
-      <div class="meta-text" style="margin-top:8px;">${fmtDate(r.created_at)}</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.7;max-height:80px;overflow:hidden;">${simpleMarkdown((r.learning_behavior||r.papercore||'').substring(0,200))}</div>
+      <div class="meta-text" style="margin-top:6px;">${fmtDate(r.created_at)}</div>
     </div>`;
   });
   showAppModal(h);
-  // Load assistant state
-  safeFetch(API+'/papernote-style').then(r=>r.ok?r.json():{data:{}}).then(j=>{
-    const style=j.data||{};const enabled=style.reflection_enabled;
-    const tog=document.getElementById('refl-toggle');if(tog)tog.checked=enabled;
-    const l=document.getElementById('refl-toggle-label');if(l&&enabled)l.style.background='var(--primary)';
-    const k=document.getElementById('refl-toggle-knob');if(k&&enabled)k.style.left='22px';
-  }).catch(()=>{});
+}
+function selectReflPeriod(period,btn){
+  _reflPeriod=period;
+  document.querySelectorAll('#refl-period button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+async function generateReflectionFromModal(){
+  if(_reflGenActive)return;
+  _reflGenActive=true;
+  const streamArea=document.getElementById('refl-stream-area');
+  streamArea.style.display='block';streamArea.innerHTML='<div style="color:var(--text3);font-style:italic;">正在连接 AI 服务...</div>';
+  const genBtn=document.querySelector('#app-modal .btn-primary[onclick*="generateReflection"]');
+  if(genBtn){genBtn.style.opacity='0.5';genBtn.textContent='⏳ 生成中...';}
+  try{
+    const resp=await fetch(API+'/ai/generate-reflection',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({period:_reflPeriod})});
+    if(!resp.ok)throw new Error('HTTP '+resp.status);
+    const reader=resp.body.getReader();const decoder=new TextDecoder();let buf='',full='';
+    streamArea.innerHTML='';
+    while(true){
+      const{done,value}=await reader.read();if(done)break;
+      buf+=decoder.decode(value,{stream:true});
+      const parts=buf.split('\n');buf=parts.pop()||'';
+      for(const line of parts){
+        if(!line.startsWith('data: '))continue;
+        const data=line.substring(6);
+        if(data==='[DONE]')continue;
+        try{
+          const p=JSON.parse(data);
+          if(p.content){full+=p.content;streamArea.innerHTML=simpleMarkdown(full);streamArea.scrollTop=streamArea.scrollHeight;}
+          if(p.done&&p.reflection){
+            streamArea.innerHTML+='<div style="margin-top:16px;padding:12px;background:var(--success);color:white;border-radius:12px;text-align:center;">✓ 反思报告已保存！</div>';
+            setTimeout(()=>{closeAppModal();loadProfile();},1500);
+          }
+        }catch(e){}
+      }
+    }
+  }catch(e){
+    streamArea.innerHTML='<div style="color:var(--accent);">生成失败: '+esc(e.message)+'</div>';
+  }finally{
+    _reflGenActive=false;
+    if(genBtn){genBtn.style.opacity='1';genBtn.textContent='🤖 生成反思报告';}
+  }
+}
+function getDaysFromPeriod(period){
+  if(period&&period.includes('3'))return 3;
+  if(period&&period.includes('30'))return 30;
+  return 7;
+}
+function viewReflectionDetail(id){
+  safeFetch(API+'/reflections/'+id).then(r=>r.ok?r.json():Promise.reject()).then(json=>{
+    const r=json.data||json;
+    const days=getDaysFromPeriod(r.period||'7days');
+    // 统计锚定报告生成时间，与 App 详情页一致
+    return safeFetch(API+'/problem-solving-logs/stats?days='+days+'&endDate='+encodeURIComponent(r.created_at||Date.now()))
+      .then(sr=>sr.ok?sr.json():Promise.resolve({data:{daily:{},total:0}}))
+      .then(statsJson=>{
+        const stats=statsJson.data||{daily:{},total:0};
+        renderReflectionDetail(r, stats, days);
+      });
+  }).catch(()=>showAppModal('<h3>📊 反思报告</h3><div style="text-align:center;padding:20px;color:var(--text3);">加载失败</div>'));
+}
+function renderReflectionDetail(r, stats, days){
+  const periodLabel=r.period&&r.period.includes('3')?'近三天':r.period&&r.period.includes('30')?'近一个月':'近一周';
+  const daily=stats.daily||{};
+  const sections=[
+    {t:'学习行为', c:r.learning_behavior, color:'#6C63FF', icon:'🧠'},
+    {t:'攻克问题', c:r.challenge_report, color:'#00B894', icon:'✅'},
+    {t:'思维模式', c:r.thinking_pattern, color:'#FF6B9D', icon:'💭'},
+    {t:'学习建议', c:r.suggestion, color:'#FDCB6E', icon:'💡'},
+  ];
+  const bars=[];
+  for(let i=days-1;i>=0;i--){
+    const d=new Date(r.created_at||Date.now());d.setDate(d.getDate()-i);
+    const key=d.toISOString().split('T')[0];
+    bars.push({key:key.slice(5), count:daily[key]||0});
+  }
+  const max=Math.max(1,...bars.map(b=>b.count));
+  const showLabel = (i) => days <= 7 || i % 5 === 0;
+  const barsHtml=bars.map((b,i)=>`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0;">
+    <div style="width:100%;max-width:16px;height:${Math.max(3,Math.round((b.count/max)*58))}px;background:${b.count>0?'var(--primary)':'var(--border)'};border-radius:4px 4px 2px 2px;" title="${b.key}: ${b.count}"></div>
+    ${showLabel(i)?`<div style="font-size:8px;color:var(--text3);white-space:nowrap;">${b.key}</div>`:''}
+  </div>`).join('');
+  const activeDays=Object.values(daily).filter(v=>v>0).length;
+  showAppModal(`<h3>📊 反思报告</h3>
+    <div style="margin-bottom:12px;"><span class="tag" style="background:var(--pri-pale);color:var(--primary);">${periodLabel}</span><span class="tag" style="margin-left:6px;background:var(--bg);color:var(--text3);">${fmtDate(r.created_at)}</span></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+      <div class="stat-card"><div class="num" style="color:var(--primary);">${stats.total||0}</div><div class="label">${periodLabel}提问</div></div>
+      <div class="stat-card"><div class="num" style="color:var(--success);">${activeDays}</div><div class="label">活跃天数</div></div>
+    </div>
+    <div style="background:var(--surface);border-radius:14px;padding:12px;margin-bottom:14px;box-shadow:var(--neu-raised-sm);">
+      <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px;">Q&A 活跃度</div>
+      <div style="display:flex;align-items:flex-end;gap:3px;height:76px;">${barsHtml}</div>
+    </div>
+    ${sections.map(s=>`<div style="background:var(--surface);border-radius:14px;padding:14px;margin-bottom:10px;border-left:4px solid ${s.color};box-shadow:var(--neu-raised-sm);">
+      <div style="font-size:14px;font-weight:700;color:${s.color};margin-bottom:6px;">${s.icon} ${s.t}</div>
+      <div class="body-text" style="line-height:1.8;">${simpleMarkdown(s.c||'（内容缺失）')}</div>
+    </div>`).join('')}
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;"><button class="btn btn-neu" onclick="closeAppModal()">关闭</button></div>`);
 }
 function selectReflPeriod(period,btn){
   document.querySelectorAll('#refl-period button').forEach(b=>b.classList.remove('active'));
@@ -1054,6 +1922,1930 @@ async function saveStylePreference(){
 checkConn();
 loadControlCenter();
 setupGraphInteraction();
+
+// ═══════════════════════════════════════════
+// FULLSCREEN NOTE VIEWER (sticky-note style)
+// ═══════════════════════════════════════════
+let _fsNoteId = null;
+let _fsNoteType = 'study_note';
+
+async function viewNoteFullscreen(id, title) {
+  _fsNoteId = id; _fsNoteType = 'study_note';
+  const overlay = document.getElementById('fs-note');
+  document.getElementById('fs-note-title').textContent = title || '学习纪要';
+  document.getElementById('fs-note-body').innerHTML = '<div style="text-align:center;padding:40px 0;"><div class="spinner"></div></div>';
+  overlay.classList.add('show');
+
+  try {
+    const res = await safeFetch(API + '/study-notes/' + id);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    const note = json.data || json;
+    const content = note.content || '';
+    const blocks = note.blocks || [];
+    const papercore = note.papercore || '';
+    const tags = note.tags || [];
+    const path = fmtPath(note.logical_path);
+
+    let html = '';
+
+    // Render blocks if available
+    if (blocks && blocks.length > 0) {
+      blocks.forEach(b => {
+        if (b.type === 'text') {
+          html += '<div class="sticky-note">' + simpleMarkdown(b.content || '') + '</div>';
+        } else if (b.type === 'image') {
+          html += '<div class="sticky-note"><img src="' + esc(b.uri) + '" style="max-width:100%;border-radius:8px;" alt="' + esc(b.name||'') + '"/></div>';
+        }
+      });
+    } else if (content) {
+      // Render raw content as sticky note
+      html += '<div class="sticky-note">' + simpleMarkdown(content) + '</div>';
+    }
+
+    // Papercore summary
+    if (papercore) {
+      html += '<div class="card" style="margin-bottom:14px;"><div class="section-title">AI 摘要</div><div class="body-text" style="line-height:1.7;">' + simpleMarkdown(papercore) + '</div></div>';
+    }
+
+    // Tags and path
+    if (tags.length > 0) {
+      html += '<div style="margin-bottom:14px;">' + tags.map(t => '<span class="tag" style="background:var(--pri-pale);color:var(--primary);margin-right:6px;margin-bottom:6px;">' + esc(t) + '</span>').join('') + '</div>';
+    }
+
+    document.getElementById('fs-note-body').innerHTML = html || '<div class="empty-state"><div class="empty-icon">📝</div><div class="empty-title">暂无内容</div></div>';
+
+    // Mark as viewed
+    safeFetch(API + '/control-center/mark-viewed', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'study_note', id }) }).catch(() => {});
+
+    // Show NoteHelper FAB
+    document.getElementById('nh-fab').classList.add('show');
+    document.getElementById('fs-nh-btn').style.display = 'inline-flex';
+  } catch (e) {
+    document.getElementById('fs-note-body').innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">加载失败</div><div class="empty-desc">' + esc(e.message) + '</div></div>';
+  }
+}
+
+function closeFullscreenNote() {
+  document.getElementById('fs-note').classList.remove('show');
+  document.getElementById('nh-fab').classList.remove('show');
+  _fsNoteId = null;
+}
+
+// ═══════════════════════════════════════════
+// FULLSCREEN MATERIAL VIEWER (PDF/text)
+// ═══════════════════════════════════════════
+let _fsMatId = null;
+
+async function viewMaterialFullscreen(id, title) {
+  _fsMatId = id; _fsNoteType = 'material';
+  const overlay = document.getElementById('fs-material');
+  document.getElementById('fs-mat-title').textContent = title || '学习资料';
+  document.getElementById('fs-mat-body').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;flex:1;"><div class="spinner"></div></div>';
+  overlay.classList.add('show');
+
+  try {
+    const [fcRes, matRes] = await Promise.all([
+      safeFetch(API + '/materials/' + id + '/file-content'),
+      safeFetch(API + '/materials').then(r => r.ok ? r.json() : Promise.resolve({ data: [] }))
+    ]);
+
+    if (!fcRes.ok) throw new Error('HTTP ' + fcRes.status);
+    const fc = await fcRes.json();
+    const data = fc.data || fc;
+    const fileType = (data.fileType || '').toUpperCase();
+    const viewUrl = data.viewUrl || '';
+
+    // Find metadata from materials list
+    let papercore = '', tags = [], logicalPath = '';
+    if (matRes) {
+      const matData = (matRes.data || matRes).data || matRes.data || [];
+      const found = Array.isArray(matData) ? matData.find(m => m.id === id) : null;
+      if (found) {
+        papercore = found.papercore || '';
+        tags = found.tags || [];
+        logicalPath = found.logical_path || '';
+      }
+    }
+
+    // Show NoteHelper FAB
+    document.getElementById('nh-fab').classList.add('show');
+    document.getElementById('fs-mat-nh-btn').style.display = 'inline-flex';
+
+    let html = '';
+
+    // PDF viewer
+    if (fileType === 'PDF' && viewUrl) {
+      const fullUrl = viewUrl.startsWith('http') ? viewUrl : 'http://localhost:9091' + viewUrl;
+      html = '<iframe class="pdf-frame" src="' + fullUrl + '" style="flex:1;min-height:500px;"></iframe>';
+    }
+    // Textual content
+    else if (data.pages && data.pages.length > 0) {
+      html += '<div style="padding:10px 18px;overflow-y:auto;flex:1;">';
+      html += '<div class="mat-text-pages">';
+      data.pages.forEach((page, i) => {
+        html += (i > 0 ? '<div class="page-sep">— 第 ' + (i + 1) + ' 页 —</div>' : '');
+        html += '<p style="margin-bottom:12px;">' + esc(typeof page === 'string' ? page : (page.text || '')) + '</p>';
+      });
+      html += '</div></div>';
+    } else {
+      html += '<div class="empty-state"><div class="empty-icon">📄</div><div class="empty-title">暂无可预览内容</div><div class="empty-desc">此文件类型不支持在线预览</div></div>';
+    }
+
+    // Papercore & tags footer
+    if (papercore || tags.length > 0) {
+      html += '<div style="padding:14px 18px;border-top:1px solid var(--border);flex-shrink:0;max-height:180px;overflow-y:auto;">';
+      if (papercore) html += '<div class="section-title">AI 摘要</div><div class="body-text" style="font-size:13px;line-height:1.7;margin-bottom:8px;">' + simpleMarkdown(papercore) + '</div>';
+      if (tags.length > 0) html += tags.map(t => '<span class="tag" style="background:var(--pri-pale);color:var(--primary);margin-right:4px;">' + esc(t) + '</span>').join('');
+      html += '</div>';
+    }
+
+    document.getElementById('fs-mat-body').innerHTML = html;
+
+    // Mark as viewed
+    safeFetch(API + '/control-center/mark-viewed', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'material', id }) }).catch(() => {});
+
+  } catch (e) {
+    document.getElementById('fs-mat-body').innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">加载失败</div><div class="empty-desc">' + esc(e.message) + '</div></div>';
+  }
+}
+
+function closeFullscreenMaterial() {
+  document.getElementById('fs-material').classList.remove('show');
+  document.getElementById('nh-fab').classList.remove('show');
+  _fsMatId = null;
+}
+
+// ═══════════════════════════════════════════
+// NOTE HELPER: AI generation FAB + Panel
+// ═══════════════════════════════════════════
+let _nhGenAbort = null;
+
+function triggerNoteHelper() {
+  // NoteHelper panel opens on top (z-index 105 > fs-overlay 100)
+  openNoteHelperPanel();
+}
+
+function openNoteHelperPanel() {
+  const panel = document.getElementById('nh-panel-mask');
+  panel.classList.add('show');
+  document.getElementById('nh-fab').classList.remove('show');
+  document.getElementById('nh-panel-loading').style.display = 'block';
+  document.getElementById('nh-panel-result').style.display = 'none';
+  document.getElementById('nh-panel-actions').innerHTML = '';
+  // Update style preview in panel
+  const preview = document.getElementById('nh-panel-style-preview');
+  if (preview) {
+    preview.textContent = _nhStylePrefs ? '已设置: ' + _nhStylePrefs.substring(0, 30) + '...' : '未设置风格偏好';
+  }
+  generateNoteStream();
+}
+
+function closeNoteHelperPanel(e) {
+  if (e && e.target !== document.getElementById('nh-panel-mask')) return;
+  document.getElementById('nh-panel-mask').classList.remove('show');
+  if (_nhGenAbort) { _nhGenAbort.abort(); _nhGenAbort = null; }
+}
+
+function openNHStyleFromPanel() {
+  // Close NH panel, then open the dedicated style memo page
+  closeNoteHelperPanel();
+  setTimeout(() => openStyleMemo(), 350);
+}
+
+async function generateNoteStream() {
+  const sourceIds = [];
+  if (_fsNoteId) sourceIds.push({ id: _fsNoteId, type: _fsNoteType || 'study_note' });
+  if (_fsMatId && _fsMatId !== _fsNoteId) sourceIds.push({ id: _fsMatId, type: 'material' });
+
+  if (!sourceIds.length) {
+    document.getElementById('nh-panel-loading').style.display = 'none';
+    document.getElementById('nh-panel-result').style.display = 'block';
+    document.getElementById('nh-panel-result').innerHTML = '<div class="meta-text" style="text-align:center;padding:20px;">请先打开一份学习纪要或资料，再使用 AI 生成笔记。</div>';
+    return;
+  }
+
+  _nhGenAbort = new AbortController();
+  const resultEl = document.getElementById('nh-panel-result');
+  const loadingEl = document.getElementById('nh-panel-loading');
+
+  try {
+    const res = await fetch(API + '/ai/generate-note', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sourceIds }),
+      signal: _nhGenAbort.signal
+    });
+
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+
+    loadingEl.style.display = 'none';
+    resultEl.style.display = 'block';
+    resultEl.innerHTML = '<span class="generating-cursor"></span>';
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let fullContent = '';
+    let citations = [];
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6).trim();
+          if (data === '[DONE]') break;
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.content) {
+              fullContent += parsed.content;
+              resultEl.innerHTML = simpleMarkdown(fullContent) + '<span class="generating-cursor"></span>';
+              resultEl.scrollTop = resultEl.scrollHeight;
+            }
+            if (parsed.citations) citations = parsed.citations;
+          } catch {}
+        }
+      }
+    }
+
+    resultEl.innerHTML = simpleMarkdown(fullContent);
+    resultEl.classList.remove('generating-cursor');
+
+    // Show actions
+    document.getElementById('nh-panel-actions').innerHTML = `
+      <button class="btn btn-primary" style="font-size:13px;padding:8px 18px;border-radius:14px;" onclick="saveGeneratedNote()">📝 保存为笔记</button>
+      <button class="btn btn-neu" style="font-size:13px;padding:8px 18px;border-radius:14px;" onclick="refineGeneratedNote()">🔄 优化</button>
+      <button class="btn btn-neu" style="font-size:13px;padding:8px 18px;border-radius:14px;" onclick="openRefineInput()">✏️ 自定义修改</button>
+    `;
+    window._nhGeneratedContent = fullContent;
+    window._nhCitations = citations;
+
+  } catch (e) {
+    if (e.name === 'AbortError') return;
+    loadingEl.style.display = 'none';
+    resultEl.style.display = 'block';
+    resultEl.innerHTML = '<div style="text-align:center;color:var(--text2);padding:20px;">生成失败: ' + esc(e.message) + '<br/><button class="btn btn-neu" style="margin-top:10px;" onclick="generateNoteStream()">重试</button></div>';
+  }
+}
+
+async function saveGeneratedNote() {
+  const content = window._nhGeneratedContent;
+  if (!content) return;
+  try {
+    const title = content.split(/[\n。]/)[0].substring(0, 50);
+    const res = await safeFetch(API + '/study-notes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, content, blocks: [{ id: '1', type: 'text', content }] })
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    const newId = json.data?.id || json.id;
+    closeNoteHelperPanel();
+    if (newId) {
+      updateStyleFromSession();
+      setTimeout(() => viewNoteFullscreen(newId, title), 400);
+    }
+  } catch (e) { alert('保存失败: ' + e.message); }
+}
+
+async function refineGeneratedNote() {
+  const content = window._nhGeneratedContent;
+  if (!content) return;
+  document.getElementById('nh-panel-result').innerHTML = '<span class="generating-cursor"></span>';
+  document.getElementById('nh-panel-loading').style.display = 'none';
+  document.getElementById('nh-panel-actions').innerHTML = '';
+
+  const sourceIds = [];
+  if (_fsNoteId) sourceIds.push({ id: _fsNoteId, type: _fsNoteType || 'study_note' });
+
+  try {
+    const res = await fetch(API + '/ai/refine-note', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentNote: content, refinementPrompt: '请优化这段笔记，使其更加详细且结构清晰，添加更多细节和例子。', sourceIds })
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '', fullContent = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6).trim();
+          if (data === '[DONE]') break;
+          try { const p = JSON.parse(data); if (p.content) { fullContent += p.content; document.getElementById('nh-panel-result').innerHTML = simpleMarkdown(fullContent) + '<span class="generating-cursor"></span>'; } } catch {}
+        }
+      }
+    }
+    document.getElementById('nh-panel-result').innerHTML = simpleMarkdown(fullContent);
+    window._nhGeneratedContent = fullContent;
+    document.getElementById('nh-panel-actions').innerHTML = `
+      <button class="btn btn-primary" style="font-size:13px;padding:8px 18px;border-radius:14px;" onclick="saveGeneratedNote()">📝 保存为笔记</button>
+      <button class="btn btn-neu" style="font-size:13px;padding:8px 18px;border-radius:14px;" onclick="refineGeneratedNote()">🔄 再优化</button>
+    `;
+  } catch (e) {
+    document.getElementById('nh-panel-result').innerHTML = '<div style="text-align:center;color:var(--text2);padding:20px;">优化失败: ' + esc(e.message) + '</div>';
+  }
+}
+
+function openRefineInput() {
+  const prompt = prompt('请输入修改要求（例如：更详细、添加表格、举例说明）', '请更详细地展开，添加更多示例');
+  if (!prompt) return;
+  document.getElementById('nh-panel-result').innerHTML = '<span class="generating-cursor"></span>';
+  document.getElementById('nh-panel-actions').innerHTML = '';
+
+  const content = window._nhGeneratedContent || '';
+  const sourceIds = [];
+  if (_fsNoteId) sourceIds.push({ id: _fsNoteId, type: _fsNoteType || 'study_note' });
+
+  fetch(API + '/ai/refine-note', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ currentNote: content, refinementPrompt: prompt, sourceIds })
+  }).then(async res => {
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '', fullContent = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const data = line.slice(6).trim();
+        if (data === '[DONE]') break;
+        try { const p = JSON.parse(data); if (p.content) { fullContent += p.content; document.getElementById('nh-panel-result').innerHTML = simpleMarkdown(fullContent) + '<span class="generating-cursor"></span>'; } } catch {}
+      }
+    }
+    document.getElementById('nh-panel-result').innerHTML = simpleMarkdown(fullContent);
+    window._nhGeneratedContent = fullContent;
+    document.getElementById('nh-panel-actions').innerHTML = `
+      <button class="btn btn-primary" style="font-size:13px;padding:8px 18px;border-radius:14px;" onclick="saveGeneratedNote()">📝 保存为笔记</button>
+      <button class="btn btn-neu" style="font-size:13px;padding:8px 18px;border-radius:14px;" onclick="refineGeneratedNote()">🔄 再优化</button>
+    `;
+  }).catch(e => {
+    document.getElementById('nh-panel-result').innerHTML = '<div style="text-align:center;color:var(--text2);padding:20px;">修改失败: ' + esc(e.message) + '</div>';
+  });
+}
+
+// ═══════════════════════════════════════════
+// CREATE NOTE & UPLOAD MATERIAL
+// ═══════════════════════════════════════════
+function openCreateNote() {
+  document.getElementById('cn-title').value = '';
+  document.getElementById('cn-content').value = '';
+  document.getElementById('cn-path').value = '';
+  document.getElementById('create-note-mask').classList.add('show');
+}
+function closeCreateNote() { document.getElementById('create-note-mask').classList.remove('show'); }
+
+async function submitCreateNote() {
+  const title = document.getElementById('cn-title').value.trim();
+  const content = document.getElementById('cn-content').value.trim();
+  const path = document.getElementById('cn-path').value.trim();
+  if (!title && !content) { alert('请输入标题或内容'); return; }
+
+  const btn = document.getElementById('cn-submit-btn');
+  btn.textContent = '保存中...'; btn.disabled = true;
+
+  try {
+    const body = { title: title || '未命名笔记', content, blocks: [{ id: '1', type: 'text', content }] };
+    if (path) body.logical_path = JSON.stringify([path.endsWith('/') ? path : path + '/']);
+
+    const res = await safeFetch(API + '/study-notes', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    const newId = json.data?.id || json.id;
+    closeCreateNote();
+    // Trigger AI processing
+    if (newId) {
+      safeFetch(API + '/knowledge-builder/process-content', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'study_note', id: newId })
+      }).catch(() => {});
+    }
+    refreshCurrentTab();
+  } catch (e) { alert('保存失败: ' + e.message); }
+  finally { btn.textContent = '保存'; btn.disabled = false; }
+}
+
+function openUploadMaterial() {
+  _selectedFile = null;
+  document.getElementById('um-file').value = '';
+  document.getElementById('um-title').value = '';
+  document.getElementById('um-path').value = '';
+  document.getElementById('um-path-display').textContent = '点击选择分类路径';
+  document.getElementById('um-folder-select').classList.remove('has-value');
+  document.getElementById('um-file-info').classList.remove('show');
+  document.getElementById('um-file-info').textContent = '';
+  document.getElementById('um-dropzone').classList.remove('has-file');
+  document.getElementById('um-dropzone').querySelector('.upload-dropzone-icon').textContent = '📂';
+  document.getElementById('um-dropzone').querySelector('.upload-dropzone-text').textContent = '点击选择文件';
+  document.getElementById('um-folder-list').style.display = 'none';
+  document.getElementById('um-folder-arrow').textContent = '▼';
+  document.getElementById('um-progress').style.display = 'none';
+  document.getElementById('upload-mat-mask').classList.add('show');
+}
+function closeUploadMaterial() { document.getElementById('upload-mat-mask').classList.remove('show'); }
+
+let _umFolderPickerOpen = false;
+async function toggleUmFolderPicker() {
+  const list = document.getElementById('um-folder-list');
+  const arrow = document.getElementById('um-folder-arrow');
+  _umFolderPickerOpen = !_umFolderPickerOpen;
+  if (_umFolderPickerOpen) {
+    list.style.display = 'block';
+    arrow.textContent = '▲';
+    await loadUmFolderPicker();
+  } else {
+    list.style.display = 'none';
+    arrow.textContent = '▼';
+  }
+}
+
+async function loadUmFolderPicker() {
+  const list = document.getElementById('um-folder-list');
+  list.innerHTML = '<div style="text-align:center;padding:14px;color:var(--text3);font-size:12px;">加载文件夹结构...</div>';
+  try {
+    // Collect paths from actual records + knowledge graph
+    const paths = new Set();
+
+    // Source 1: Actual file/folder structure from recent records
+    try {
+      const recRes = await safeFetch(API + '/control-center/recent-records?limit=200');
+      if (recRes.ok) {
+        const recJson = await recRes.json();
+        const records = recJson.data || [];
+        records.forEach(rec => {
+          let path = rec.logical_path || '';
+          try { const p = JSON.parse(path); if (Array.isArray(p) && p.length > 0) path = p[0]; } catch {}
+          path = path.replace(/^\[?"?\/?/, '/').replace(/\/?"?\]?$/, '/');
+          const parts = path.split('/').filter(Boolean);
+          let cur = '';
+          parts.forEach(part => { cur += '/' + part; paths.add(cur + '/'); });
+        });
+      }
+    } catch {}
+
+    // Source 2: Knowledge graph categories (may exist without records)
+    try {
+      const graphRes = await safeFetch(API + '/knowledge-builder/graph-data');
+      if (graphRes.ok) {
+        const graphJson = await graphRes.json();
+        const graphData = graphJson.data || graphJson;
+        const nodes = graphData.nodes || [];
+        nodes.forEach(n => {
+          if (n.logicalPath && n.depth >= 1) {
+            const parts = n.logicalPath.split('/').filter(Boolean);
+            let cur = '';
+            parts.forEach(part => { cur += '/' + part; paths.add(cur + '/'); });
+          }
+        });
+      }
+    } catch {}
+
+    if (paths.size === 0) {
+      list.innerHTML = '<div style="text-align:center;padding:14px;color:var(--text3);font-size:12px;">暂无分类路径，上传后自动归类</div>';
+      return;
+    }
+
+    // Build tree from flat paths
+    const root = new Map();
+    paths.forEach(p => {
+      const parts = p.split('/').filter(Boolean);
+      let cur = root;
+      let full = '';
+      parts.forEach(part => {
+        full += '/' + part + '/';
+        if (!cur.has(part)) cur.set(part, { name: part, fullPath: full, subs: new Map() });
+        cur = cur.get(part).subs;
+      });
+    });
+
+    const currentPath = document.getElementById('um-path').value;
+    list.innerHTML = renderUmFolderTree(root, 0, currentPath) || '<div style="text-align:center;padding:14px;color:var(--text3);">暂无文件夹</div>';
+
+  } catch (e) {
+    list.innerHTML = '<div style="text-align:center;padding:14px;color:var(--text3);font-size:12px;">加载失败: ' + esc(e.message) + '</div>';
+  }
+}
+
+function renderUmFolderTree(folders, depth, currentPath) {
+  const sorted = [...folders.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  let h = '';
+  sorted.forEach(([key, node]) => {
+    const hasKids = node.subs.size > 0;
+    const selClass = node.fullPath === currentPath ? ' selected' : '';
+    h += '<div class="folder-select-item' + selClass + '" style="padding-left:' + (16 + depth * 22) + 'px;" onclick="selectUmFolder(&quot;' + esc(node.fullPath) + '&quot;, this)">';
+    if (hasKids) {
+      h += '<span class="um-tree-chev" style="font-size:10px;color:var(--text4);width:16px;flex-shrink:0;" onclick="event.stopPropagation();toggleUmTree(this)">▶</span>';
+    } else {
+      h += '<span style="width:16px;flex-shrink:0;"></span>';
+    }
+    h += '<span style="font-size:15px;flex-shrink:0;">📁</span>';
+    h += '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(node.name) + '</span>';
+    h += '</div>';
+    if (hasKids) {
+      h += '<div class="um-tree-kids" style="display:none;">';
+      h += renderUmFolderTree(node.subs, depth + 1, currentPath);
+      h += '</div>';
+    }
+  });
+  return h;
+}
+
+function toggleUmTree(chev) {
+  const kids = chev.parentElement.nextElementSibling;
+  if (!kids || !kids.classList.contains('um-tree-kids')) return;
+  const isHidden = kids.style.display === 'none';
+  kids.style.display = isHidden ? 'block' : 'none';
+  chev.textContent = isHidden ? '▼' : '▶';
+}
+
+function selectUmFolder(path, el) {
+  document.getElementById('um-path').value = path;
+  document.getElementById('um-path-display').textContent = path;
+  document.getElementById('um-folder-select').classList.add('has-value');
+  document.querySelectorAll('.folder-select-item').forEach(i => i.classList.remove('selected'));
+  if (el) el.classList.add('selected');
+  // Close picker after selection
+  setTimeout(() => {
+    document.getElementById('um-folder-list').style.display = 'none';
+    document.getElementById('um-folder-arrow').textContent = '▼';
+    _umFolderPickerOpen = false;
+  }, 150);
+}
+
+let _selectedFile = null;
+function onFileSelected(input) {
+  _selectedFile = input.files[0];
+  if (_selectedFile) {
+    const info = document.getElementById('um-file-info');
+    const sizeKB = (_selectedFile.size / 1024).toFixed(1);
+    info.textContent = '📄 ' + _selectedFile.name + ' (' + sizeKB + ' KB)';
+    info.classList.add('show');
+    const dz = document.getElementById('um-dropzone');
+    dz.classList.add('has-file');
+    dz.querySelector('.upload-dropzone-icon').textContent = '✅';
+    dz.querySelector('.upload-dropzone-text').textContent = _selectedFile.name;
+    if (!document.getElementById('um-title').value) {
+      document.getElementById('um-title').value = _selectedFile.name.replace(/\.[^.]+$/, '');
+    }
+  }
+}
+
+async function submitUploadMaterial() {
+  if (!_selectedFile) { alert('请先选择文件'); return; }
+  const btn = document.getElementById('um-submit-btn');
+  btn.disabled = true; btn.textContent = '上传中...';
+  document.getElementById('um-progress').style.display = 'block';
+  document.getElementById('um-progress-bar').style.width = '30%';
+  document.getElementById('um-progress-text').textContent = '上传中...';
+
+  try {
+    const formData = new FormData();
+    formData.append('file', _selectedFile);
+
+    // title / logical_path 随上传一并提交：服务端 /upload 建 material 时写入，
+    // 避免上传后再 POST /materials 造成一条文件两条记录（issue #7）
+    const title = document.getElementById('um-title').value.trim();
+    const selPath = document.getElementById('um-path').value.trim();
+    if (title) formData.append('title', title);
+    if (selPath) formData.append('logical_path', JSON.stringify([selPath.endsWith('/') ? selPath : selPath + '/']));
+
+    // 上传：服务端同步创建 material 并完成分类（阻塞到分类结束）
+    const uploadRes = await safeFetch(API + '/upload', { method: 'POST', body: formData });
+    if (!uploadRes.ok) {
+      const errText = await uploadRes.text().catch(() => '');
+      throw new Error('文件上传失败 HTTP ' + uploadRes.status + (errText ? ' — ' + errText.slice(0, 120) : ''));
+    }
+    const uploadJson = await uploadRes.json();
+    const { fileUrl, materialId, classification } = uploadJson.data || uploadJson;
+    if (!fileUrl) throw new Error('上传成功但未返回文件路径');
+
+    document.getElementById('um-progress-bar').style.width = '100%';
+    document.getElementById('um-progress-text').textContent = '上传成功';
+
+    if (classification?.error) {
+      console.error('[upload] classification failed:', classification.error);
+      appToast('分类失败（文件已上传，可稍后在资料页重新分析）：' + classification.error, 'error');
+    }
+
+    setTimeout(() => { closeUploadMaterial(); refreshCurrentTab(); }, 600);
+  } catch (e) {
+    console.error('[upload]', e);
+    document.getElementById('um-progress-text').textContent = '失败: ' + e.message;
+    document.getElementById('um-progress-bar').style.background = 'var(--danger,#e74c3c)';
+    setTimeout(() => { alert('上传失败: ' + e.message); }, 200);
+  } finally { btn.disabled = false; btn.textContent = '上传'; }
+}
+
+// ═══════════════════════════════════════════
+// FOLDER VIEW: file moving between folders
+// ═══════════════════════════════════════════
+let _moveFileId = null, _moveFileType = null, _moveSelectedPath = null, _moveFileTitle = null, _moveFileCurrentPath = '/';
+
+function viewFolderDoc(id, type, title) {
+  if (type === 'study_note') viewNoteFullscreen(id, title);
+  else viewMaterialFullscreen(id, title);
+}
+
+// Called from folder doc-row: long press to show move option
+function showMoveFileDialog(id, type, title, currentPath) {
+  _moveFileId = id;
+  _moveFileType = type;
+  _moveFileTitle = title;
+  _moveSelectedPath = null;
+  _moveFileCurrentPath = currentPath || '/';
+  document.getElementById('move-cur-path').textContent = esc(currentPath || '/');
+  document.getElementById('move-submit-btn').disabled = true;
+  document.getElementById('move-file-mask').classList.add('show');
+  loadFolderPicker();
+}
+
+async function loadFolderPicker() {
+  const list = document.getElementById('move-folder-list');
+  list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3);font-size:12px;">加载文件夹结构...</div>';
+  try {
+    // Collect paths from recent records + knowledge graph
+    const paths = new Set();
+
+    // Source 1: recent records
+    try {
+      const recRes = await safeFetch(API + '/control-center/recent-records?limit=200');
+      if (recRes.ok) {
+        const recJson = await recRes.json();
+        const records = recJson.data || [];
+        records.forEach(rec => {
+          let path = rec.logical_path || '';
+          try { const p = JSON.parse(path); if (Array.isArray(p) && p.length > 0) path = p[0]; } catch {}
+          path = path.replace(/^\[?"?\/?/, '/').replace(/\/?"?\]?$/, '/');
+          const parts = path.split('/').filter(Boolean);
+          let cur = '';
+          parts.forEach(part => { cur += '/' + part; paths.add(cur + '/'); });
+        });
+      }
+    } catch {}
+
+    // Source 2: knowledge graph categories
+    try {
+      const graphRes = await safeFetch(API + '/knowledge-builder/graph-data');
+      if (graphRes.ok) {
+        const graphJson = await graphRes.json();
+        const graphData = graphJson.data || graphJson;
+        const nodes = graphData.nodes || [];
+        nodes.forEach(n => {
+          if (n.logicalPath && n.depth >= 1) {
+            const parts = n.logicalPath.split('/').filter(Boolean);
+            let cur = '';
+            parts.forEach(part => { cur += '/' + part; paths.add(cur + '/'); });
+          }
+        });
+      }
+    } catch {}
+
+    if (paths.size === 0) {
+      list.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text3);">暂无文件夹</div>';
+      return;
+    }
+
+    // Build tree from flat paths
+    const root = new Map();
+    paths.forEach(p => {
+      const parts = p.split('/').filter(Boolean);
+      let cur = root;
+      let full = '';
+      parts.forEach(part => {
+        full += '/' + part + '/';
+        if (!cur.has(part)) cur.set(part, { name: part, fullPath: full, subs: new Map() });
+        cur = cur.get(part).subs;
+      });
+    });
+
+    const currentPath = '/' + (_moveFileCurrentPath || '').replace(/^\/+|\/+$/g, '') + '/';
+    list.innerHTML = renderMoveFolderTree(root, 0, currentPath, currentPath);
+
+  } catch (e) {
+    list.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text3);">加载失败: ' + esc(e.message) + '</div>';
+  }
+}
+
+function renderMoveFolderTree(folders, depth, currentPath, fullCurrentPath) {
+  const sorted = [...folders.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  let h = '';
+  sorted.forEach(([key, node]) => {
+    const hasKids = node.subs.size > 0;
+    const selClass = node.fullPath === currentPath ? ' selected' : '';
+    // Auto-expand if current path is under this branch
+    const isAncestor = fullCurrentPath && fullCurrentPath !== '/' && node.fullPath !== '/' && fullCurrentPath.startsWith(node.fullPath);
+    const kidsDisplay = (hasKids && (isAncestor || node.fullPath === '/')) ? 'block' : 'none';
+    const chevChar = (hasKids && (isAncestor || node.fullPath === '/')) ? '▼' : '▶';
+    h += '<div class="folder-select-item' + selClass + '" style="padding-left:' + (14 + depth * 22) + 'px;" onclick="selectMoveFolder(&quot;' + esc(node.fullPath) + '&quot;, this)">';
+    if (hasKids) {
+      h += '<span class="um-tree-chev" style="font-size:10px;color:var(--text4);width:16px;flex-shrink:0;" onclick="event.stopPropagation();toggleUmTree(this)">' + chevChar + '</span>';
+    } else {
+      h += '<span style="width:16px;flex-shrink:0;"></span>';
+    }
+    h += '<span style="font-size:15px;flex-shrink:0;">📁</span>';
+    h += '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(node.name) + '</span>';
+    h += '</div>';
+    if (hasKids) {
+      h += '<div class="um-tree-kids" style="display:' + kidsDisplay + ';">';
+      h += renderMoveFolderTree(node.subs, depth + 1, currentPath, fullCurrentPath);
+      h += '</div>';
+    }
+  });
+  return h;
+}
+
+function selectMoveFolder(path, el) {
+  _moveSelectedPath = path;
+  document.querySelectorAll('#move-folder-list .folder-select-item').forEach(i => i.classList.remove('selected'));
+  if (el) el.classList.add('selected');
+  document.getElementById('move-submit-btn').disabled = false;
+}
+
+async function submitMoveFile() {
+  if (!_moveFileId || !_moveSelectedPath) return;
+  const endpoint = _moveFileType === 'study_note' ? '/study-notes/' : '/materials/';
+  try {
+    const lp = JSON.stringify([_moveSelectedPath]);
+    const res = await safeFetch(API + endpoint + _moveFileId, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ logical_path: lp })
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    closeMoveFile();
+    refreshCurrentTab();
+  } catch (e) { alert('移动失败: ' + e.message); }
+}
+
+function closeMoveFile() {
+  document.getElementById('move-file-mask').classList.remove('show');
+  _moveFileId = null; _moveFileType = null; _moveSelectedPath = null; _moveFileCurrentPath = '/';
+}
+
+
+// ═══════════════════════════════════════════════════
+// ENHANCED MARKDOWN + LATEX RENDERING
+// ═══════════════════════════════════════════════════
+function simpleMarkdown(md) {
+  if (!md) return '';
+  // Escape HTML but NOT backticks or $ (needed for code/LaTeX patterns below)
+  let h = String(md).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+  // LaTeX 先行提取为占位符：避免后续段落/换行转换把 <br/>、<p> 注入公式内部
+  // 支持 $...$ 行内与 $$...$$ 块级（含多行公式）；katex 未加载时保留原始文本
+  const mathSlots = [];
+  const hasKatex = (typeof katex !== 'undefined') && katex && katex.renderToString;
+  function stashMath(tex, display) {
+    if (!hasKatex) return null;
+    try {
+      mathSlots.push(katex.renderToString(tex, { displayMode: display, throwOnError: false }));
+      return '%%MATH_SLOT_' + (mathSlots.length - 1) + '%%';
+    } catch(e) { return null; }
+  }
+  h = h.replace(/\$\$([\s\S]+?)\$\$/g, function(m, tex) { return stashMath(tex, true) || m; });
+  h = h.replace(/\$([^\$\n]+?)\$/g, function(m, tex) { return stashMath(tex, false) || m; });
+
+  // Headers
+  h = h.replace(/^#### (.+)$/gm, '<h4 style="text-align:left;">$1</h4>');
+  h = h.replace(/^### (.+)$/gm, '<h3 style="text-align:left;">$1</h3>');
+  h = h.replace(/^## (.+)$/gm, '<h2 style="text-align:left;">$1</h2>');
+  h = h.replace(/^# (.+)$/gm, '<h1 style="text-align:left;">$1</h1>');
+  // Bold and italic
+  h = h.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  h = h.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  // Inline code
+  h = h.replace(/`([^`]+)`/g, '<code>$1</code>');
+  // Blockquotes
+  h = h.replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>');
+  // Unordered lists
+  h = h.replace(/^[\-\*] (.+)$/gm, '<li>$1</li>');
+  // Ordered lists
+  h = h.replace(/^\d+\. (.+)$/gm, '<li>$1</li>');
+  // Tables
+  h = h.replace(/^\|(.+)\|$/gm, function(m) {
+    const cells = m.split('|').filter(c => c.trim());
+    if (cells.every(c => /^[-:]+$/.test(c.trim()))) return '';
+    const isHeader = m.includes('---');
+    const tag = isHeader ? '' : 'td';
+    return '<tr>' + cells.map(c => '<' + (tag||'th') + '>' + c.trim() + '</' + (tag||'th') + '>').join('') + '</tr>';
+  });
+  // Horizontal rules
+  h = h.replace(/^[-\*_]{3,}$/gm, '<hr style="border:none;border-top:1px solid var(--border);margin:16px 0;">');
+  // Paragraphs
+  h = '<p>' + h.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br/>') + '</p>';
+
+  // 还原公式占位符；块级公式从 <p> 包裹中拆出，避免非法嵌套
+  h = h.replace(/%%MATH_SLOT_(\d+)%%/g, function(_, i) { return mathSlots[+i]; });
+  h = h.replace(/<p>(<span class="katex-display">[\s\S]*?<\/span>)<\/p>/g, '$1');
+
+  return h;
+}
+
+// ═══════════════════════════════════════════════════
+// NOTEHELPER FULLSCREEN
+// ═══════════════════════════════════════════════════
+let _nhFullContent = '';
+let _nhCitations = [];
+let _nhSourceFiles = [];
+let _nhSidebarVisible = false;
+let _nhStylePrefs = localStorage.getItem('papermind_note_style') || '';
+let _nhSessionOriginContent = '';
+let _nhSessionRefinements = [];
+
+function openStyleMemo() {
+  document.getElementById('style-memo-overlay').classList.add('show');
+  document.getElementById('style-memo-textarea').value = _nhStylePrefs;
+  renderStyleMemoHistory();
+  setTimeout(() => document.getElementById('style-memo-textarea').focus(), 300);
+}
+
+function closeStyleMemo() {
+  document.getElementById('style-memo-overlay').classList.remove('show');
+}
+
+function saveStyleMemo() {
+  _nhStylePrefs = document.getElementById('style-memo-textarea').value.trim();
+  localStorage.setItem('papermind_note_style', _nhStylePrefs);
+  updateStylePreview();
+  // Update NH panel preview if visible
+  const nhPreview = document.getElementById('nh-panel-style-preview');
+  if (nhPreview) nhPreview.textContent = _nhStylePrefs ? '已设置: ' + _nhStylePrefs.substring(0, 30) + '...' : '未设置风格偏好';
+  // Update profile page status if loaded
+  const profileStatus = document.getElementById('style-status');
+  if (profileStatus) profileStatus.textContent = _nhStylePrefs ? '已设置 · ' + _nhStylePrefs.split(/[\\n。，]/)[0].substring(0, 20) + '...' : '未设置';
+  document.getElementById('style-memo-overlay').classList.remove('show');
+}
+
+function clearStyleMemo() {
+  if (!confirm('确定清空所有风格偏好（包括自动学习记录）？')) return;
+  _nhStylePrefs = '';
+  localStorage.removeItem('papermind_note_style');
+  document.getElementById('style-memo-textarea').value = '';
+  updateStylePreview();
+  const nhPreview = document.getElementById('nh-panel-style-preview');
+  if (nhPreview) nhPreview.textContent = '未设置风格偏好';
+  const profileStatus = document.getElementById('style-status');
+  if (profileStatus) profileStatus.textContent = '未设置';
+  document.getElementById('style-memo-overlay').classList.remove('show');
+}
+
+function appendStyleHint(text) {
+  const ta = document.getElementById('style-memo-textarea');
+  const current = ta.value.trim();
+  if (current && !current.endsWith('\n')) ta.value = current + '\n';
+  // Avoid duplicating hints
+  if (ta.value.includes(text)) return;
+  ta.value = (ta.value.trim() ? ta.value + '\n' : '') + '• ' + text;
+  ta.focus();
+  ta.setSelectionRange(ta.value.length, ta.value.length);
+}
+
+function renderStyleMemoHistory() {
+  const list = document.getElementById('style-memo-history-list');
+  const container = document.getElementById('style-memo-history');
+  if (!list || !container) return;
+  // Find auto-learning blocks in preferences
+  const blocks = _nhStylePrefs.split(/--- 自动学习 \((\d{4}-\d{2}-\d{2})\) ---/);
+  if (blocks.length <= 1) {
+    container.style.display = 'none';
+    return;
+  }
+  container.style.display = 'block';
+  let html = '';
+  for (let i = 1; i < blocks.length; i += 2) {
+    const date = blocks[i];
+    const content = (blocks[i + 1] || '').trim();
+    if (content) {
+      html += '<div class="history-line"><b>' + date + '</b>: ' + content.replace(/\n/g, ' ').substring(0, 100) + (content.length > 100 ? '...' : '') + '</div>';
+    }
+  }
+  list.innerHTML = html || '<div class="history-line" style="color:var(--text4);">暂无自动学习记录</div>';
+}
+
+// Keep backward compat: these may be called from old code paths
+function toggleNHStylePrefs() { openStyleMemo(); }
+function saveNHStylePrefs() { saveStyleMemo(); }
+function clearNHStylePrefs() { clearStyleMemo(); }
+
+function updateStyleFromSession() {
+  // Analyze this session's editing patterns and append insights to style preferences
+  const refinements = _nhSessionRefinements;
+  if (!refinements || !refinements.length) {
+    // No refinements made — user accepted the AI output as-is
+    // Don't modify preferences if there's nothing to learn
+    return;
+  }
+
+  // Extract patterns from refinement prompts
+  const insights = [];
+  const seen = new Set();
+
+  refinements.forEach(r => {
+    const p = r.prompt;
+    // Detect quick-command patterns
+    if (p.includes('更详细') || p.includes('补充更多解释')) {
+      if (!seen.has('detail')) { insights.push('倾向详细展开，补充解释和背景'); seen.add('detail'); }
+    }
+    if (p.includes('精简') || p.includes('最核心')) {
+      if (!seen.has('concise')) { insights.push('偏好精简表达，聚焦核心知识点'); seen.add('concise'); }
+    }
+    if (p.includes('表格')) {
+      if (!seen.has('table')) { insights.push('偏好使用表格进行概念对比'); seen.add('table'); }
+    }
+    if (p.includes('例子') || p.includes('举例')) {
+      if (!seen.has('example')) { insights.push('期望为概念添加具体例子辅助理解'); seen.add('example'); }
+    }
+    if (p.includes('重点') || p.includes('易错点')) {
+      if (!seen.has('highlight')) { insights.push('需要突出标记重点内容和易错点'); seen.add('highlight'); }
+    }
+    if (p.includes('学术化') || p.includes('学术')) {
+      if (!seen.has('academic')) { insights.push('偏好学术化语言风格'); seen.add('academic'); }
+    }
+    if (p.includes('逻辑') || p.includes('重组')) {
+      if (!seen.has('logic')) { insights.push('注重知识的逻辑流重组'); seen.add('logic'); }
+    }
+    // If none of the preset patterns matched, capture as custom insight
+    if (!seen.has('detail') && !seen.has('concise') && !seen.has('table') &&
+        !seen.has('example') && !seen.has('highlight') && !seen.has('academic') &&
+        !seen.has('logic') && p.length > 0) {
+      // Use first 40 chars of custom prompt as insight
+      const shortPrompt = p.substring(0, 40).replace(/[\n]/g, ' ');
+      if (!seen.has(shortPrompt)) {
+        insights.push('自定义需求：' + shortPrompt + (p.length > 40 ? '...' : ''));
+        seen.add(shortPrompt);
+      }
+    }
+  });
+
+  if (!insights.length) return;
+
+  // Build the new preference block
+  const today = new Date().toISOString().split('T')[0];
+  let newBlock = '\n\n--- 自动学习 (' + today + ') ---\n';
+  insights.forEach(insight => {
+    newBlock += '• ' + insight + '\n';
+  });
+
+  // Append to existing preferences (don't overwrite)
+  const existing = _nhStylePrefs.trim();
+  // Check if we already have an auto-learning block for today — replace it
+  const todayMarker = '--- 自动学习 (' + today + ') ---';
+  const todayIdx = existing.indexOf(todayMarker);
+  if (todayIdx >= 0) {
+    // Replace today's block
+    const beforeToday = existing.substring(0, todayIdx).trimEnd();
+    _nhStylePrefs = beforeToday + newBlock;
+  } else {
+    _nhStylePrefs = existing + newBlock;
+  }
+
+  localStorage.setItem('papermind_note_style', _nhStylePrefs);
+  updateStylePreview();
+
+  // Update NH panel preview if visible
+  const nhPreview = document.getElementById('nh-panel-style-preview');
+  if (nhPreview) {
+    nhPreview.textContent = '已学习: ' + _nhStylePrefs.split(/[\n。，]/)[0].substring(0, 25) + '...';
+  }
+
+  // Show a subtle toast
+  showStyleUpdateToast(insights.length);
+  // Refresh memo history if memo page is open
+  renderStyleMemoHistory();
+  // Update profile page status if loaded
+  const profileStatus = document.getElementById('style-status');
+  if (profileStatus) profileStatus.textContent = _nhStylePrefs ? '已设置 · ' + _nhStylePrefs.split(/[\\n。，]/)[0].substring(0, 20) + '...' : '未设置';
+}
+
+function showStyleUpdateToast(count) {
+  // Remove existing toast if any
+  const oldToast = document.getElementById('nh-style-toast');
+  if (oldToast) oldToast.remove();
+
+  const toast = document.createElement('div');
+  toast.id = 'nh-style-toast';
+  toast.style.cssText = 'position:fixed;bottom:100px;left:50%;transform:translateX(-50%);z-index:200;' +
+    'background:var(--primary);color:#FFF;font-size:13px;font-weight:600;' +
+    'padding:10px 20px;border-radius:20px;box-shadow:0 4px 16px rgba(108,99,255,0.35);' +
+    'animation:nhToastIn 0.4s ease,nhToastOut 0.4s ease 2.5s forwards;pointer-events:none;';
+  toast.textContent = '🧠 已从本轮编辑中学习到 ' + count + ' 条偏好，已补充到风格设置';
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
+}
+
+// Toast animation keyframes (injected via style)
+(function() {
+  if (document.getElementById('nh-toast-style')) return;
+  const style = document.createElement('style');
+  style.id = 'nh-toast-style';
+  style.textContent = '@keyframes nhToastIn{from{opacity:0;transform:translateX(-50%) translateY(10px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}@keyframes nhToastOut{from{opacity:1;}to{opacity:0;}}';
+  document.head.appendChild(style);
+})();
+
+function updateStylePreview() {
+  const preview = document.getElementById('nh-style-preview');
+  if (!preview) return;
+  if (_nhStylePrefs) {
+    const firstLine = _nhStylePrefs.split(/[\n。，]/)[0].substring(0, 45);
+    preview.textContent = '已设置 · ' + firstLine + (_nhStylePrefs.length > 45 ? '...' : '');
+  } else {
+    preview.textContent = '未设置 · AI 将使用默认风格生成笔记';
+  }
+}
+
+// Load saved prefs on init
+(function() {
+  const saved = localStorage.getItem('papermind_note_style');
+  if (saved) {
+    _nhStylePrefs = saved;
+    updateStylePreview();
+  }
+})();
+
+function openNHFullscreen(content, citations, sourceFiles) {
+  _nhFullContent = content || '';
+  _nhCitations = citations || [];
+  _nhSourceFiles = sourceFiles || [];
+  _nhSidebarVisible = false;
+
+  // Initialize session tracking
+  _nhSessionOriginContent = content || '';
+  _nhSessionRefinements = [];
+
+  document.getElementById('nh-fullscreen').classList.add('show');
+  document.getElementById('nh-fab').classList.remove('show');
+  document.getElementById('nh-sidebar').classList.remove('show');
+  renderNHContent();
+  renderNHSidebar();
+}
+
+function closeNHFullscreen() {
+  document.getElementById('nh-fullscreen').classList.remove('show');
+  document.getElementById('nh-sidebar').classList.remove('show');
+}
+
+function renderNHContent() {
+  const el = document.getElementById('nh-fs-content');
+  // Split by citation marks and render
+  const parts = _nhFullContent.split(/(\[来源:\d+\])/g);
+  let html = '';
+  parts.forEach(part => {
+    const m = part.match(/^\[来源:(\d+)\]$/);
+    if (m) {
+      const idx = parseInt(m[1]);
+      const cit = _nhCitations.find(c => c.index === idx);
+      html += '<span class="citation-mark" onclick="showCitation(' + idx + ')" title="' + esc(cit?.fileName || '来源') + '">[' + idx + ']</span>';
+    } else if (part.trim()) {
+      html += simpleMarkdown(part);
+    }
+  });
+  el.innerHTML = html || '<div style="text-align:center;padding:40px;color:var(--text3);">暂无内容</div>';
+  // Render LaTeX in the content
+  try { renderMathInElement(el); } catch(e) {}
+}
+
+function showCitation(idx) {
+  const cit = _nhCitations.find(c => c.index === idx);
+  if (!cit) return;
+  showAppModal('<h3>📎 来源 [' + idx + ']</h3>' +
+    '<div style="margin-bottom:8px;"><span class="tag" style="background:var(--pri-pale);color:var(--primary);">' + esc(cit.sourceType || '') + '</span> ' +
+    '<span style="font-size:14px;font-weight:700;color:var(--text);">' + esc(cit.fileName || '') + '</span></div>' +
+    (cit.highlightText ? '<div class="body-text" style="background:var(--bg);border-radius:12px;padding:12px;max-height:200px;overflow-y:auto;">' + esc(cit.highlightText) + '</div>' : '') +
+    '<div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-neu" onclick="closeAppModal()">关闭</button></div>');
+}
+
+function toggleNHSidebar() {
+  _nhSidebarVisible = !_nhSidebarVisible;
+  document.getElementById('nh-sidebar').classList.toggle('show', _nhSidebarVisible);
+  if (_nhSidebarVisible) renderNHSidebar();
+}
+
+async function renderNHSidebar() {
+  const body = document.getElementById('nh-sb-body');
+  if (!_nhSourceFiles.length) {
+    body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3);">📂 暂无源文件</div>';
+    return;
+  }
+
+  let html = '';
+  _nhSourceFiles.forEach((sf, i) => {
+    const citCount = _nhCitations.filter(c => c.sourceId === sf.id).length;
+    const icon = sf.type === 'study_note' ? '📝' : '📄';
+    const bgColor = sf.type === 'study_note' ? 'var(--success)' : 'var(--warn)';
+    html += '<div class="nh-sb-file-item" onclick="loadNHSourceFile(' + i + ')">' +
+      '<div class="nh-sb-file-icon" style="background:' + bgColor + '20;color:' + bgColor + ';">' + icon + '</div>' +
+      '<div style="flex:1;min-width:0;">' +
+      '<div style="font-size:14px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(sf.title || '未命名') + '</div>' +
+      '<div class="meta-text">' + (sf.logicalPath ? esc(fmtPath(sf.logicalPath)) : sf.type === 'study_note' ? '学习纪要' : '学习资料') + '</div>' +
+      '</div>' +
+      (citCount > 0 ? '<span class="tag" style="background:var(--pri-pale);color:var(--primary);">引用×' + citCount + '</span>' : '') +
+      '</div>';
+  });
+  body.innerHTML = html;
+}
+
+let _nhSourceFormatRendered = true;
+
+function toggleNHSourceFormat() {
+  _nhSourceFormatRendered = !_nhSourceFormatRendered;
+  const el = document.getElementById('nh-sb-preview-content');
+  const btn = document.getElementById('nh-sb-fmt-toggle');
+  const raw = window._nhSourceRawContent || '';
+
+  if (!el) {
+    // PDF iframe mode — no toggle available, show as text
+    if (btn) btn.textContent = '📋 PDF模式';
+    return;
+  }
+
+  if (_nhSourceFormatRendered) {
+    el.innerHTML = simpleMarkdown(raw.substring(0, 8000)) + (raw.length > 8000 ? '<div style="text-align:center;color:var(--text3);padding:10px;">... 内容已截断</div>' : '');
+    if (btn) btn.textContent = '📋 原格式';
+    try { renderMathInElement(el); } catch(e) {}
+  } else {
+    el.innerHTML = '<pre style="white-space:pre-wrap;font-family:inherit;font-size:14px;line-height:1.8;margin:0;text-align:left;max-height:70vh;overflow-y:auto;">' + esc(raw.substring(0, 8000)) + '</pre>' + (raw.length > 8000 ? '<div style="text-align:center;color:var(--text3);padding:10px;">... 原内容已截断</div>' : '');
+    if (btn) btn.textContent = '✨ 渲染';
+  }
+}
+
+async function loadNHSourceFile(idx) {
+  const sf = _nhSourceFiles[idx];
+  if (!sf) return;
+  const body = document.getElementById('nh-sb-body');
+  body.innerHTML = '<div style="text-align:center;padding:40px;"><div class="spinner"></div></div>';
+
+  try {
+    let content = '', fileType = '', viewUrl = '';
+    if (sf.type === 'study_note') {
+      const res = await safeFetch(API + '/study-notes/' + sf.id);
+      if (res.ok) {
+        const json = await res.json();
+        const note = json.data || json;
+        fileType = 'study_note';
+        if (note.blocks && note.blocks.length) {
+          content = note.blocks.filter(b => b.type === 'text').map(b => b.content).join('\n\n');
+        } else {
+          content = note.content || '';
+        }
+      } else throw new Error('HTTP ' + res.status);
+    } else {
+      // For materials, get file-content first
+      const fcRes = await safeFetch(API + '/materials/' + sf.id + '/file-content');
+      if (!fcRes.ok) throw new Error('HTTP ' + fcRes.status);
+      const fcJson = await fcRes.json();
+      const fcData = fcJson.data || fcJson;
+      fileType = (fcData.fileType || 'UNKNOWN').toUpperCase();
+      viewUrl = fcData.viewUrl || '';
+
+      // Extract text content
+      if (fileType === 'PPT') {
+        content = '（.ppt 旧格式暂不支持内容提取，请转存为 PPTX 后查看）';
+      } else if (fcData.pages && fcData.pages.length) {
+        content = fcData.pages.map(p => typeof p === 'string' ? p : (p.text || '')).join('\n\n');
+      } else if (fcData.content) {
+        content = fcData.content;
+      } else if (!content && !viewUrl) {
+        content = '(此文件暂无提取的文本内容)';
+      }
+    }
+
+    // Store raw content for toggle
+    window._nhSourceRawContent = content;
+    window._nhSourceFileType = fileType;
+    window._nhSourceViewUrl = viewUrl;
+
+    // Build preview header
+    let headerHtml = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">' +
+      '<div style="flex:1;min-width:0;">' +
+      '<div style="font-size:16px;font-weight:800;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(sf.title || '源文件') + '</div>' +
+      '<div style="font-size:11px;color:var(--text3);margin-top:2px;">' + esc(fileType) + ' · ' + esc(sf.type === 'study_note' ? '学习纪要' : '学习资料') + '</div>' +
+      '</div>' +
+      '<button class="btn btn-neu" style="font-size:11px;padding:5px 10px;border-radius:10px;flex-shrink:0;" id="nh-sb-fmt-toggle" onclick="toggleNHSourceFormat()">📋 原格式</button>' +
+      '</div>';
+
+    // Build content area based on file type
+    let contentHtml = '';
+    if (fileType === 'PDF' && viewUrl) {
+      const fullUrl = viewUrl.startsWith('http') ? viewUrl : 'http://localhost:9091' + viewUrl;
+      contentHtml = '<div style="flex:1;display:flex;flex-direction:column;min-height:300px;">' +
+        '<iframe src="' + esc(fullUrl) + '#toolbar=0&navpanes=0" style="flex:1;min-height:350px;border:none;border-radius:12px;"></iframe>' +
+        '<div style="text-align:center;padding:6px;"><a href="' + esc(fullUrl) + '" target="_blank" class="btn btn-neu" style="font-size:11px;text-decoration:none;display:inline-block;">在新窗口打开 PDF</a></div>' +
+        '</div>';
+    } else if (content) {
+      contentHtml = '<div style="line-height:1.85;color:var(--text);max-height:70vh;overflow-y:auto;" id="nh-sb-preview-content">' +
+        simpleMarkdown(content.substring(0, 8000)) +
+        (content.length > 8000 ? '<div style="text-align:center;color:var(--text3);padding:10px;">... 内容已截断</div>' : '') +
+        '</div>';
+    } else {
+      contentHtml = '<div style="text-align:center;padding:40px;color:var(--text3);">暂无可预览内容</div>';
+    }
+
+    body.innerHTML = '<div class="nh-sb-file-preview" style="display:flex;flex-direction:column;flex:1;">' + headerHtml + contentHtml + '</div>';
+
+    try { renderMathInElement(body); } catch(e) {}
+  } catch (e) {
+    body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text2);">加载失败: ' + esc(e.message) + '<br/><button class="btn btn-neu" style="margin-top:10px;font-size:12px;" onclick="loadNHSourceFile(' + idx + ')">重试</button></div>';
+  }
+}
+
+async function refineNote(prompt) {
+  if (!prompt || !_nhFullContent) return;
+  // Track this refinement for session learning
+  _nhSessionRefinements.push({ prompt: prompt, time: Date.now() });
+  const el = document.getElementById('nh-fs-content');
+  el.innerHTML = '<div style="text-align:center;padding:40px;"><div class="spinner"></div><div class="meta-text" style="margin-top:10px;">正在优化...</div></div>';
+
+  const sourceIds = _nhSourceFiles.map(sf => ({ id: sf.id, type: sf.type || 'study_note' }));
+
+  try {
+    const res = await fetch(API + '/ai/refine-note', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentNote: _nhFullContent, refinementPrompt: prompt, sourceIds })
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '', fullContent = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6).trim();
+          if (data === '[DONE]') break;
+          try { const p = JSON.parse(data); if (p.content) { fullContent += p.content; _nhFullContent = fullContent; renderNHContent(); el.scrollTop = el.scrollHeight; } } catch {}
+        }
+      }
+    }
+    renderNHContent();
+  } catch (e) {
+    el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text2);">优化失败: ' + esc(e.message) + '<br/><button class="btn btn-neu" style="margin-top:12px;" onclick="refineNote(\'' + esc(prompt).replace(/'/g, "\\'") + '\')">重试</button></div>';
+  }
+}
+
+async function saveNHNote() {
+  if (!_nhFullContent) return;
+  try {
+    // Split content into blocks by heading markers
+    const blocks = [];
+    const sections = _nhFullContent.split(/\n\n(?=#{1,4}\s)/);
+    sections.forEach((section, i) => {
+      blocks.push({ id: String(i + 1), type: 'text', content: section.trim() });
+    });
+
+    const title = _nhFullContent.split(/[\n。]/)[0].substring(0, 50);
+    const body = { title, content: _nhFullContent, blocks, tags: [] };
+
+    // Inherit logical_path from first source file
+    const sfWithPath = _nhSourceFiles.find(sf => sf.logicalPath);
+    if (sfWithPath) body.logical_path = sfWithPath.logicalPath;
+
+    const res = await safeFetch(API + '/study-notes', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    const newId = json.data?.id || json.id;
+
+    closeNHFullscreen();
+    if (newId) {
+      safeFetch(API + '/knowledge-builder/process-content', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'study_note', id: newId })
+      }).catch(() => {});
+      // Learn from this session's editing patterns
+      updateStyleFromSession();
+      setTimeout(() => viewNoteFullscreen(newId, title), 500);
+    }
+  } catch (e) { alert('保存失败: ' + e.message); }
+}
+
+// ═══════════════════════════════════════════════════
+// UPDATED NoteHelper Panel — opens fullscreen on "enter fullscreen"
+// ═══════════════════════════════════════════════════
+// Override the save in panel to open fullscreen instead
+let _panelContent = '';
+let _panelCitations = [];
+
+// Replace the generateNoteStream result handling
+const origGenerateNoteStream = generateNoteStream;
+generateNoteStream = async function() {
+  // Call original implementation but intercept the result
+  const sourceIds = [];
+  if (_fsNoteId) sourceIds.push({ id: _fsNoteId, type: _fsNoteType || 'study_note' });
+  if (_fsMatId && _fsMatId !== _fsNoteId) sourceIds.push({ id: _fsMatId, type: 'material' });
+
+  if (!sourceIds.length) {
+    document.getElementById('nh-panel-loading').style.display = 'none';
+    document.getElementById('nh-panel-result').style.display = 'block';
+    document.getElementById('nh-panel-result').innerHTML = '<div class="meta-text" style="text-align:center;padding:20px;">请先打开一份学习纪要或资料，再使用 AI 生成笔记。</div>';
+    return;
+  }
+
+  const resultEl = document.getElementById('nh-panel-result');
+  const loadingEl = document.getElementById('nh-panel-loading');
+
+  try {
+    const res = await fetch(API + '/ai/generate-note', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sourceIds })
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+
+    loadingEl.style.display = 'none';
+    resultEl.style.display = 'block';
+    resultEl.innerHTML = '<span class="generating-cursor"></span>';
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '', fullContent = '', citations = [];
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6).trim();
+          if (data === '[DONE]') break;
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.content) {
+              fullContent += parsed.content;
+              resultEl.innerHTML = simpleMarkdown(fullContent) + '<span class="generating-cursor"></span>';
+              resultEl.scrollTop = resultEl.scrollHeight;
+            }
+            if (parsed.citations) citations = parsed.citations;
+          } catch {}
+        }
+      }
+    }
+
+    resultEl.innerHTML = simpleMarkdown(fullContent);
+    _panelContent = fullContent;
+    _panelCitations = citations;
+    window._nhGeneratedContent = fullContent;
+
+    // Build source files list
+    const sfs = [];
+    if (_fsNoteId) {
+      let title = document.getElementById('fs-note-title')?.textContent || '学习纪要';
+      sfs.push({ id: _fsNoteId, type: _fsNoteType || 'study_note', title: title, logicalPath: '' });
+    }
+    if (_fsMatId && _fsMatId !== _fsNoteId) {
+      let title = document.getElementById('fs-mat-title')?.textContent || '学习资料';
+      sfs.push({ id: _fsMatId, type: 'material', title: title });
+    }
+
+    document.getElementById('nh-panel-actions').innerHTML =
+      '<button class="btn btn-primary" style="font-size:13px;padding:8px 18px;border-radius:14px;" onclick="openNHFullscreenFromPanel()">🖥️ 全屏编辑</button>' +
+      '<button class="btn btn-neu" style="font-size:13px;padding:8px 18px;border-radius:14px;" onclick="saveGeneratedNote()">📝 快速保存</button>';
+
+    window._nhSourceFilesForPanel = sfs;
+
+  } catch (e) {
+    loadingEl.style.display = 'none';
+    resultEl.style.display = 'block';
+    resultEl.innerHTML = '<div style="text-align:center;color:var(--text2);padding:20px;">生成失败: ' + esc(e.message) + '</div>';
+  }
+};
+
+function openNHFullscreenFromPanel() {
+  closeNoteHelperPanel();
+  setTimeout(() => {
+    openNHFullscreen(_panelContent, _panelCitations, window._nhSourceFilesForPanel || []);
+  }, 350);
+}
+
+// ═══════════════════════════════════════════════════
+// BLOCK EDITOR — study note edit/read modes
+// ═══════════════════════════════════════════════════
+let _beId = null;          // existing note ID (if editing)
+let _beMode = 'edit';      // 'edit' | 'read'
+let _beBlocks = [];        // [{id,type,content|uri|name}]
+let _beTags = [];
+let _beLogicalPath = '';
+let _bePapercore = '';
+
+function openBlockEditor(id, title, blocks, tags, papercore, logicalPath) {
+  _beId = id || null;
+  _beMode = id ? 'read' : 'edit';  // existing notes open in read mode
+  _beBlocks = (blocks && blocks.length) ? blocks : [{ id: '1', type: 'text', content: '' }];
+  _beTags = tags || [];
+  _bePapercore = papercore || '';
+  _beLogicalPath = logicalPath || '';
+
+  document.getElementById('be-title').value = title || '';
+  document.getElementById('be-overlay').classList.add('show');
+  updateBEModeUI();
+  renderBEBlocks();
+}
+
+function closeBlockEditor() {
+  document.getElementById('be-overlay').classList.remove('show');
+}
+
+function toggleBEMode() {
+  _beMode = _beMode === 'edit' ? 'read' : 'edit';
+  updateBEModeUI();
+  renderBEBlocks();
+}
+
+function updateBEModeUI() {
+  const btn = document.getElementById('be-mode-btn');
+  const bar = document.getElementById('be-bottom-bar');
+  if (_beMode === 'edit') {
+    btn.innerHTML = '📖 阅读';
+    btn.className = 'btn btn-neu';
+    bar.style.display = 'flex';
+    document.getElementById('be-title').readOnly = false;
+    document.getElementById('be-title').style.pointerEvents = 'auto';
+  } else {
+    btn.innerHTML = '✏️ 编辑';
+    btn.className = 'btn btn-primary';
+    bar.style.display = 'none';
+    document.getElementById('be-title').readOnly = true;
+    document.getElementById('be-title').style.pointerEvents = 'none';
+  }
+}
+
+function renderBEBlocks() {
+  const list = document.getElementById('be-block-list');
+  let html = '';
+
+  _beBlocks.forEach((block, idx) => {
+    if (_beMode === 'edit') {
+      if (block.type === 'text') {
+        html += '<div class="be-text-block" draggable="true" data-idx="' + idx + '" ondragstart="beDragStart(event,' + idx + ')" ondragover="event.preventDefault()" ondrop="beDrop(event,' + idx + ')">' +
+          '<textarea class="be-textarea" id="be-text-' + idx + '" oninput="beTextChanged(' + idx + ',this.value)" placeholder="输入内容...支持 Markdown 和 LaTeX">' + esc(block.content || '') + '</textarea>' +
+          '<button class="be-block-handle" draggable="true" ondragstart="event.stopPropagation();beDragStart(event,' + idx + ')" title="拖拽排序">⋮⋮</button>' +
+          (_beBlocks.length > 1 ? '<button class="be-block-delete" onclick="beDeleteBlock(' + idx + ')" title="删除">✕</button>' : '') +
+          '</div>';
+      } else if (block.type === 'image') {
+        html += '<div class="be-img-block" draggable="true" data-idx="' + idx + '" ondragstart="beDragStart(event,' + idx + ')" ondragover="event.preventDefault()" ondrop="beDrop(event,' + idx + ')">' +
+          '<div class="be-img-wrap"><img src="' + esc(block.uri) + '" alt="' + esc(block.name || '') + '"/><div style="font-size:12px;color:var(--text3);margin-top:4px;">' + esc(block.name || '') + '</div></div>' +
+          '<button class="be-block-handle" draggable="true">⋮⋮</button>' +
+          '<button class="be-block-delete" onclick="beDeleteBlock(' + idx + ')">✕</button>' +
+          '</div>';
+      } else if (block.type === 'file') {
+        html += '<div class="be-file-block" draggable="true" data-idx="' + idx + '" ondragstart="beDragStart(event,' + idx + ')" ondragover="event.preventDefault()" ondrop="beDrop(event,' + idx + ')">' +
+          '<span style="font-size:24px;">📎</span>' +
+          '<div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:700;color:var(--text);">' + esc(block.name || '文件') + '</div><div class="meta-text">文件附件</div></div>' +
+          '<button class="be-block-handle" draggable="true">⋮⋮</button>' +
+          '<button class="be-block-delete" onclick="beDeleteBlock(' + idx + ')">✕</button>' +
+          '</div>';
+      }
+    } else {
+      // Reading mode
+      if (block.type === 'text') {
+        html += '<div class="be-read-block">' + simpleMarkdown(block.content || '') + '</div>';
+      } else if (block.type === 'image') {
+        html += '<div class="be-read-block" style="text-align:center;"><img src="' + esc(block.uri) + '" style="max-width:100%;max-height:300px;border-radius:12px;" alt="' + esc(block.name || '') + '"/><div style="font-size:12px;color:var(--text3);margin-top:6px;">' + esc(block.name || '') + '</div></div>';
+      } else if (block.type === 'file') {
+        html += '<div style="display:flex;align-items:center;gap:12px;padding:16px;background:var(--card);border-radius:16px;box-shadow:var(--neu-raised-sm);"><span style="font-size:28px;">📎</span><div><div style="font-size:15px;font-weight:700;color:var(--text);">' + esc(block.name || '文件') + '</div><div class="meta-text">附件</div></div></div>';
+      }
+    }
+  });
+
+  // Reading mode extras
+  if (_beMode === 'read') {
+    if (_bePapercore) {
+      html += '<div class="card" style="margin-top:14px;"><div class="section-title">AI 摘要</div><div class="body-text" style="line-height:1.7;">' + simpleMarkdown(_bePapercore) + '</div></div>';
+    }
+    if (_beTags.length > 0) {
+      html += '<div style="margin-top:10px;">' + _beTags.map(t => '<span class="tag" style="background:var(--pri-pale);color:var(--primary);margin-right:6px;margin-bottom:6px;">' + esc(t) + '</span>').join('') + '</div>';
+    }
+    if (_beLogicalPath) {
+      html += '<div class="meta-text" style="margin-top:8px;">📁 ' + esc(fmtPath(_beLogicalPath)) + '</div>';
+    }
+    // NoteHelper FAB trigger in reading mode
+    html += '<div style="text-align:center;margin-top:20px;"><button class="btn btn-primary" style="font-size:14px;padding:10px 24px;border-radius:20px;" onclick="triggerBEHelper()">⚡ AI 生成相关笔记</button></div>';
+  }
+
+  list.innerHTML = html || '<div style="text-align:center;padding:40px;color:var(--text3);">暂无内容</div>';
+
+  // Render LaTeX in reading mode
+  if (_beMode === 'read') {
+    try { renderMathInElement(list); } catch(e) {}
+  }
+}
+
+function beTextChanged(idx, value) {
+  if (_beBlocks[idx] && _beBlocks[idx].type === 'text') {
+    _beBlocks[idx].content = value;
+  }
+}
+
+function addTextBlock() {
+  const id = String(Date.now());
+  _beBlocks.push({ id, type: 'text', content: '' });
+  renderBEBlocks();
+  setTimeout(() => {
+    const ta = document.getElementById('be-text-' + (_beBlocks.length - 1));
+    if (ta) ta.focus();
+  }, 100);
+}
+
+function addImageBlock() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.onchange = function() {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      _beBlocks.push({ id: String(Date.now()), type: 'image', uri: e.target.result, name: file.name });
+      renderBEBlocks();
+    };
+    reader.readAsDataURL(file);
+  };
+  input.click();
+}
+
+function addFileBlock() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.pdf,.docx,.pptx,.md,.txt,.csv';
+  input.onchange = function() {
+    const file = input.files[0];
+    if (!file) return;
+    _beBlocks.push({ id: String(Date.now()), type: 'file', uri: '', name: file.name });
+    renderBEBlocks();
+  };
+  input.click();
+}
+
+function beDeleteBlock(idx) {
+  if (_beBlocks.length <= 1) return;
+  _beBlocks.splice(idx, 1);
+  renderBEBlocks();
+}
+
+// Drag and drop reorder
+let _beDragIdx = -1;
+function beDragStart(e, idx) {
+  _beDragIdx = idx;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', String(idx));
+}
+
+function beDrop(e, targetIdx) {
+  e.preventDefault();
+  if (_beDragIdx < 0 || _beDragIdx >= _beBlocks.length) return;
+  const [item] = _beBlocks.splice(_beDragIdx, 1);
+  _beBlocks.splice(targetIdx, 0, item);
+  _beDragIdx = -1;
+  renderBEBlocks();
+}
+
+function applyFormat(marker, type) {
+  // Find the focused textarea
+  const active = document.activeElement;
+  let idx = -1;
+  if (active && active.classList.contains('be-textarea')) {
+    const idMatch = active.id.match(/be-text-(\d+)/);
+    if (idMatch) idx = parseInt(idMatch[1]);
+  }
+  // Fallback: first text block
+  if (idx < 0 || !_beBlocks[idx] || _beBlocks[idx].type !== 'text') {
+    for (let i = 0; i < _beBlocks.length; i++) {
+      if (_beBlocks[i].type === 'text') { idx = i; break; }
+    }
+  }
+  if (idx < 0) { addTextBlock(); idx = _beBlocks.length - 1; }
+
+  const block = _beBlocks[idx];
+  const ta = document.getElementById('be-text-' + idx);
+  if (!ta) return;
+
+  const start = ta.selectionStart || 0;
+  const end = ta.selectionEnd || 0;
+  const before = (block.content || '').substring(0, start);
+  const sel = (block.content || '').substring(start, end);
+  const after = (block.content || '').substring(end);
+
+  if (type === 'code') {
+    block.content = before + '\n\`\`\`\n' + (sel || 'code') + '\n\`\`\`\n' + after;
+  } else {
+    const prefix = marker;
+    block.content = before + prefix + sel + after;
+  }
+
+  ta.value = block.content;
+  ta.focus();
+  const newPos = start + (type === 'code' ? 4 : marker.length);
+  ta.setSelectionRange(newPos + (sel ? 0 : 0), newPos + sel.length);
+}
+
+async function saveBlockEditor() {
+  const title = document.getElementById('be-title').value.trim();
+  const textBlocks = _beBlocks.filter(b => b.type === 'text');
+  if (!title && textBlocks.every(b => !b.content.trim())) { alert('请输入标题或内容'); return; }
+
+  try {
+    // Upload local image/file blocks
+    const resolvedBlocks = [];
+    for (const block of _beBlocks) {
+      if ((block.type === 'image' || block.type === 'file') && block.uri && block.uri.startsWith('data:')) {
+        try {
+          const blob = await (await fetch(block.uri)).blob();
+          const formData = new FormData();
+          formData.append('file', blob, block.name || 'file');
+          const uploadRes = await fetch(API + '/upload', { method: 'POST', body: formData });
+          if (uploadRes.ok) {
+            const uploadJson = await uploadRes.json();
+            const uploaded = uploadJson.data || uploadJson;
+            block.uri = uploaded.fileUrl || block.uri;
+          }
+        } catch(e) { console.error('Upload failed for block:', e); }
+      }
+      resolvedBlocks.push(block);
+    }
+
+    const contentText = resolvedBlocks.filter(b => b.type === 'text').map(b => b.content).join('\n\n');
+    const body = {
+      title: title || '未命名笔记',
+      content: contentText,
+      blocks: resolvedBlocks,
+      tags: _beTags,
+      logical_path: _beLogicalPath || undefined
+    };
+
+    let res;
+    if (_beId) {
+      res = await safeFetch(API + '/study-notes/' + _beId, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+      });
+    } else {
+      res = await safeFetch(API + '/study-notes', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+      });
+    }
+
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    const savedId = json.data?.id || json.id || _beId;
+
+    closeBlockEditor();
+
+    // Trigger AI processing if new
+    if (!_beId && savedId) {
+      safeFetch(API + '/knowledge-builder/process-content', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'study_note', id: savedId })
+      }).catch(() => {});
+    }
+
+    refreshCurrentTab();
+  } catch (e) { alert('保存失败: ' + e.message); }
+}
+
+function triggerBEHelper() {
+  if (!_beId) return;
+  const title = document.getElementById('be-title').value || '学习纪要';
+  const sfs = [{ id: _beId, type: 'study_note', title: title, logicalPath: _beLogicalPath }];
+  const content = _beBlocks.filter(b => b.type === 'text').map(b => b.content).join('\n\n');
+  _fsNoteId = _beId;
+  _fsNoteType = 'study_note';
+  openNoteHelperPanel();
+}
+
+// ═══════════════════════════════════════════════════
+// UPDATED: openCreateNote → opens block editor instead
+// ═══════════════════════════════════════════════════
+function openCreateNote() {
+  openBlockEditor(null, '', [{ id: '1', type: 'text', content: '' }], [], '', '');
+}
+
+// ═══════════════════════════════════════════════════
+// UPDATED: viewNoteFullscreen → has edit button to open block editor
+// ═══════════════════════════════════════════════════
+const origViewNoteFullscreen = viewNoteFullscreen;
+viewNoteFullscreen = async function(id, title) {
+  _fsNoteId = id; _fsNoteType = 'study_note';
+  const overlay = document.getElementById('fs-note');
+  document.getElementById('fs-note-title').textContent = title || '学习纪要';
+  document.getElementById('fs-note-body').innerHTML = '<div style="text-align:center;padding:40px 0;"><div class="spinner"></div></div>';
+  overlay.classList.add('show');
+
+  try {
+    const res = await safeFetch(API + '/study-notes/' + id);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    const note = json.data || json;
+    const blocks = note.blocks || [];
+    const papercore = note.papercore || '';
+    const tags = note.tags || [];
+
+    // Store for NoteHelper
+    window._currentNoteData = note;
+
+    let html = '';
+
+    // Reading mode: render blocks
+    if (blocks && blocks.length > 0) {
+      blocks.forEach(b => {
+        if (b.type === 'text') {
+          html += '<div class="be-read-block">' + simpleMarkdown(b.content || '') + '</div>';
+        } else if (b.type === 'image') {
+          html += '<div class="be-read-block" style="text-align:center;"><img src="' + esc(b.uri) + '" style="max-width:100%;max-height:300px;border-radius:12px;" alt="' + esc(b.name||'') + '"/></div>';
+        } else if (b.type === 'file') {
+          html += '<div style="display:flex;align-items:center;gap:12px;padding:14px;background:var(--card);border-radius:14px;box-shadow:var(--neu-raised-sm);margin-bottom:10px;"><span style="font-size:24px;">📎</span><div><div style="font-size:14px;font-weight:700;">' + esc(b.name||'文件') + '</div></div></div>';
+        }
+      });
+    } else if (note.content) {
+      html += '<div class="be-read-block">' + simpleMarkdown(note.content) + '</div>';
+    }
+
+    if (papercore) {
+      html += '<div class="card" style="margin:14px 0;"><div class="section-title">AI 摘要</div><div class="body-text" style="line-height:1.7;">' + simpleMarkdown(papercore) + '</div></div>';
+    }
+    if (tags.length > 0) {
+      html += '<div style="margin-bottom:8px;">' + tags.map(t => '<span class="tag" style="background:var(--pri-pale);color:var(--primary);margin-right:6px;margin-bottom:6px;">' + esc(t) + '</span>').join('') + '</div>';
+    }
+    // Edit button
+    html += '<div style="text-align:center;margin-top:16px;"><button class="btn btn-primary" style="font-size:14px;padding:10px 24px;border-radius:20px;" onclick="openBlockEditorForNote()">✏️ 编辑笔记</button></div>';
+
+    document.getElementById('fs-note-body').innerHTML = html || '<div class="empty-state"><div class="empty-icon">📝</div><div class="empty-title">暂无内容</div></div>';
+
+    // Render LaTeX
+    try { renderMathInElement(document.getElementById('fs-note-body')); } catch(e) {}
+
+    // Mark as viewed
+    safeFetch(API + '/control-center/mark-viewed', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'study_note', id }) }).catch(() => {});
+
+    // Show FAB
+    document.getElementById('nh-fab').classList.add('show');
+    document.getElementById('fs-nh-btn').style.display = 'inline-flex';
+  } catch (e) {
+    document.getElementById('fs-note-body').innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">加载失败</div><div class="empty-desc">' + esc(e.message) + '</div></div>';
+  }
+};
+
+function openBlockEditorForNote() {
+  const note = window._currentNoteData;
+  if (!note) return;
+  const blocks = note.blocks && note.blocks.length ? note.blocks : [{ id: '1', type: 'text', content: note.content || '' }];
+  closeFullscreenNote();
+  setTimeout(() => {
+    openBlockEditor(note.id, note.title || '', blocks, note.tags || [], note.papercore || '', note.logical_path || '');
+  }, 300);
+}
+
+// ═══════════════════════════════════════════════════
+// UPDATE: saveGeneratedNote to also work from panel
+// ═══════════════════════════════════════════════════
+saveGeneratedNote = async function() {
+  const content = _panelContent || window._nhGeneratedContent;
+  if (!content) return;
+  try {
+    const title = content.split(/[\n。]/)[0].substring(0, 50);
+    const blocks = content.split(/\n\n(?=#{1,4}\s)/).map((s, i) => ({ id: String(i + 1), type: 'text', content: s.trim() }));
+    const res = await safeFetch(API + '/study-notes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, content, blocks })
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    const newId = json.data?.id || json.id;
+    closeNoteHelperPanel();
+    if (newId) {
+      updateStyleFromSession();
+      setTimeout(() => viewNoteFullscreen(newId, title), 400);
+    }
+  } catch (e) { alert('保存失败: ' + e.message); }
+};
+
+// ═══════════════════════════════════════════════════
+// UPDATE: material viewer adds reprocess button
+// ═══════════════════════════════════════════════════
+const origViewMaterialFullscreen = viewMaterialFullscreen;
+viewMaterialFullscreen = async function(id, title) {
+  _fsMatId = id; _fsNoteType = 'material';
+  const overlay = document.getElementById('fs-material');
+  document.getElementById('fs-mat-title').textContent = title || '学习资料';
+  document.getElementById('fs-mat-body').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;flex:1;"><div class="spinner"></div></div>';
+  overlay.classList.add('show');
+
+  try {
+    const [fcRes, matRes] = await Promise.all([
+      safeFetch(API + '/materials/' + id + '/file-content'),
+      safeFetch(API + '/materials').then(r => r.ok ? r.json() : Promise.resolve({ data: [] }))
+    ]);
+
+    if (!fcRes.ok) throw new Error('HTTP ' + fcRes.status);
+    const fc = await fcRes.json();
+    const data = fc.data || fc;
+    const fileType = (data.fileType || '').toUpperCase();
+    let viewUrl = data.viewUrl || '';
+
+    // Find metadata
+    let papercore = '', tags = [], logicalPath = '', processStatus = '';
+    if (matRes) {
+      const matData = (matRes.data || matRes).data || matRes.data || [];
+      const found = Array.isArray(matData) ? matData.find(m => m.id === id) : null;
+      if (found) { papercore = found.papercore || ''; tags = found.tags || []; logicalPath = found.logical_path || ''; processStatus = found.process_status || ''; }
+    }
+
+    document.getElementById('nh-fab').classList.add('show');
+    document.getElementById('fs-mat-nh-btn').style.display = 'inline-flex';
+
+    let html = '';
+
+    // PDF viewer with fallback open-in-new-tab link
+    if (fileType === 'PDF' && viewUrl) {
+      const fullUrl = viewUrl.startsWith('http') ? viewUrl : 'http://localhost:9091' + viewUrl;
+      html = '<div style="flex:1;display:flex;flex-direction:column;">' +
+        '<iframe class="pdf-frame" src="' + esc(fullUrl) + '#toolbar=0" style="flex:1;min-height:400px;"></iframe>' +
+        '<div style="text-align:center;padding:8px;">' +
+        '<a href="' + esc(fullUrl) + '" target="_blank" class="btn btn-neu" style="display:inline-block;text-decoration:none;font-size:12px;">在新窗口打开 PDF</a>' +
+        '</div>' +
+        '</div>';
+    } else if (fileType === 'PPT') {
+      // 旧版 .ppt 无二进制解析分支，明确引导转存
+      html += '<div class="empty-state"><div class="empty-icon">📄</div><div class="empty-title">.ppt 旧格式暂不支持在线预览</div><div class="empty-desc">请转存为 PPTX 格式后重新上传查看</div></div>';
+    } else if (data.pages && data.pages.some(p => (typeof p === 'string' ? p : (p.text || '')).trim())) {
+      // PPTX/DOCX/MD/TXT 等：文本分页降级视图（与 PDF 的 file-content 分页同路径）
+      html += '<div style="padding:10px 18px;overflow-y:auto;flex:1;">';
+      html += '<div class="mat-text-pages">';
+      data.pages.forEach((page, i) => {
+        html += (i > 0 ? '<div class="page-sep">— 第 ' + (i + 1) + ' 页 —</div>' : '');
+        html += '<p style="margin-bottom:12px;">' + esc(typeof page === 'string' ? page : (page.text || '')) + '</p>';
+      });
+      html += '</div></div>';
+    } else {
+      html += '<div class="empty-state"><div class="empty-icon">📄</div><div class="empty-title">暂无可预览内容</div><div class="empty-desc">此文件类型不支持在线预览</div></div>';
+    }
+
+    // Footer with metadata + reprocess button
+    html += '<div style="padding:14px 18px;border-top:1px solid var(--border);flex-shrink:0;max-height:200px;overflow-y:auto;">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
+    html += '<div class="section-title" style="margin-bottom:0;">AI 摘要</div>';
+    html += '<div style="display:flex;align-items:center;gap:8px;">';
+    if (processStatus === 'failed') html += '<span style="background:#fdecea;color:#c0392b;font-size:11px;padding:3px 10px;border-radius:10px;">⚠️ 分类失败</span>';
+    if (processStatus === 'pending') html += '<span style="background:#fff4e5;color:#b9770e;font-size:11px;padding:3px 10px;border-radius:10px;">⏳ 待分类</span>';
+    html += '<button class="btn btn-neu" style="font-size:11px;padding:5px 12px;border-radius:12px;" onclick="reprocessMaterial(\'' + esc(id) + '\')">🔄 重新分析</button>';
+    html += '</div></div>';
+    if (papercore) html += '<div class="body-text" style="font-size:13px;line-height:1.7;margin-bottom:8px;">' + simpleMarkdown(papercore) + '</div>';
+    if (tags.length > 0) html += tags.map(t => '<span class="tag" style="background:var(--pri-pale);color:var(--primary);margin-right:4px;">' + esc(t) + '</span>').join('');
+    if (logicalPath) html += '<div class="meta-text" style="margin-top:6px;">📁 ' + esc(fmtPath(logicalPath)) + '</div>';
+    html += '</div>';
+
+    document.getElementById('fs-mat-body').innerHTML = html;
+
+    safeFetch(API + '/control-center/mark-viewed', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'material', id }) }).catch(() => {});
+
+  } catch (e) {
+    document.getElementById('fs-mat-body').innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">加载失败</div><div class="empty-desc">' + esc(e.message) + '</div></div>';
+  }
+};
+
+async function reprocessMaterial(id) {
+  const btn = event?.target;
+  if (btn) { btn.textContent = '处理中...'; btn.disabled = true; }
+  try {
+    const res = await safeFetch(API + '/knowledge-builder/reprocess-material', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id })
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    // Reload
+    setTimeout(() => viewMaterialFullscreen(id, document.getElementById('fs-mat-title').textContent), 500);
+  } catch (e) {
+    alert('重新分析失败: ' + e.message);
+    if (btn) { btn.textContent = '🔄 重新分析'; btn.disabled = false; }
+  }
+}
+
 </script>
 </body>
 </html>

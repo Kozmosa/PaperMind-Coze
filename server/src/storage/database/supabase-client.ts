@@ -61,8 +61,10 @@ except Exception as e:
       if (eqIndex > 0) {
         const key = line.substring(0, eqIndex);
         let value = line.substring(eqIndex + 1);
-        if ((value.startsWith("'") && value.endsWith("'")) ||
-            (value.startsWith('"') && value.endsWith('"'))) {
+        if (
+          (value.startsWith("'") && value.endsWith("'")) ||
+          (value.startsWith('"') && value.endsWith('"'))
+        ) {
           value = value.slice(1, -1);
         }
         if (!process.env[key]) {
@@ -114,18 +116,20 @@ function getSupabaseClient(token?: string): SupabaseClient {
     globalOptions.headers = { Authorization: `Bearer ${token}` };
   }
   // Attempt to wire up Coze SDK telemetry — non-blocking
-  import('coze-coding-dev-sdk').then(cozeSdk => {
-    try {
-      const buffer = cozeSdk.getReportBuffer();
-      if (buffer) {
-        globalOptions.fetch = cozeSdk.createWrappedFetch(buffer, 'supabase');
+  import('coze-coding-dev-sdk')
+    .then((cozeSdk) => {
+      try {
+        const buffer = cozeSdk.getReportBuffer();
+        if (buffer) {
+          globalOptions.fetch = cozeSdk.createWrappedFetch(buffer, 'supabase');
+        }
+      } catch {
+        // silent
       }
-    } catch {
-      // silent
-    }
-  }).catch(() => {
-    // coze-coding-dev-sdk not available or hangs — safe to ignore
-  });
+    })
+    .catch(() => {
+      // coze-coding-dev-sdk not available or hangs — safe to ignore
+    });
 
   return createClient(url, key, {
     global: globalOptions,

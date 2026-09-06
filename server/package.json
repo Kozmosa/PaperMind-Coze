@@ -7,11 +7,12 @@
     "dev": "bash ../.cozeproj/scripts/server_dev_run.sh",
     "preinstall": "npx only-allow pnpm",
     "start": "NODE_ENV=production PORT=${PORT:-5000} node dist/index.js",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit && eslint . --quiet"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
     "@huggingface/transformers": "^4.2.0",
+    "@napi-rs/canvas": "^1.0.8",
     "@supabase/supabase-js": "2.95.3",
     "@types/pdf-parse": "^1.1.5",
     "adm-zip": "^0.5.17",
@@ -24,19 +25,26 @@
     "express": "^4.22.1",
     "mammoth": "^1.12.0",
     "multer": "^2.0.2",
-    "openai": "^6.9.0",
+    "mupdf": "^1.28.0",
     "pdf-parse": "^2.4.5",
     "pg": "^8.16.3",
+    "xml2js": "^0.6.2",
     "zod": "^4.2.1"
   },
   "devDependencies": {
+    "@types/adm-zip": "^0.5.8",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/multer": "^2.0.0",
     "@types/pg": "^8.16.0",
+    "@types/xml2js": "^0.4.14",
     "drizzle-kit": "^0.31.8",
     "esbuild": "0.27.2",
+    "eslint": "^9.39.2",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^16.1.0",
     "tsx": "^4.21.0",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.32.1"
   }
 }

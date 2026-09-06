@@ -42,19 +42,23 @@ export default function LoginScreen() {
 
   return (
     <Screen>
-      <LinearGradient
-        colors={['#6C63FF', '#8B5CF6']}
-        style={{ flex: 1 }}
-      >
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 }}>
+      <LinearGradient colors={['#6C63FF', '#8B5CF6']} style={{ flex: 1 }}>
+        <View
+          style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 }}
+        >
           {/* Logo Area */}
           <View style={{ alignItems: 'center', marginBottom: 48 }}>
-            <View style={{
-              width: 80, height: 80, borderRadius: 20,
-              backgroundColor: 'rgba(255,255,255,0.2)',
-              justifyContent: 'center', alignItems: 'center',
-              marginBottom: 16,
-            }}>
+            <View
+              style={{
+                width: 80,
+                height: 80,
+                borderRadius: 20,
+                backgroundColor: 'rgba(255,255,255,0.2)',
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginBottom: 16,
+              }}
+            >
               <Feather name="book-open" size={40} color="#fff" />
             </View>
             <Text style={{ fontSize: 28, fontWeight: 'bold', color: '#fff' }}>PaperMind</Text>
@@ -64,17 +68,19 @@ export default function LoginScreen() {
           </View>
 
           {/* Login Form */}
-          <View style={{
-            width: '100%',
-            backgroundColor: '#fff',
-            borderRadius: 24,
-            padding: 24,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 8 },
-            shadowOpacity: 0.15,
-            shadowRadius: 16,
-            elevation: 8,
-          }}>
+          <View
+            style={{
+              width: '100%',
+              backgroundColor: '#fff',
+              borderRadius: 24,
+              padding: 24,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 8 },
+              shadowOpacity: 0.15,
+              shadowRadius: 16,
+              elevation: 8,
+            }}
+          >
             <Text style={{ fontSize: 20, fontWeight: '600', color: '#1a1a2e', marginBottom: 20 }}>
               登录账号
             </Text>

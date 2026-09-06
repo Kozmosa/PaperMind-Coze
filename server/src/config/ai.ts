@@ -1,28 +1,65 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { createRequire } from 'node:module';
 
-// Sub2API AI Gateway - 通过 Anthropic 兼容接口调用
-// 当前可用的 key 和模型池:
-//   Anthropic Key (sk-accc...): kimi-for-coding ✓, glm-5.2 / glm-5.1 / glm-5 / glm-4.7 (限流中)
-//   OpenAI Key (sk-dd46...): 模型列表正常但 chat/completions 路由未配置
+// AI 网关通过 Anthropic 兼容接口调用，配置从环境变量（.env）读取：
+//   ANTHROPIC_API_KEY    必填，网关 API key
+//   ANTHROPIC_BASE_URL   网关地址，不设置时直连 Anthropic 官方 API
+//   ANTHROPIC_MODEL      可选，覆盖默认模型
+// key 缺失时服务仍可启动，仅在调用 AI 接口时抛错。
 
-const AI_BASE_URL = 'http://110.42.53.85:11098';
-const AI_API_KEY = 'sk-accc8ec8c8c0650aefe1d0e5498657961c041c13eb9e8f48ba3a579ea5934cb3';
+const _require = createRequire(import.meta.url);
 
-export const anthropic = new Anthropic({
-  apiKey: AI_API_KEY,
-  baseURL: AI_BASE_URL,
-});
+try {
+  const path = _require('path') as typeof import('path');
+  const fs = _require('fs') as typeof import('fs');
+  let envPath = path.resolve('.env');
+  if (!fs.existsSync(envPath)) {
+    envPath = path.resolve('..', '.env');
+  }
+  _require('dotenv').config({ path: envPath });
+} catch {
+  // dotenv 不可用时忽略，依赖外部注入的环境变量
+}
+
+const AI_BASE_URL = process.env.ANTHROPIC_BASE_URL;
+const AI_API_KEY = process.env.ANTHROPIC_API_KEY;
+
+export const anthropic: Anthropic = AI_API_KEY
+  ? new Anthropic({
+      apiKey: AI_API_KEY,
+      ...(AI_BASE_URL ? { baseURL: AI_BASE_URL } : {}),
+      // 分类链路单次 LLM 调用可能达数十秒：放宽单次请求超时，并把 SDK 默认的
+      // 2 次自动重试降为 1 次，避免网关抖动时整链指数级变慢（issue #7 Task 3）
+      timeout: 120_000,
+      maxRetries: 1,
+    })
+  : new Proxy({} as Anthropic, {
+      get() {
+        throw new Error('ANTHROPIC_API_KEY is not set — 请在 .env 中配置后再调用 AI 接口');
+      },
+    });
 
 /** 当前使用的主模型 */
-export const DEFAULT_MODEL = 'kimi-for-coding';
+export const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL || 'kimi-for-coding';
 
-/** 可用模型列表（通过此 API Key 可访问） */
-export const AVAILABLE_MODELS = [
-  'kimi-for-coding',
-  'glm-5.2',
-  'glm-5.1',
-  'glm-5',
-  'glm-4.7',
-] as const;
+/** 可用模型列表：跟随 ANTHROPIC_MODEL 配置的网关模型（如 deepseek-v4-pro） */
+export const AVAILABLE_MODELS = [DEFAULT_MODEL];
 
 export type AvailableModel = (typeof AVAILABLE_MODELS)[number];
+
+// ==========================================
+// 视觉预处理客户端（扫描件 OCR 兜底，issue 跟进）
+// 独立网关配置：主网关（DeepSeek）不支持图片输入，
+// 视觉走 VISION_API_KEY / VISION_BASE_URL / VISION_MODEL
+// ==========================================
+const VISION_API_KEY = process.env.VISION_API_KEY;
+const VISION_BASE_URL = process.env.VISION_BASE_URL;
+const VISION_MODEL = process.env.VISION_MODEL || 'glm-5.3-flash';
+
+export const visionAnthropic: Anthropic | null = VISION_API_KEY
+  ? new Anthropic({
+      apiKey: VISION_API_KEY,
+      ...(VISION_BASE_URL ? { baseURL: VISION_BASE_URL } : {}),
+    })
+  : null;
+export const VISION_MODEL_NAME = VISION_MODEL;

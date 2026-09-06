@@ -1,6 +1,6 @@
-const names = require('./names')
-const v5OnlyNames = require('./v5-only-names')
-const v5OnlyNamesSet = new Set(v5OnlyNames)
+const names = require('./names');
+const v5OnlyNames = require('./v5-only-names');
+const v5OnlyNamesSet = new Set(v5OnlyNames);
 
 const DEFAULTS = {
   whitelist: names,
@@ -10,11 +10,7 @@ const DEFAULTS = {
 
 function getJSXAttribute(openingElement, attrName) {
   return openingElement.attributes.find(
-    (attr) =>
-      attr &&
-      attr.type === 'JSXAttribute' &&
-      attr.name &&
-      attr.name.name === attrName
+    (attr) => attr && attr.type === 'JSXAttribute' && attr.name && attr.name.name === attrName,
   );
 }
 
@@ -53,14 +49,13 @@ function getStringLiteralValue(attribute) {
 
 const replacements = {
   'plus-circle': 'circle-plus',
-}
+};
 
 module.exports = {
   meta: {
     type: 'problem',
     docs: {
-      description:
-        'Ensure FontAwesome6 name prop is a string literal in whitelist',
+      description: 'Ensure FontAwesome6 name prop is a string literal in whitelist',
       recommended: false,
     },
     schema: [
@@ -83,14 +78,13 @@ module.exports = {
           },
           caseSensitive: {
             type: 'boolean',
-            default: true
-          }
+            default: true,
+          },
         },
       },
     ],
     messages: {
-      invalidName:
-        '{{componentName}} 中不存在图标 {{name}}，{{suggestion}}',
+      invalidName: '{{componentName}} 中不存在图标 {{name}}，{{suggestion}}',
     },
   },
 
@@ -100,12 +94,9 @@ module.exports = {
     const attributeName = options.attributeName || DEFAULTS.attributeName;
     const caseSensitive = options.caseSensitive ?? true;
 
-    const whitelistRaw = Array.isArray(options.whitelist)
-      ? options.whitelist
-      : DEFAULTS.whitelist;
+    const whitelistRaw = Array.isArray(options.whitelist) ? options.whitelist : DEFAULTS.whitelist;
 
-    const normalize = (s) =>
-      caseSensitive ? String(s) : String(s).toLowerCase();
+    const normalize = (s) => (caseSensitive ? String(s) : String(s).toLowerCase());
 
     const whitelist = new Set(whitelistRaw.map(normalize));
 
@@ -163,12 +154,12 @@ module.exports = {
 
 function getSuggestion(name, originalName) {
   if (replacements[name]) {
-    return `请更换为 ${replacements[name]}`
+    return `请更换为 ${replacements[name]}`;
   }
 
   if (v5OnlyNamesSet.has(name)) {
-    return `${originalName} 只能和 FontAwesome5 组件一起使用`
+    return `${originalName} 只能和 FontAwesome5 组件一起使用`;
   }
 
-  return '请更换为其他图标'
+  return '请更换为其他图标';
 }

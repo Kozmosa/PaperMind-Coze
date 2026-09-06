@@ -9,7 +9,14 @@ import {
   Dimensions,
   Platform,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  runOnJS,
+} from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
+import { useCSSVariable } from 'uniwind';
 import { api } from '@/utils/api';
 import MarkdownRenderer from '@/components/markdown/MarkdownRenderer';
 
@@ -79,10 +86,37 @@ export default function NoteHelperSidebar({
   sourceFiles,
   citations,
 }: NoteHelperSidebarProps) {
+  const [border] = useCSSVariable(['--color-border']) as string[];
+  const borderColor = border || '#E3DED9';
   const [selectedFile, setSelectedFile] = useState<SourceFileMeta | null>(null);
   const [fileContent, setFileContent] = useState<string>('');
   const [fileViewUrl, setFileViewUrl] = useState<string>('');
   const [loadingContent, setLoadingContent] = useState(false);
+
+  // 滑入滑出 + 遮罩淡入淡出（issue #4 Task 6）；rendered 保证退出动画播完后再卸载
+  const [rendered, setRendered] = useState(false);
+  const translateX = useSharedValue(SIDEBAR_WIDTH);
+  const backdropOpacity = useSharedValue(0);
+
+  useEffect(() => {
+    if (visible) {
+      setRendered(true);
+      translateX.value = withTiming(0, { duration: 260 });
+      backdropOpacity.value = withTiming(1, { duration: 260 });
+    } else {
+      translateX.value = withTiming(SIDEBAR_WIDTH, { duration: 220 });
+      backdropOpacity.value = withTiming(0, { duration: 220 }, (finished) => {
+        if (finished) runOnJS(setRendered)(false);
+      });
+    }
+  }, [visible]);
+
+  const sidebarAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
+  const backdropAnimStyle = useAnimatedStyle(() => ({
+    opacity: backdropOpacity.value,
+  }));
 
   // Reset when closed
   useEffect(() => {
@@ -134,23 +168,30 @@ export default function NoteHelperSidebar({
 
   // Count citations per source
   const getCitationCount = (fileId: string) => {
-    return citations.filter(c => c.sourceId === fileId).length;
+    return citations.filter((c) => c.sourceId === fileId).length;
   };
 
-  if (!visible) return null;
+  if (!rendered) return null;
 
   return (
     <View style={styles.container}>
       {/* Backdrop */}
-      <TouchableOpacity style={styles.backdrop} onPress={onClose} activeOpacity={1} />
+      <Animated.View style={[styles.backdrop, backdropAnimStyle]}>
+        <TouchableOpacity style={styles.backdropTouch} onPress={onClose} activeOpacity={1} />
+      </Animated.View>
 
       {/* Sidebar */}
-      <View style={styles.sidebar}>
+      <Animated.View style={[styles.sidebar, sidebarAnimStyle]}>
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { borderBottomColor: borderColor }]}>
           {selectedFile ? (
             <View style={styles.headerRow}>
-              <TouchableOpacity onPress={() => { setSelectedFile(null); setFileContent(''); }}>
+              <TouchableOpacity
+                onPress={() => {
+                  setSelectedFile(null);
+                  setFileContent('');
+                }}
+              >
                 <Feather name="arrow-left" size={22} color="#2D3436" />
               </TouchableOpacity>
               <Text style={styles.headerTitle} numberOfLines={1}>
@@ -178,40 +219,40 @@ export default function NoteHelperSidebar({
           fileViewUrl ? (
             <SidebarPDFViewer url={fileViewUrl} />
           ) : (
-          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-            {loadingContent ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color="#6C63FF" />
-                <Text style={styles.loadingText}>加载中...</Text>
-              </View>
-            ) : (
-              <>
-                {/* File meta info */}
-                <View style={styles.fileMeta}>
-                  <View style={styles.fileMetaRow}>
-                    <Feather
-                      name={selectedFile.type === 'study_note' ? 'edit-3' : 'file-text'}
-                      size={14}
-                      color={selectedFile.type === 'study_note' ? '#00B894' : '#FF9F43'}
-                    />
-                    <Text style={styles.fileMetaText}>
-                      {selectedFile.type === 'study_note' ? '学习纪要' : '资料'}
-                    </Text>
-                    {selectedFile.date && (
-                      <Text style={styles.fileMetaText}> · {selectedFile.date}</Text>
-                    )}
-                  </View>
+            <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+              {loadingContent ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color="#6C63FF" />
+                  <Text style={styles.loadingText}>加载中...</Text>
                 </View>
-                {/* Content */}
-                {fileContent.length > 500 ? (
-                  <MarkdownRenderer content={fileContent} maxWidth={SIDEBAR_WIDTH - 40} />
-                ) : (
-                  <Text style={styles.fileContentText}>{fileContent}</Text>
-                )}
-                <View style={{ height: 40 }} />
-              </>
-            )}
-          </ScrollView>
+              ) : (
+                <>
+                  {/* File meta info */}
+                  <View style={[styles.fileMeta, { borderBottomColor: borderColor }]}>
+                    <View style={styles.fileMetaRow}>
+                      <Feather
+                        name={selectedFile.type === 'study_note' ? 'edit-3' : 'file-text'}
+                        size={14}
+                        color={selectedFile.type === 'study_note' ? '#00B894' : '#FF9F43'}
+                      />
+                      <Text style={styles.fileMetaText}>
+                        {selectedFile.type === 'study_note' ? '学习纪要' : '资料'}
+                      </Text>
+                      {selectedFile.date && (
+                        <Text style={styles.fileMetaText}> · {selectedFile.date}</Text>
+                      )}
+                    </View>
+                  </View>
+                  {/* Content */}
+                  {fileContent.length > 500 ? (
+                    <MarkdownRenderer content={fileContent} maxWidth={SIDEBAR_WIDTH - 40} />
+                  ) : (
+                    <Text style={styles.fileContentText}>{fileContent}</Text>
+                  )}
+                  <View style={{ height: 40 }} />
+                </>
+              )}
+            </ScrollView>
           )
         ) : (
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -220,7 +261,7 @@ export default function NoteHelperSidebar({
               return (
                 <TouchableOpacity
                   key={`${file.type}_${file.id}`}
-                  style={styles.fileItem}
+                  style={[styles.fileItem, { borderBottomColor: borderColor }]}
                   onPress={() => handleSelectFile(file)}
                 >
                   <View style={styles.fileIcon}>
@@ -246,14 +287,14 @@ export default function NoteHelperSidebar({
             })}
             {sourceFiles.length === 0 && (
               <View style={styles.emptyState}>
-                <Feather name="folder-open" size={40} color="#B2BEC3" />
+                <Feather name="folder" size={40} color="#B2BEC3" />
                 <Text style={styles.emptyText}>暂无源文件</Text>
               </View>
             )}
             <View style={{ height: 40 }} />
           </ScrollView>
         )}
-      </View>
+      </Animated.View>
     </View>
   );
 }
@@ -267,6 +308,9 @@ const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  backdropTouch: {
+    flex: 1,
   },
   sidebar: {
     width: SIDEBAR_WIDTH,
@@ -282,7 +326,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F3',
   },
   headerRow: {
     flexDirection: 'row',
@@ -306,7 +349,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F3',
     gap: 12,
   },
   fileIcon: {
@@ -352,7 +394,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     marginBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F3',
   },
   fileMetaRow: {
     flexDirection: 'row',

@@ -10,12 +10,9 @@
     "lint:client": "npm run lint --prefix ./client",
     "lint:server": "npm run lint --prefix ./server",
     "lint:all": "npm run lint --prefix ./client; npm run lint --prefix ./server",
-    "validate": "pnpm run --parallel '/^(lint:client|lint:server)$/'"
-  },
-  "devDependencies": {
-    "@supabase/supabase-js": "2.95.3",
-    "dotenv": "^17.2.3",
-    "pdf-parse": "^2.4.5"
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "validate": "pnpm run --parallel '/^(lint:client|lint:server|format:check)$/'"
   },
   "packageManager": "pnpm@9.0.0",
   "engines": {
@@ -29,8 +26,8 @@
       "expo@54.0.33": "patches/expo@54.0.33.patch"
     }
   },
-  "dependencies": {
-    "adm-zip": "^0.5.17",
-    "xml2js": "^0.6.2"
+  "devDependencies": {
+    "prettier": "^3.9.6",
+    "prettier-plugin-tailwindcss": "^0.8.1"
   }
 }

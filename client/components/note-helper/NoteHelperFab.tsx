@@ -8,7 +8,11 @@ type NoteHelperFabProps = {
   selected?: boolean;
 };
 
-export default function NoteHelperFab({ onPress, visible = true, selected = false }: NoteHelperFabProps) {
+export default function NoteHelperFab({
+  onPress,
+  visible = true,
+  selected = false,
+}: NoteHelperFabProps) {
   if (!visible) return null;
 
   return (

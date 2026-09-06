@@ -9,7 +9,10 @@ const client = getSupabaseClient();
 router.get('/', async (req: Request, res: Response) => {
   try {
     const userId = (req as any).userId;
-    let query = client.from('problem_solving_logs').select('*').order('created_at', { ascending: false });
+    let query = client
+      .from('problem_solving_logs')
+      .select('*')
+      .order('created_at', { ascending: false });
     if (userId && userId !== 'guest') {
       query = query.eq('user_id', userId);
     }
@@ -25,21 +28,43 @@ router.get('/', async (req: Request, res: Response) => {
 router.post('/', async (req: Request, res: Response) => {
   try {
     const userId = (req as any).userId || 'guest';
-    const { question, answer, steps, related_knowledge_node_ids, related_draft_ids, citation_snippets } = req.body;
+    const {
+      question,
+      answer,
+      steps,
+      related_knowledge_node_ids,
+      related_draft_ids,
+      citation_snippets,
+    } = req.body;
 
-    const { data, error } = await client
+    const payload = {
+      user_id: userId,
+      question: question || '',
+      answer: answer || '',
+      steps: steps || '',
+      related_knowledge_node_ids: related_knowledge_node_ids || [],
+      related_draft_ids: related_draft_ids || [],
+      citation_snippets: citation_snippets || [],
+    };
+
+    let { data, error } = await client
       .from('problem_solving_logs')
-      .insert({
-        user_id: userId,
-        question: question || '',
-        answer: answer || '',
-        steps: steps || '',
-        related_knowledge_node_ids: related_knowledge_node_ids || [],
-        related_draft_ids: related_draft_ids || [],
-        citation_snippets: citation_snippets || [],
-      })
+      .insert(payload)
       .select()
       .single();
+
+    // related_draft_ids 由 migrations/002 添加：未执行迁移的库返回 42703，
+    // 降级去掉该列重试，避免「我明白了」写入断裂（与 issue #6 同源的缺列防御）
+    if (error && (error.code === '42703' || /related_draft_ids/.test(error.message || ''))) {
+      const rest = { ...payload };
+      delete rest.related_draft_ids;
+      const retry = await client.from('problem_solving_logs').insert(rest).select().single();
+      data = retry.data;
+      error = retry.error;
+      console.warn(
+        '[problem-solving-logs] related_draft_ids 列缺失，已降级写入（执行 migrations/002_add_related_draft_ids.sql 可恢复）',
+      );
+    }
 
     if (error) throw new Error(error.message);
     res.json({ data });
@@ -48,17 +73,21 @@ router.post('/', async (req: Request, res: Response) => {
   }
 });
 
-// 获取统计数据（按时间段）
+// 获取统计数据（按时间段，支持 endDate 锚定窗口终点，如反思报告生成时间）
 router.get('/stats', async (req: Request, res: Response) => {
   try {
     const userId = (req as any).userId;
     const days = parseInt(req.query.days as string) || 30;
-    const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    const endDateRaw = req.query.endDate as string | undefined;
+    const end = endDateRaw ? new Date(endDateRaw) : new Date();
+    const startDate = new Date(end.getTime() - days * 24 * 60 * 60 * 1000).toISOString();
+    const endISO = end.toISOString();
 
     let query = client
       .from('problem_solving_logs')
       .select('created_at')
-      .gte('created_at', startDate);
+      .gte('created_at', startDate)
+      .lte('created_at', endISO);
     if (userId && userId !== 'guest') {
       query = query.eq('user_id', userId);
     }

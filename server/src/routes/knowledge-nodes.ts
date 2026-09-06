@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { getSupabaseClient } from '../storage/database/supabase-client.js';
+import { scheduleIndexRebuild } from '../utils/index-refresh.js';
 
 const router = Router();
 const client = getSupabaseClient();
@@ -9,7 +10,10 @@ const client = getSupabaseClient();
 router.get('/', async (req: Request, res: Response) => {
   try {
     const userId = (req as any).userId;
-    let query = client.from('knowledge_nodes').select('*').order('created_at', { ascending: false });
+    let query = client
+      .from('knowledge_nodes')
+      .select('*')
+      .order('created_at', { ascending: false });
     // 只对已登录用户过滤数据，guest 看到全部（演示用）
     if (userId && userId !== 'guest') {
       query = query.eq('user_id', userId);
@@ -41,7 +45,8 @@ router.get('/:id', async (req: Request, res: Response) => {
 // 创建知识节点
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { papercore, short_name, original_file, tags, relations, attached_draft_ids, parent_id } = req.body;
+    const { papercore, short_name, original_file, tags, relations, attached_draft_ids, parent_id } =
+      req.body;
     if (!papercore) return res.status(400).json({ error: 'Papercore 不能为空' });
     const userId = (req as any).userId || 'guest';
 
@@ -60,6 +65,7 @@ router.post('/', async (req: Request, res: Response) => {
       .select()
       .single();
     if (error) throw new Error(error.message);
+    scheduleIndexRebuild();
     res.status(201).json({ data });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -69,7 +75,8 @@ router.post('/', async (req: Request, res: Response) => {
 // 更新知识节点
 router.put('/:id', async (req: Request, res: Response) => {
   try {
-    const { papercore, short_name, original_file, tags, relations, attached_draft_ids, parent_id } = req.body;
+    const { papercore, short_name, original_file, tags, relations, attached_draft_ids, parent_id } =
+      req.body;
     const updateData: Record<string, any> = {};
     if (papercore !== undefined) updateData.papercore = papercore;
     if (short_name !== undefined) updateData.short_name = short_name;
@@ -88,6 +95,7 @@ router.put('/:id', async (req: Request, res: Response) => {
       .single();
     if (error) throw new Error(error.message);
     if (!data) return res.status(404).json({ error: '节点不存在' });
+    scheduleIndexRebuild();
     res.json({ data });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -105,6 +113,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
       .single();
     if (error) throw new Error(error.message);
     if (!data) return res.status(404).json({ error: '节点不存在' });
+    scheduleIndexRebuild();
     res.json({ data });
   } catch (err: any) {
     res.status(500).json({ error: err.message });

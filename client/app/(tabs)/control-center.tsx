@@ -1,1 +1,1 @@
-export { default } from "@/screens/control-center";
+export { default } from '@/screens/control-center';

@@ -8,7 +8,7 @@ router.get('/', async (req, res) => {
   try {
     const userId = (req as any).userId || 'temp_user';
     const supabase = getSupabaseClient();
-    
+
     const { data, error } = await supabase
       .from('chat_sessions')
       .select('*')
@@ -48,7 +48,6 @@ router.post('/', async (req, res) => {
 // Get messages for a session
 router.get('/:sessionId/messages', async (req, res) => {
   try {
-    const userId = (req as any).userId || 'temp_user';
     const { sessionId } = req.params;
     const supabase = getSupabaseClient();
 
@@ -76,12 +75,12 @@ router.post('/:sessionId/messages', async (req, res) => {
 
     const { data, error } = await supabase
       .from('chat_messages')
-      .insert({ 
-        session_id: sessionId, 
-        user_id: userId, 
-        role, 
-        content, 
-        citations: citations || [] 
+      .insert({
+        session_id: sessionId,
+        user_id: userId,
+        role,
+        content,
+        citations: citations || [],
       })
       .select()
       .single();

@@ -1,1 +1,1 @@
-export { default } from "@/screens/study-note-edit";
+export { default } from '@/screens/study-note-edit';

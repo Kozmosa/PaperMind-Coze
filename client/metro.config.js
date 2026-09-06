@@ -52,7 +52,9 @@ const apiProxy = createProxyMiddleware({
       res.setHeader('Connection', 'keep-alive');
       res.setHeader('X-Accel-Buffering', 'no');
       if (typeof res.flushHeaders === 'function') {
-        try { res.flushHeaders(); } catch {}
+        try {
+          res.flushHeaders();
+        } catch {}
       }
     }
   },
@@ -82,7 +84,9 @@ const streamProxy = createProxyMiddleware({
       res.setHeader('Connection', 'keep-alive');
       res.setHeader('X-Accel-Buffering', 'no');
       if (typeof res.flushHeaders === 'function') {
-        try { res.flushHeaders(); } catch {}
+        try {
+          res.flushHeaders();
+        } catch {}
       }
     }
   },
@@ -127,5 +131,5 @@ module.exports = withUniwindConfig(config, {
   cssEntryFile: './global.css',
   // (optional) path where we gonna auto-generate typings
   // defaults to project's root
-  dtsFile: './uniwind-types.d.ts'
+  dtsFile: './uniwind-types.d.ts',
 });

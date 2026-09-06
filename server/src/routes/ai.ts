@@ -1,11 +1,28 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
+import * as fs from 'fs';
+import * as path from 'path';
 import { anthropic, DEFAULT_MODEL } from '../config/ai.js';
 import { getSupabaseClient } from '../storage/database/supabase-client.js';
-import { knowledgeVectorIndex } from '../utils/knowledge-vector-index.js';
+import { unifiedVectorIndex } from '../utils/unified-vector-index.js';
+import { extractText } from '../utils/extract-text.js';
+import {
+  extractNotePreferences,
+  formatSubjectPreferencesForPrompt,
+  mergeSubjectPreferences,
+} from '../utils/note-preferences.js';
 
 const router = Router();
 const client = getSupabaseClient();
+
+// 前端用 KaTeX 渲染公式，非法 LaTeX 会显示为红色错误源码（issue #25），
+// 在 prompt 层约束输出作为第一道兜底
+const LATEX_RULES = `
+数学公式输出规范（前端用 KaTeX 渲染，非法公式会显示为乱码源码，必须严格遵守）：
+- 行内公式用 $...$，独立成段的公式用 $$...$$，不要使用 \\( \\) 或 \\[ \\] 以外的变体
+- 公式内部只能包含 ASCII 字符和 LaTeX 命令，禁止出现中文和全角符号；中文说明一律写在公式外面
+- 公式内部禁止使用任何 Markdown 语法（如 #、>、**、列表符号）
+- 只使用 KaTeX 支持的常见命令，避免嵌套过深或冷门宏；不确定时用简洁的线性写法（如 a/b 而非 \\dfrac{a}{b}）`;
 
 /**
  * POST /api/v1/ai/chat
@@ -29,13 +46,14 @@ router.post('/chat', async (req: Request, res: Response) => {
 
     switch (agent) {
       case 'knowledge_builder':
-        systemPrompt = await buildKnowledgeBuilderPrompt(context);
+        systemPrompt = await buildKnowledgeBuilderPrompt();
         break;
       case 'note_helper':
         systemPrompt = await buildNoteHelperPrompt(context);
         break;
       case 'tutor':
-        systemPrompt = await buildTutorPrompt(context, message);
+        // /chat endpoint only needs the prompt string, no searchResults needed
+        ({ systemPrompt } = await buildTutorPrompt(context, message));
         break;
       case 'reflection_mind':
         systemPrompt = await buildReflectionPrompt(context);
@@ -90,18 +108,24 @@ router.post('/tutor', async (req: Request, res: Response) => {
     res.setHeader('Connection', 'keep-alive');
 
     const hasImage = !!imageBase64;
-    const systemPrompt = await buildTutorPrompt(context, message, hasImage);
+    const { systemPrompt, searchResults, allFileContents } = await buildTutorPrompt(
+      context,
+      message,
+      hasImage,
+    );
 
     // 构建消息：有图片时用 multipart content blocks，否则纯文本
     let messages: any[];
     if (hasImage) {
-      messages = [{
-        role: 'user',
-        content: [
-          { type: 'image', source: { type: 'base64', media_type: mediaType, data: imageBase64 } },
-          { type: 'text', text: message }
-        ]
-      }];
+      messages = [
+        {
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: mediaType, data: imageBase64 } },
+            { type: 'text', text: message },
+          ],
+        },
+      ];
     } else {
       messages = [{ role: 'user', content: message }];
     }
@@ -124,13 +148,21 @@ router.post('/tutor', async (req: Request, res: Response) => {
     }
 
     // 流结束后，提取 citations 并发送元数据
-    const citations = await extractCitations(fullContent, context);
+    // 把 buildTutorPrompt 收集的节点关联文件原文注入 context.fileContents，
+    // 打通架构规格 1.4 优先级 4（此前 allFileContents 从未传到这里，是死路径）
+    const citations = await extractCitations(
+      fullContent,
+      { ...context, fileContents: allFileContents },
+      searchResults,
+    );
 
-    res.write(`data: ${JSON.stringify({
-      content: '',
-      done: true,
-      citations: citations
-    })}\n\n`);
+    res.write(
+      `data: ${JSON.stringify({
+        content: '',
+        done: true,
+        citations: citations,
+      })}\n\n`,
+    );
     res.write('data: [DONE]\n\n');
     res.end();
   } catch (error: any) {
@@ -143,62 +175,163 @@ router.post('/tutor', async (req: Request, res: Response) => {
   }
 });
 
+// ── Citation type ─────────────────────────────────────────────────
+interface Citation {
+  type: 'knowledge_node' | 'study_note' | 'material' | 'file_content' | 'image';
+  sourceId: string | number;
+  sourceType: string;
+  title: string;
+  papercore?: string;
+  tags?: string[];
+  pageNumber?: number | null;
+  snippet?: string;
+  fileName?: string;
+  fileUrl?: string;
+  draftId?: number;
+  label?: string; // display fallback
+}
+
 // 提取 citations 的辅助函数
-async function extractCitations(answer: string, context?: any): Promise<any[]> {
-  const citations: any[] = [];
+// 清洗引用片段：去掉历史数据残留的分页占位符（"-- 1 of 67 --"）、省略号，压缩空白
+function cleanCitationSnippet(text?: string | null): string | undefined {
+  if (!text) return undefined;
+  const cleaned = text
+    .replace(/--\s*\d+\s*of\s*\d+\s*--/gi, '')
+    .replace(/\.{3,}|…+/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return cleaned || undefined;
+}
+
+async function extractCitations(
+  answer: string,
+  context?: any,
+  searchResults?: any[],
+): Promise<Citation[]> {
+  const citations: Citation[] = [];
 
   // 用户上传的图片引用
   if (context?.imageBase64) {
     citations.push({
       type: 'image',
+      sourceId: context.imageFileName || 'uploaded_image',
+      sourceType: 'image',
+      title: context.imageFileName || '上传的图片',
       fileName: context.imageFileName || '上传的图片',
       label: '用户上传的图片',
       snippet: '图片已由 AI 视觉分析处理',
     });
   }
 
+  // ── From search results (unified vector index) ───────────────
+  if (searchResults && searchResults.length > 0) {
+    for (const r of searchResults) {
+      const c: Citation = {
+        type: r.sourceType,
+        sourceId: r.sourceId,
+        sourceType: r.sourceType,
+        title: r.title,
+        papercore: r.papercore,
+        tags: r.tags,
+        pageNumber: r.pageNumber || null,
+        snippet: cleanCitationSnippet(
+          r.sourceType === 'file_content'
+            ? r.papercore // already snipped in index
+            : r.papercore?.substring(0, 200),
+        ),
+        fileName: r.fileName,
+        draftId: r.draftId,
+      };
+      citations.push(c);
+    }
+  }
+
+  // ── Explicitly selected nodes ────────────────────────────────
   if (context?.nodeIds?.length && context?.nodeIds.length > 0) {
+    const existingNodeIds = new Set(
+      citations.filter((c) => c.type === 'knowledge_node').map((c) => c.sourceId),
+    );
     for (const nodeId of context.nodeIds) {
-      citations.push({
-        type: 'node',
-        nodeId: nodeId,
-        label: `知识节点 ${nodeId}`
-      });
-    }
-  }
-
-  if (context?.fileContents?.length && context.fileContents.length > 0) {
-    for (const fc of context.fileContents) {
-      citations.push({
-        type: 'file',
-        draftId: fc.draft_id,
-        fileName: fc.file_name || '未知文件',
-        snippet: fc.extracted_text?.substring(0, 100) + '...',
-        page: fc.page_number
-      });
-    }
-  }
-
-  // 如果上传了文件到服务端，从 draft_pool 获取文件信息
-  if (context?.draftId) {
-    try {
-      const { data: draft } = await client
-        .from('draft_pool')
-        .select('id, file_name, file_url')
-        .eq('id', context.draftId)
-        .single();
-
-      if (draft) {
+      if (!existingNodeIds.has(nodeId)) {
         citations.push({
-          type: 'file',
-          draftId: draft.id,
-          fileName: draft.file_name || '上传文件',
-          snippet: '用户当前上传的参考文件',
-          page: null,
+          type: 'knowledge_node',
+          sourceId: nodeId,
+          sourceType: 'knowledge_node',
+          title: `知识节点 ${nodeId}`,
+          label: `知识节点 ${nodeId}`,
         });
       }
-    } catch {
-      // 非关键，静默忽略
+    }
+  }
+
+  // ── Fallback: explicit file contents from context ────────────
+  if (context?.fileContents?.length && context.fileContents.length > 0) {
+    const existingFcIds = new Set(
+      citations.filter((c) => c.type === 'file_content').map((c) => c.sourceId),
+    );
+    for (const fc of context.fileContents) {
+      if (!existingFcIds.has(fc.draft_id)) {
+        citations.push({
+          type: 'file_content',
+          sourceId: fc.draft_id,
+          sourceType: 'file_content',
+          title: fc.file_name || `文件片段`,
+          fileName: fc.file_name || '未知文件',
+          pageNumber: fc.page_number,
+          snippet: cleanCitationSnippet(fc.extracted_text?.substring(0, 200)),
+          draftId: fc.draft_id,
+        });
+      }
+    }
+  }
+
+  // ── User-uploaded file (context.draftId) ─────────────────────
+  if (context?.draftId) {
+    const hasDraft = citations.some(
+      (c) => (c.type === 'file_content' || c.type === 'material') && c.draftId === context.draftId,
+    );
+    if (!hasDraft) {
+      try {
+        const { data: draft } = await client
+          .from('draft_pool')
+          .select('id, file_name, file_url')
+          .eq('id', context.draftId)
+          .single();
+
+        if (draft) {
+          // 联查 file_contents 取原文片段与页码（issue #5 Task 8），
+          // 引用卡片不再只显示「用户当前上传的参考文件」
+          let snippet = '用户当前上传的参考文件';
+          let pageNumber: number | null = null;
+          try {
+            const { data: fcs } = await client
+              .from('file_contents')
+              .select('extracted_text, page_number')
+              .eq('draft_id', draft.id)
+              .order('page_number', { ascending: true, nullsFirst: true })
+              .limit(1);
+            if (fcs && fcs.length > 0) {
+              snippet = (fcs[0].extracted_text || snippet).substring(0, 200);
+              pageNumber = fcs[0].page_number ?? 1;
+            }
+          } catch {
+            // 非关键，保留兜底文案
+          }
+
+          citations.push({
+            type: 'file_content',
+            sourceId: draft.id,
+            sourceType: 'file_content',
+            title: draft.file_name || '上传文件',
+            fileName: draft.file_name || '上传文件',
+            snippet: cleanCitationSnippet(snippet),
+            pageNumber,
+            draftId: draft.id,
+          });
+        }
+      } catch {
+        // 非关键，静默忽略
+      }
     }
   }
 
@@ -255,12 +388,15 @@ TAGS: <标签列表>`;
       const contentBlocks: any[] = [];
       contentBlocks.push({
         type: 'image',
-        source: { type: 'base64', media_type: mediaType || 'image/jpeg', data: imageBase64 }
+        source: { type: 'base64', media_type: mediaType || 'image/jpeg', data: imageBase64 },
       });
       if (rawContent) {
         contentBlocks.push({ type: 'text', text: rawContent });
       } else {
-        contentBlocks.push({ type: 'text', text: '请分析这张图片，提取其中的知识概念，生成 Papercore 和 Tags。' });
+        contentBlocks.push({
+          type: 'text',
+          text: '请分析这张图片，提取其中的知识概念，生成 Papercore 和 Tags。',
+        });
       }
       messages = [{ role: 'user', content: contentBlocks }];
     } else {
@@ -314,22 +450,11 @@ router.post('/suggest', async (req: Request, res: Response) => {
         .in('draft_id', draft_ids.slice(0, 5));
 
       if (fileContents && fileContents.length > 0) {
-        fileText = fileContents.map((fc: any) =>
-          `[第${fc.page_number || '?'}页] ${fc.extracted_text || ''}`
-        ).join('\n\n');
+        fileText = fileContents
+          .map((fc: any) => `[第${fc.page_number || '?'}页] ${fc.extracted_text || ''}`)
+          .join('\n\n');
       }
     }
-
-    // 获取现有知识图谱节点
-    const { data: existingNodes } = await client
-      .from('knowledge_nodes')
-      .select('id, papercore, tags, short_name')
-      .order('created_at', { ascending: false })
-      .limit(50);
-
-    const nodesList = (existingNodes || []).map((n: any) =>
-      `ID:${n.id} | 名称:${n.short_name || n.papercore?.substring(0, 15) || '无'} | 标签:${(n.tags || []).join(',')}`
-    ).join('\n');
 
     // 构建 prompt
     let systemPrompt = '';
@@ -364,10 +489,8 @@ router.post('/suggest', async (req: Request, res: Response) => {
       messages: [{ role: 'user', content: userContent }],
     });
 
-    let fullContent = '';
     for await (const event of stream) {
       if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-        fullContent += event.delta.text;
         res.write(`data: ${JSON.stringify({ content: event.delta.text })}\n\n`);
       }
     }
@@ -395,16 +518,19 @@ router.post('/suggest-relations', async (req: Request, res: Response) => {
     }
 
     // 1. 语义搜索
-    const searchResults = await knowledgeVectorIndex.search(papercore, topK, 0.3);
+    const searchResults = await unifiedVectorIndex.search(papercore, topK, 0.3);
 
     if (searchResults.length === 0) {
       return res.json({ suggestions: [] });
     }
 
     // 2. 用 LLM 分类关系类型
-    const candidates = searchResults.map(r =>
-      `[ID:${r.id}] 名称:${r.short_name || '节点' + r.id} Papercore:${r.papercore?.substring(0, 80)} 标签:${(r.tags || []).join(',')}`
-    ).join('\n');
+    const candidates = searchResults
+      .map(
+        (r: any) =>
+          `[ID:${r.sourceId}] 名称:${r.title || ''} Papercore:${r.papercore?.substring(0, 80)} 标签:${(r.tags || []).join(',')}`,
+      )
+      .join('\n');
 
     const systemPrompt = `你是知识图谱关系分类助手。给定一个新的知识节点，判断它与现有节点的关系类型。
 
@@ -428,7 +554,7 @@ ${candidates}
 
     const msg = await anthropic.messages.create({
       model: DEFAULT_MODEL,
-      max_tokens: 1024,
+      max_tokens: 2048,
       system: systemPrompt,
       messages: [{ role: 'user', content: '请分析并返回 JSON 数组。' }],
     });
@@ -436,26 +562,32 @@ ${candidates}
     // 3. 解析 LLM 响应
     let classified: Array<{ nodeId: number; relation_type: string }> = [];
     try {
-      const text = (msg.content[0] as any)?.text || '';
+      // thinking 型模型的 content[0] 可能是思考块，需过滤出全部 text 块
+      const text = msg.content
+        .filter((c: any) => c.type === 'text')
+        .map((c: any) => c.text)
+        .join('');
       const jsonMatch = text.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
         classified = JSON.parse(jsonMatch[0]);
       }
-    } catch (parseErr) {
+    } catch {
       console.warn('[suggest-relations] LLM JSON parse failed, falling back to vector-only');
     }
 
     // 4. 合并语义分数和 LLM 分类
     const scoreMap: Record<number, number> = {};
-    searchResults.forEach(r => { scoreMap[r.id] = r.score; });
+    searchResults.forEach((r: any) => {
+      scoreMap[r.sourceId] = r.score;
+    });
 
     const suggestions = classified
-      .filter(c => scoreMap[c.nodeId] !== undefined)
-      .map(c => {
-        const sr = searchResults.find(r => r.id === c.nodeId)!;
+      .filter((c: any) => scoreMap[c.nodeId] !== undefined)
+      .map((c: any) => {
+        const sr: any = searchResults.find((r: any) => r.sourceId === c.nodeId)!;
         return {
           nodeId: c.nodeId,
-          short_name: sr.short_name,
+          short_name: sr.title,
           papercore: sr.papercore,
           tags: sr.tags,
           relation_type: c.relation_type,
@@ -464,12 +596,12 @@ ${candidates}
       });
 
     // 5. 没有被 LLM 分类的，标记为 related（降级处理）
-    const classifiedIds = new Set(classified.map(c => c.nodeId));
+    const classifiedIds = new Set(classified.map((c: any) => c.nodeId));
     for (const sr of searchResults) {
-      if (!classifiedIds.has(sr.id)) {
+      if (!classifiedIds.has(sr.sourceId as number)) {
         suggestions.push({
-          nodeId: sr.id,
-          short_name: sr.short_name,
+          nodeId: sr.sourceId,
+          short_name: sr.title,
           papercore: sr.papercore,
           tags: sr.tags,
           relation_type: 'related',
@@ -485,7 +617,7 @@ ${candidates}
   }
 });
 
-async function buildKnowledgeBuilderPrompt(context?: any): Promise<string> {
+async function buildKnowledgeBuilderPrompt(): Promise<string> {
   const { data: nodes } = await client
     .from('knowledge_nodes')
     .select('id, papercore, tags')
@@ -514,9 +646,11 @@ async function buildNoteHelperPrompt(context?: any): Promise<string> {
       .limit(1);
 
     if (styles && styles.length > 0) {
+      // formatSubjectPreferencesForPrompt 内部会 normalize，兼容旧的平铺结构和新的学科分层结构
       stylePreference = `用户笔记偏好：
 - 总偏好：${styles[0].general_preference || '无'}
-- 学科偏好：${JSON.stringify(styles[0].subject_preferences || {})}`;
+- 学科偏好：
+${formatSubjectPreferencesForPrompt(styles[0].subject_preferences)}`;
     }
   }
 
@@ -541,10 +675,17 @@ ${stylePreference || '尚无明确的笔记偏好记录，请用通用高质量�
 请直接生成笔记内容，不需要询问用户。`;
 }
 
-async function buildTutorPrompt(context?: any, userMessage?: string, hasImage?: boolean): Promise<string> {
+async function buildTutorPrompt(
+  context?: any,
+  userMessage?: string,
+  hasImage?: boolean,
+): Promise<{ systemPrompt: string; searchResults?: any[]; allFileContents?: any[] }> {
   let knowledgeContext = '';
   let fileContentsContext = '';
+  let allFileContents: any[] = []; // for citations
+  let searchResults: any[] = []; // returned for extractCitations
 
+  // ── Layer 1: User-specified knowledge nodes ──────────────────
   if (context?.nodeIds && Array.isArray(context.nodeIds) && context.nodeIds.length > 0) {
     const { data: nodes } = await client
       .from('knowledge_nodes')
@@ -552,178 +693,293 @@ async function buildTutorPrompt(context?: any, userMessage?: string, hasImage?: 
       .in('id', context.nodeIds);
 
     if (nodes && nodes.length > 0) {
-      const nodeList = nodes.map((n: any) =>
-        `[${n.short_name || '节点' + n.id}] ${n.papercore || '(暂无概述)'} 标签:${(n.tags || []).join(',')}`
-      ).join('\n');
+      const nodeList = nodes
+        .map(
+          (n: any) =>
+            `[${n.short_name || '节点' + n.id}] ${n.papercore || '(暂无概述)'} 标签:${(n.tags || []).join(',')}`,
+        )
+        .join('\n');
       knowledgeContext = `【相关知识节点 (${nodes.length}个)】\n${nodeList}`;
 
-      // 获取关联的文件内容
+      // Build searchResults-like entries for citations
+      searchResults = nodes.map((n: any) => ({
+        sourceType: 'knowledge_node' as const,
+        sourceId: n.id,
+        title: n.short_name || `节点${n.id}`,
+        papercore: n.papercore,
+        tags: n.tags || [],
+      }));
+
       const allDraftIds = nodes
         .filter((n: any) => n.attached_draft_ids && n.attached_draft_ids.length > 0)
         .flatMap((n: any) => n.attached_draft_ids);
 
       if (allDraftIds.length > 0) {
-        const { data: fileContents } = await client
-          .from('file_contents')
-          .select('draft_id, extracted_text, page_number')
-          .in('draft_id', allDraftIds.slice(0, 20));
-
-        if (fileContents && fileContents.length > 0) {
-          const { data: drafts } = await client
-            .from('draft_pool')
-            .select('id, file_name, file_url')
-            .in('id', allDraftIds.slice(0, 20));
-
-          const draftMap: Record<number, any> = {};
-          (drafts || []).forEach((d: any) => { draftMap[d.id] = d; });
-
-          const fileDetails = fileContents.map((fc: any) => {
-            const draft = draftMap[fc.draft_id] || {};
-            const pageInfo = fc.page_number ? `[第${fc.page_number}页]` : '';
-            return `${pageInfo}「${draft.file_name || '未知文件'}」: ${(fc.extracted_text || '').substring(0, 300)}`;
-          });
-
-          fileContentsContext = `\n\n相关文件内容：\n${fileDetails.join('\n---\n')}`;
-        }
-      }
-    }
-  } else if (userMessage && knowledgeVectorIndex.isReady()) {
-    // 使用语义搜索获取相关节点
-    const searchResults = await knowledgeVectorIndex.search(userMessage, 10, 0.3);
-    if (searchResults.length > 0) {
-      const nodeIds = searchResults.map(r => r.id);
-      const { data: nodes } = await client
-        .from('knowledge_nodes')
-        .select('id, papercore, tags, short_name, attached_draft_ids')
-        .in('id', nodeIds);
-
-      if (nodes && nodes.length > 0) {
-        // Sort nodes by search score for relevance
-        const scoreMap: Record<number, number> = {};
-        searchResults.forEach(r => { scoreMap[r.id] = r.score; });
-        const sortedNodes = nodes.sort((a: any, b: any) => (scoreMap[b.id] || 0) - (scoreMap[a.id] || 0));
-
-        const nodeList = sortedNodes.map((n: any) =>
-          `[${n.short_name || '节点' + n.id}] ${n.papercore || '(暂无概述)'} 标签:${(n.tags || []).join(',')} [语义相关度: ${(scoreMap[n.id] || 0).toFixed(2)}]`
-        ).join('\n');
-        knowledgeContext = `【语义检索知识节点 (${sortedNodes.length}个，按相关度排序)】\n${nodeList}`;
-
-        // 获取关联的文件内容
-        const allDraftIds = sortedNodes
-          .filter((n: any) => n.attached_draft_ids && n.attached_draft_ids.length > 0)
-          .flatMap((n: any) => n.attached_draft_ids);
-
-        if (allDraftIds.length > 0) {
-          const { data: fileContents } = await client
-            .from('file_contents')
-            .select('draft_id, extracted_text, page_number')
-            .in('draft_id', allDraftIds.slice(0, 20));
-
-          if (fileContents && fileContents.length > 0) {
-            const { data: drafts } = await client
-              .from('draft_pool')
-              .select('id, file_name, file_url')
-              .in('id', allDraftIds.slice(0, 20));
-
-            const draftMap: Record<number, any> = {};
-            (drafts || []).forEach((d: any) => { draftMap[d.id] = d; });
-
-            const fileDetails = fileContents.map((fc: any) => {
-              const draft = draftMap[fc.draft_id] || {};
-              const pageInfo = fc.page_number ? `[第${fc.page_number}页]` : '';
-              return `${pageInfo}「${draft.file_name || '未知文件'}」: ${(fc.extracted_text || '').substring(0, 300)}`;
-            });
-
-            fileContentsContext = `\n\n相关文件内容：\n${fileDetails.join('\n---\n')}`;
-          }
-        }
+        ({ fileContentsContext, allFileContents } = await loadFileContents(allDraftIds));
       }
     }
   }
 
-  // 语义搜索失败或无结果时，降级为全量加载
+  // ── Layer 2: Unified semantic + tag search ───────────────────
+  if (!knowledgeContext && userMessage) {
+    searchResults = await unifiedVectorIndex.search(userMessage, 10, 0.3);
+
+    if (searchResults.length > 0) {
+      // Collect knowledge_node IDs for DB lookup
+      const knResults = searchResults.filter((r) => r.sourceType === 'knowledge_node');
+      const snResults = searchResults.filter((r) => r.sourceType === 'study_note');
+      const mResults = searchResults.filter((r) => r.sourceType === 'material');
+      const fcResults = searchResults.filter((r) => r.sourceType === 'file_content');
+
+      const contextLines: string[] = [];
+
+      // ── knowledge_nodes ────────────────────────────────────
+      if (knResults.length > 0) {
+        const nodeIds = knResults.map((r) => r.sourceId);
+        const { data: nodes } = await client
+          .from('knowledge_nodes')
+          .select('id, papercore, tags, short_name, attached_draft_ids')
+          .in('id', nodeIds);
+
+        if (nodes && nodes.length > 0) {
+          const scoreMap: Record<number, number> = {};
+          knResults.forEach((r) => {
+            scoreMap[r.sourceId as number] = r.score;
+          });
+          const sortedNodes = nodes.sort(
+            (a: any, b: any) => (scoreMap[b.id] || 0) - (scoreMap[a.id] || 0),
+          );
+
+          const nodeLines = sortedNodes.map(
+            (n: any) =>
+              `[知识节点: ${n.short_name || '节点' + n.id}] ${n.papercore || ''} 标签:${(n.tags || []).join(',')} [相关度: ${(scoreMap[n.id] || 0).toFixed(2)}]`,
+          );
+          contextLines.push(`【知识节点 (${sortedNodes.length}个)】\n${nodeLines.join('\n')}`);
+
+          // Fetch attached file contents
+          const allDraftIds = sortedNodes
+            .filter((n: any) => n.attached_draft_ids && n.attached_draft_ids.length > 0)
+            .flatMap((n: any) => n.attached_draft_ids);
+          if (allDraftIds.length > 0) {
+            const { fileContentsContext: knFcCtx } = await loadFileContents(allDraftIds);
+            if (knFcCtx) contextLines.push(knFcCtx);
+          }
+        }
+      }
+
+      // ── study_notes ────────────────────────────────────────
+      if (snResults.length > 0) {
+        const snIds = snResults.map((r) => r.sourceId);
+        const { data: notes } = await client
+          .from('study_notes')
+          .select('id, papercore, tags, title, content')
+          .in('id', snIds);
+
+        if (notes && notes.length > 0) {
+          const noteLines = notes.map(
+            (n: any) =>
+              `[学习纪要: ${n.title || '纪要' + n.id}] ${n.papercore || ''} 标签:${(n.tags || []).join(',')}\n内容摘要: ${(n.content || '').substring(0, 200)}`,
+          );
+          contextLines.push(`\n【学习纪要 (${notes.length}个)】\n${noteLines.join('\n---\n')}`);
+        }
+      }
+
+      // ── materials ──────────────────────────────────────────
+      if (mResults.length > 0) {
+        const mIds = mResults.map((r) => r.sourceId);
+        const { data: materials } = await client
+          .from('materials')
+          .select('id, papercore, tags, name, file_path')
+          .in('id', mIds);
+
+        if (materials && materials.length > 0) {
+          const matLines = materials.map(
+            (m: any) =>
+              `[资料: ${m.name || '资料' + m.id}] ${m.papercore || ''} 标签:${(m.tags || []).join(',')}`,
+          );
+          contextLines.push(`\n【学习资料 (${materials.length}个)】\n${matLines.join('\n')}`);
+        }
+      }
+
+      // ── file_contents ──────────────────────────────────────
+      if (fcResults.length > 0) {
+        const fcLines = fcResults.map((r) => {
+          const pageInfo = r.pageNumber ? `第${r.pageNumber}页` : '';
+          const fName = r.fileName || '文件';
+          return `[原文片段: ${fName} ${pageInfo}] ${r.papercore?.substring(0, 300) || ''}`;
+        });
+        contextLines.push(`\n【原文片段 (${fcResults.length}个)】\n${fcLines.join('\n---\n')}`);
+      }
+
+      knowledgeContext = contextLines.join('\n');
+
+      // Collect file_contents for citation metadata
+      for (const r of fcResults) {
+        allFileContents.push({
+          draft_id: r.draftId,
+          extracted_text: r.papercore,
+          page_number: r.pageNumber,
+          file_name: r.fileName,
+        });
+      }
+    }
+  }
+
+  // ── Layer 3: Fallback — load all recent from three tables ──
   if (!knowledgeContext) {
+    const contextLines: string[] = [];
+
+    // knowledge_nodes
     const { data: nodes } = await client
       .from('knowledge_nodes')
-      .select('id, papercore, tags, short_name, attached_draft_ids')
+      .select('id, papercore, tags, short_name')
       .order('created_at', { ascending: false })
       .limit(100);
 
     if (nodes && nodes.length > 0) {
-      const nodeList = nodes.map((n: any) =>
-        `[${n.short_name || '节点' + n.id}] ${n.papercore || '(暂无概述)'} 标签:${(n.tags || []).join(',')}`
-      ).join('\n');
-      knowledgeContext = `【知识库节点 (${nodes.length}个)】\n${nodeList}`;
-
-      // 获取关联的文件内容
-      const allDraftIds = nodes
-        .filter((n: any) => n.attached_draft_ids && n.attached_draft_ids.length > 0)
-        .flatMap((n: any) => n.attached_draft_ids);
-
-      if (allDraftIds.length > 0) {
-        const { data: fileContents } = await client
-          .from('file_contents')
-          .select('draft_id, extracted_text, page_number')
-          .in('draft_id', allDraftIds.slice(0, 20));
-
-        if (fileContents && fileContents.length > 0) {
-          const { data: drafts } = await client
-            .from('draft_pool')
-            .select('id, file_name, file_url')
-            .in('id', allDraftIds.slice(0, 20));
-
-          const draftMap: Record<number, any> = {};
-          (drafts || []).forEach((d: any) => { draftMap[d.id] = d; });
-
-          const fileDetails = fileContents.map((fc: any) => {
-            const draft = draftMap[fc.draft_id] || {};
-            const pageInfo = fc.page_number ? `[第${fc.page_number}页]` : '';
-            return `${pageInfo}「${draft.file_name || '未知文件'}」: ${(fc.extracted_text || '').substring(0, 300)}`;
-          });
-
-          fileContentsContext = `\n\n相关文件内容：\n${fileDetails.join('\n---\n')}`;
-        }
-      }
+      const nodeList = nodes
+        .map(
+          (n: any) =>
+            `[${n.short_name || '节点' + n.id}] ${n.papercore || '(暂无概述)'} 标签:${(n.tags || []).join(',')}`,
+        )
+        .join('\n');
+      contextLines.push(`【知识库节点 (${nodes.length}个)】\n${nodeList}`);
+      // Layer 3 降级结果仅作 Prompt 上下文，不进 searchResults：
+      // 否则无匹配提问会渲染上百张引用卡片淹没正文（issue #5 Task 6）
     }
+
+    // study_notes
+    const { data: sNotes } = await client
+      .from('study_notes')
+      .select('id, papercore, tags, title')
+      .eq('ai_processed', true)
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (sNotes && sNotes.length > 0) {
+      const snList = sNotes
+        .map(
+          (n: any) =>
+            `[学习纪要: ${n.title || '纪要' + n.id}] ${n.papercore || ''} 标签:${(n.tags || []).join(',')}`,
+        )
+        .join('\n');
+      contextLines.push(`\n【学习纪要 (${sNotes.length}个)】\n${snList}`);
+    }
+
+    // materials
+    const { data: mats } = await client
+      .from('materials')
+      .select('id, papercore, tags, name')
+      .eq('ai_processed', true)
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (mats && mats.length > 0) {
+      const mList = mats
+        .map(
+          (m: any) =>
+            `[资料: ${m.name || '资料' + m.id}] ${m.papercore || ''} 标签:${(m.tags || []).join(',')}`,
+        )
+        .join('\n');
+      contextLines.push(`\n【学习资料 (${mats.length}个)】\n${mList}`);
+    }
+
+    knowledgeContext = contextLines.join('\n');
   }
 
+  // ── Image analysis instructions ──────────────────────────────
   const imageInstruction = hasImage
     ? `\n🖼️ 用户上传了一张图片。请仔细分析图片中的内容（文字、公式、图表等）。在回答时：
 - 先描述你在图片中看到的内容（公式、推导步骤等）
-- 用 markdown 标注关键区域（例如"图片左上角的公式..."、"第2步到第3步的推导..."）
+- 用自然语言标注关键区域，格式：【区域：{位置描述}】（例如"【区域：图片左上角的公式】"、"【区域：第2步到第3步的推导过程】"）
 - 将图片内容与知识库中的相关节点关联起来
 - 如果图片是手写笔记，尝试识别其中的文字和公式\n`
     : '';
 
   if (!knowledgeContext) {
-    return `你是智能导师 tutor。
+    return {
+      systemPrompt: `你是智能导师 tutor。
 ${imageInstruction}
 知识库中尚未找到与该问题直接相关的内容。
 
 ⚠️ 请先告知用户"知识库中没有相应内容"，然后用你的常识给出解答，最后询问用户是否需要将解答补充进知识库。
 
-回答要求：条理清晰、有具体示例、可给出后续学习方向。`;
+回答要求：条理清晰、有具体示例、可给出后续学习方向。
+${LATEX_RULES}`,
+      searchResults,
+      allFileContents,
+    };
   }
 
-  return `你是智能导师 tutor，基于以下知识库内容回答用户的问题。
+  return {
+    systemPrompt: `你是智能导师 tutor，基于以下知识库内容回答用户的问题。
 ${imageInstruction}
 ${knowledgeContext}${fileContentsContext}
 
 ⚠️ 重要要求：
 1. 回答必须简洁有条理，不要重复相同内容
-2. 如果问题涉及知识库中的内容，引用对应节点名称给出详细解答
+2. 如果问题涉及知识库中的内容，引用对应来源名称给出详细解答
 3. 如果问题不在知识库范围内，用你的常识回答，并询问用户是否需要将解答补充进知识库
 4. 提供具体示例
-5. 引用知识库时标注来源节点名称（short_name）
-6. 如果涉及文件内容，可引用文件名和页码
-7. 给出后续学习建议
-8. 回答完后，在消息末尾添加一行引用来源，格式：「引用来源：节点名称1、节点名称2」`;
+5. 引用知识库时标注来源名称，格式：【来源：{名称}】
+6. PDF/文件来源请明确引用页码，格式：【来源：{文件名}，第N页】
+7. 如需高亮关键原文位置，用「原文...」包裹引用内容
+8. 给出后续学习建议
+9. 回答完后，在消息末尾添加引用来源汇总，格式：「引用来源：来源名称1、来源名称2」
+${LATEX_RULES}`,
+    searchResults,
+    allFileContents,
+  };
+}
+
+/**
+ * Helper: fetch file_contents + draft metadata for a set of draft_ids.
+ */
+async function loadFileContents(draftIds: number[]): Promise<{
+  fileContentsContext: string;
+  allFileContents: any[];
+}> {
+  const { data: fileContents } = await client
+    .from('file_contents')
+    .select('draft_id, extracted_text, page_number')
+    .in('draft_id', draftIds.slice(0, 20));
+
+  if (!fileContents || fileContents.length === 0) {
+    return { fileContentsContext: '', allFileContents: [] };
+  }
+
+  const { data: drafts } = await client
+    .from('draft_pool')
+    .select('id, file_name, file_url')
+    .in('id', draftIds.slice(0, 20));
+
+  const draftMap: Record<number, any> = {};
+  (drafts || []).forEach((d: any) => {
+    draftMap[d.id] = d;
+  });
+
+  const fileDetails = fileContents.map((fc: any) => {
+    const draft = draftMap[fc.draft_id] || {};
+    const pageInfo = fc.page_number ? `[第${fc.page_number}页]` : '';
+    return `${pageInfo}「${draft.file_name || '未知文件'}」: ${(fc.extracted_text || '').substring(0, 300)}`;
+  });
+
+  return {
+    fileContentsContext: `\n\n相关文件内容：\n${fileDetails.join('\n---\n')}`,
+    allFileContents: fileContents.map((fc: any) => ({
+      draft_id: fc.draft_id,
+      extracted_text: fc.extracted_text,
+      page_number: fc.page_number,
+      file_name: draftMap[fc.draft_id]?.file_name || '',
+    })),
+  };
 }
 
 async function buildReflectionPrompt(context?: any, period?: string): Promise<string> {
   let logsContext = '';
   let pastReflections = '';
   let nodeActivity = '';
+  let qaLogsContext = '';
 
   // 计算时间范围
   let sinceDate: string | null = null;
@@ -733,40 +989,75 @@ async function buildReflectionPrompt(context?: any, period?: string): Promise<st
   }
 
   if (context?.userId) {
+    const userId = context.userId;
+
     // 问题解决记录（按时间过滤）
     let logsQuery = client
       .from('paper_problem_logs')
       .select('*')
-      .eq('user_id', context.userId)
+      .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(20);
     if (sinceDate) logsQuery = logsQuery.gte('created_at', sinceDate);
-    const { data: logs } = await logsQuery;
-    if (logs && logs.length > 0) logsContext = `问题解决记录（${logs.length}条）：${JSON.stringify(logs)}`;
 
-    // 往期反思
-    const { data: refs } = await client
+    // 问答日志（Tutor 对话记录，按时间过滤）
+    let qaLogsQuery = client
+      .from('problem_solving_logs')
+      .select('question, answer, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(30);
+    if (sinceDate) qaLogsQuery = qaLogsQuery.gte('created_at', sinceDate);
+
+    // 往期反思（规格 2.2：均按时间窗口过滤）
+    let refsQuery = client
       .from('reflections')
       .select('*')
-      .eq('user_id', context.userId)
+      .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(5);
-    if (refs && refs.length > 0) pastReflections = `往期反思（${refs.length}条）：${JSON.stringify(refs)}`;
+    if (sinceDate) refsQuery = refsQuery.gte('created_at', sinceDate);
 
     // 知识节点活动（按时间过滤）
     let nodesQuery = client
       .from('knowledge_nodes')
       .select('id, papercore, short_name, tags, created_at')
-      .eq('user_id', context.userId)
+      .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(50);
     if (sinceDate) nodesQuery = nodesQuery.gte('created_at', sinceDate);
-    const { data: nodes } = await nodesQuery;
-    if (nodes && nodes.length > 0) nodeActivity = `知识节点活动（${nodes.length}个）：${JSON.stringify(nodes)}`;
+
+    // 规格 2.2：4 类数据并行采集
+    const [logsRes, qaLogsRes, refsRes, nodesRes] = await Promise.all([
+      logsQuery,
+      qaLogsQuery,
+      refsQuery,
+      nodesQuery,
+    ]);
+
+    const { data: logs } = logsRes;
+    if (logs && logs.length > 0)
+      logsContext = `问题解决记录（${logs.length}条）：${JSON.stringify(logs)}`;
+
+    const { data: qaLogs } = qaLogsRes;
+    if (qaLogs && qaLogs.length > 0)
+      qaLogsContext = `问答日志（${qaLogs.length}条）：${JSON.stringify(qaLogs)}`;
+
+    const { data: refs } = refsRes;
+    if (refs && refs.length > 0)
+      pastReflections = `往期反思（${refs.length}条）：${JSON.stringify(refs)}`;
+
+    const { data: nodes } = nodesRes;
+    if (nodes && nodes.length > 0)
+      nodeActivity = `知识节点活动（${nodes.length}个）：${JSON.stringify(nodes)}`;
   }
 
   const periodLabel = period
-    ? (period.includes('3') ? '近三天' : period.includes('30') ? '近一个月' : '近一周')
+    ? period.includes('3')
+      ? '近三天'
+      : period.includes('30')
+        ? '近一个月'
+        : '近一周'
     : '近期';
 
   return `你是学习反思助手 Reflection_mind。
@@ -774,6 +1065,7 @@ async function buildReflectionPrompt(context?: any, period?: string): Promise<st
 分析用户${periodLabel}的学习行为，生成包含以下4个维度的反思报告：
 
 ${logsContext || '暂无问题记录。'}
+${qaLogsContext || '暂无问答日志。'}
 ${pastReflections || '暂无往期反思。'}
 ${nodeActivity || '暂无知识节点活动。'}
 
@@ -791,7 +1083,7 @@ ${nodeActivity || '暂无知识节点活动。'}
 ## 学习建议
 <给出具体可操作的学习建议，200-400字>
 
-风格：鼓励、建设性、有洞察力。不要输出任何其他内容（如前言、结语、署名等），直接从 "## 学习行为" 开始输出。`;
+风格：鼓励、建设性、有洞察力。结合往期反思的内容，避免重复往期已经给出的建议。不要输出任何其他内容（如前言、结语、署名等），直接从 "## 学习行为" 开始输出。`;
 }
 
 /**
@@ -813,10 +1105,10 @@ function parseReflectionSections(text: string): {
   };
 
   const sectionMap: Record<string, keyof typeof result> = {
-    '学习行为': 'learning_behavior',
-    '攻克问题': 'challenge_report',
-    '思维模式': 'thinking_pattern',
-    '学习建议': 'suggestion',
+    学习行为: 'learning_behavior',
+    攻克问题: 'challenge_report',
+    思维模式: 'thinking_pattern',
+    学习建议: 'suggestion',
   };
 
   // 用正则匹配 "## 标题\n内容" 直到下一个 "## " 或文本结束
@@ -859,7 +1151,12 @@ router.post('/generate-reflection', async (req: Request, res: Response) => {
       model: DEFAULT_MODEL,
       max_tokens: 4096,
       system: systemPrompt,
-      messages: [{ role: 'user', content: `请根据我的${period.includes('3') ? '近三天' : period.includes('30') ? '近一个月' : '近一周'}的学习数据，生成学习反思报告。` }],
+      messages: [
+        {
+          role: 'user',
+          content: `请根据我的${period.includes('3') ? '近三天' : period.includes('30') ? '近一个月' : '近一周'}的学习数据，生成学习反思报告。`,
+        },
+      ],
     });
 
     let fullContent = '';
@@ -873,8 +1170,13 @@ router.post('/generate-reflection', async (req: Request, res: Response) => {
 
     // 解析4个section
     const sections = parseReflectionSections(fullContent);
+    const parseFailed =
+      !sections.learning_behavior ||
+      !sections.challenge_report ||
+      !sections.thinking_pattern ||
+      !sections.suggestion;
 
-    // 保存到数据库
+    // 保存到数据库（raw_text 保留原始全文，解析失败时不丢内容）
     const { data: saved, error: saveError } = await client
       .from('reflections')
       .insert({
@@ -882,6 +1184,7 @@ router.post('/generate-reflection', async (req: Request, res: Response) => {
         challenge_report: sections.challenge_report || null,
         thinking_pattern: sections.thinking_pattern || null,
         suggestion: sections.suggestion || null,
+        raw_text: fullContent,
         period,
         user_id: userId,
       })
@@ -892,18 +1195,21 @@ router.post('/generate-reflection', async (req: Request, res: Response) => {
       console.error('Failed to save reflection:', saveError);
       res.write(`data: ${JSON.stringify({ error: '保存反思报告失败' })}\n\n`);
     } else if (saved) {
-      res.write(`data: ${JSON.stringify({
-        done: true,
-        reflection: {
-          id: saved.id,
-          period: saved.period,
-          learning_behavior: saved.learning_behavior,
-          challenge_report: saved.challenge_report,
-          thinking_pattern: saved.thinking_pattern,
-          suggestion: saved.suggestion,
-          created_at: saved.created_at,
-        }
-      })}\n\n`);
+      res.write(
+        `data: ${JSON.stringify({
+          done: true,
+          warning: parseFailed ? '部分维度解析失败，已保留原始全文（raw_text）' : null,
+          reflection: {
+            id: saved.id,
+            period: saved.period,
+            learning_behavior: saved.learning_behavior,
+            challenge_report: saved.challenge_report,
+            thinking_pattern: saved.thinking_pattern,
+            suggestion: saved.suggestion,
+            created_at: saved.created_at,
+          },
+        })}\n\n`,
+      );
     }
 
     res.write('data: [DONE]\n\n');
@@ -958,12 +1264,49 @@ router.post('/note-helper', async (req: Request, res: Response) => {
 
     res.write('data: [DONE]\n\n');
     res.end();
-
   } catch (error) {
     console.error('NoteHelper Error:', error);
     res.status(500).json({ error: '生成笔记失败' });
   }
 });
+
+/**
+ * 匹配 material 引用卡片所在页码（issue #4 Task 2）：
+ * 重新提取文件文本按页切分，与 highlightText 求字符重叠，取重叠最大页
+ */
+async function findPageForSnippet(material: any, snippet: string): Promise<number | null> {
+  try {
+    const uploadsDir = path.join(process.cwd(), 'uploads');
+    const storedPath = material?.file_path || material?.file_url;
+    let filePath: string | null = null;
+    if (storedPath) {
+      const candidate = path.join(uploadsDir, String(storedPath).replace(/^\/uploads\//, ''));
+      if (fs.existsSync(candidate)) filePath = candidate;
+    }
+    if (!filePath) return null;
+    const extracted = await extractText(filePath, material?.file_type || '', material?.name || '');
+    const text = extracted.text || '';
+    if (!text) return null;
+    const pages = text.split(/\f+|\n\n+/).filter((p) => p.trim().length > 0);
+    if (pages.length <= 1) return 1;
+    const snipChars = new Set(snippet.replace(/\s+/g, ''));
+    let bestPage = 1;
+    let bestScore = 0;
+    pages.forEach((page, i) => {
+      let score = 0;
+      for (const ch of page.replace(/\s+/g, '')) {
+        if (snipChars.has(ch)) score++;
+      }
+      if (score > bestScore) {
+        bestScore = score;
+        bestPage = i + 1;
+      }
+    });
+    return bestPage;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * POST /api/v1/ai/generate-note
@@ -995,12 +1338,15 @@ router.post('/generate-note', async (req: Request, res: Response) => {
       const st = styles[0];
       stylePreference = `用户笔记偏好：
 - 总偏好：${st.general_preference || '无'}
-- 学科偏好：${JSON.stringify(st.subject_preferences || {})}`;
+- 学科偏好：
+${formatSubjectPreferencesForPrompt(st.subject_preferences)}`;
     }
 
     // 2. 获取所有源文件内容
-    const sources: { id: string; type: string; title: string; content: string; }[] = [];
-    const citations: { index: number; sourceId: string; sourceType: string; fileName: string; }[] = [];
+    const sources: { id: string; type: string; title: string; content: string; material?: any }[] =
+      [];
+    const citations: { index: number; sourceId: string; sourceType: string; fileName: string }[] =
+      [];
     let citationIndex = 0;
 
     for (const src of sourceIds) {
@@ -1034,11 +1380,7 @@ router.post('/generate-note', async (req: Request, res: Response) => {
           });
         }
       } else if (src.type === 'material') {
-        const { data: mat } = await client
-          .from('materials')
-          .select('*')
-          .eq('id', src.id)
-          .single();
+        const { data: mat } = await client.from('materials').select('*').eq('id', src.id).single();
 
         if (mat) {
           let fileText = '';
@@ -1058,6 +1400,7 @@ router.post('/generate-note', async (req: Request, res: Response) => {
             type: 'material',
             title: mat.name || mat.title || '资料',
             content: (mat.papercore || '') + '\n' + fileText.substring(0, 3000),
+            material: mat,
           });
           citationIndex++;
           citations.push({
@@ -1078,9 +1421,12 @@ router.post('/generate-note', async (req: Request, res: Response) => {
     }
 
     // 3. 构建 prompt
-    const sourcesText = sources.map((s, i) =>
-      `【来源${i + 1}】${s.title}（${s.type === 'study_note' ? '学习纪要' : '资料'}）\n${s.content}`
-    ).join('\n\n---\n\n');
+    const sourcesText = sources
+      .map(
+        (s, i) =>
+          `【来源${i + 1}】${s.title}（${s.type === 'study_note' ? '学习纪要' : '资料'}）\n${s.content}`,
+      )
+      .join('\n\n---\n\n');
 
     const systemPrompt = `你是笔记助手 note_helper。根据用户提供的多份学习资料生成一份结构化的综合笔记。
 
@@ -1115,24 +1461,32 @@ ${sourcesText}
     }
 
     // Post-process: extract context snippets around each [来源:N] marker
-    const citationsWithContext = citations.map(cit => {
-      const markerPattern = new RegExp(`\\[来源:${cit.index}\\]([^\\[]*)`, 'g');
-      let snippet = '';
-      // Find text around citation marker — extract surrounding sentence/paragraph
-      const idx = fullContent.indexOf(`[来源:${cit.index}]`);
-      if (idx >= 0) {
-        // Get preceding and following text (up to 80 chars each side)
-        const start = Math.max(0, idx - 80);
-        const end = Math.min(fullContent.length, idx + `[来源:${cit.index}]`.length + 80);
-        snippet = fullContent.slice(start, end).replace(/\n+/g, ' ').trim();
-      }
-      return { ...cit, highlightText: snippet };
-    });
+    // + 为 material 引用匹配页码（issue #4 Task 2）
+    const citationsWithContext = await Promise.all(
+      citations.map(async (cit) => {
+        let snippet = '';
+        // Find text around citation marker — extract surrounding sentence/paragraph
+        const idx = fullContent.indexOf(`[来源:${cit.index}]`);
+        if (idx >= 0) {
+          // Get preceding and following text (up to 80 chars each side)
+          const start = Math.max(0, idx - 80);
+          const end = Math.min(fullContent.length, idx + `[来源:${cit.index}]`.length + 80);
+          snippet = fullContent.slice(start, end).replace(/\n+/g, ' ').trim();
+        }
+        let pageNumber: number | null = null;
+        if (cit.sourceType === 'material' && snippet) {
+          const src = sources.find((s: any) => s.id === cit.sourceId);
+          if (src?.material) {
+            pageNumber = await findPageForSnippet(src.material, snippet);
+          }
+        }
+        return { ...cit, highlightText: snippet, pageNumber };
+      }),
+    );
 
     res.write(`data: ${JSON.stringify({ citations: citationsWithContext, done: true })}\n\n`);
     res.write('data: [DONE]\n\n');
     res.end();
-
   } catch (error: any) {
     console.error('GenerateNote Error:', error);
     if (!res.headersSent) {
@@ -1150,7 +1504,7 @@ ${sourcesText}
  */
 router.post('/refine-note', async (req: Request, res: Response) => {
   try {
-    const { currentNote, refinementPrompt, sourceIds, userId } = req.body;
+    const { currentNote, refinementPrompt, sourceIds, userId, citations } = req.body;
     if (!currentNote || !refinementPrompt) {
       return res.status(400).json({ error: '缺少笔记内容或修正指令' });
     }
@@ -1168,23 +1522,19 @@ router.post('/refine-note', async (req: Request, res: Response) => {
       .eq('user_id', uid)
       .limit(1);
 
-    const existingPrefs = (styles && styles.length > 0)
-      ? (styles[0].subject_preferences || {})
-      : {};
+    const existingPrefs = styles && styles.length > 0 ? styles[0].subject_preferences || {} : {};
 
-    // 2. 从修正指令中提取偏好关键词
-    const extractedPrefs: Record<string, any> = {};
-    const prompt = refinementPrompt.toLowerCase();
-    if (prompt.includes('详细') || prompt.includes('展开') || prompt.includes('更多')) extractedPrefs.detail_level = 'high';
-    if (prompt.includes('简洁') || prompt.includes('简短') || prompt.includes('概括')) extractedPrefs.detail_level = 'concise';
-    if (prompt.includes('表格') || prompt.includes('对比')) extractedPrefs.prefer_tables = true;
-    if (prompt.includes('例子') || prompt.includes('示例') || prompt.includes('举例')) extractedPrefs.prefer_examples = true;
-    if (prompt.includes('重点') || prompt.includes('突出') || prompt.includes('强调')) extractedPrefs.emphasize_keypoints = true;
-    if (prompt.includes('通俗') || prompt.includes('简单') || prompt.includes('易懂')) extractedPrefs.language_style = 'plain';
+    // 2. 从修正指令中提取偏好（issue #4 Task 5）：
+    // LLM 优先（含所属学科判断），失败回退关键词规则；按学科分层合并进 subject_preferences
+    const extracted = await extractNotePreferences(refinementPrompt);
 
     // 3. 保存提取的偏好
-    if (Object.keys(extractedPrefs).length > 0) {
-      const mergedPrefs = { ...existingPrefs, ...extractedPrefs };
+    if (extracted && Object.keys(extracted.preferences).length > 0) {
+      const mergedPrefs = mergeSubjectPreferences(
+        existingPrefs,
+        extracted.subject,
+        extracted.preferences,
+      );
       try {
         const { data: existingRecord } = await client
           .from('papernote_style')
@@ -1201,14 +1551,17 @@ router.post('/refine-note', async (req: Request, res: Response) => {
             })
             .eq('id', existingRecord[0].id);
         } else {
-          await client
-            .from('papernote_style')
-            .insert({
-              user_id: uid,
-              subject_preferences: mergedPrefs,
-            });
+          await client.from('papernote_style').insert({
+            user_id: uid,
+            subject_preferences: mergedPrefs,
+          });
         }
-        res.write(`data: ${JSON.stringify({ preferences_extracted: extractedPrefs })}\n\n`);
+        res.write(
+          `data: ${JSON.stringify({
+            preferences_extracted: extracted.preferences,
+            preferences_subject: extracted.subject,
+          })}\n\n`,
+        );
       } catch (e) {
         console.error('Failed to save preferences:', e);
       }
@@ -1228,7 +1581,10 @@ router.post('/refine-note', async (req: Request, res: Response) => {
           if (note) {
             let content = note.content || '';
             if (note.blocks && Array.isArray(note.blocks)) {
-              content = note.blocks.filter((b: any) => b.type === 'text').map((b: any) => b.content || '').join('\n');
+              content = note.blocks
+                .filter((b: any) => b.type === 'text')
+                .map((b: any) => b.content || '')
+                .join('\n');
             }
             sourcesTexts.push(`【${note.title || '纪要'}】${content.substring(0, 2000)}`);
           }
@@ -1270,18 +1626,27 @@ ${sourcesContext}
       messages: [{ role: 'user', content: `当前笔记：\n\n${currentNote}\n\n请按修正指令修改。` }],
     });
 
-    let fullContent = '';
+    let fullRefined = '';
     for await (const event of stream) {
       if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-        fullContent += event.delta.text;
+        fullRefined += event.delta.text;
         res.write(`data: ${JSON.stringify({ content: event.delta.text })}\n\n`);
       }
     }
 
-    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+    // 修正后引用同步（issue #4 Task 4）：只保留修正后正文中仍存在的 [来源:N]
+    let syncedCitations: any[] | null = null;
+    if (Array.isArray(citations) && citations.length > 0) {
+      const usedIndices = new Set<number>();
+      const re = /\[来源:(\d+)\]/g;
+      let m;
+      while ((m = re.exec(fullRefined)) !== null) usedIndices.add(parseInt(m[1], 10));
+      syncedCitations = citations.filter((c: any) => usedIndices.has(c.index));
+    }
+
+    res.write(`data: ${JSON.stringify({ done: true, citations: syncedCitations })}\n\n`);
     res.write('data: [DONE]\n\n');
     res.end();
-
   } catch (error: any) {
     console.error('RefineNote Error:', error);
     if (!res.headersSent) {
@@ -1298,11 +1663,17 @@ ${sourcesContext}
  */
 router.post('/refresh-index', async (_req: Request, res: Response) => {
   try {
-    await knowledgeVectorIndex.buildIndex();
+    // 同时重建标签库（新增标签在重启前也要参与加成）
+    await import('../utils/vector-store.js')
+      .then((m) => m.tagVectorStore.buildFromDatabase())
+      .catch((err: any) => {
+        console.warn('[Index] TagVectorStore rebuild failed:', err?.message);
+      });
+    await unifiedVectorIndex.buildIndex();
     res.json({
       success: true,
-      nodeCount: knowledgeVectorIndex.getNodeCount(),
-      ready: knowledgeVectorIndex.isReady(),
+      nodeCount: unifiedVectorIndex.getRecordCount(),
+      ready: unifiedVectorIndex.isReady(),
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message || '索引重建失败' });

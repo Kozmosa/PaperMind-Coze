@@ -41,31 +41,69 @@ router.get('/recent-records', async (req: Request, res: Response) => {
   try {
     const userId = (req as any).userId || 'guest';
     const supabase = getSupabaseClient();
+    const perTableLimit = Math.min(parseInt(req.query.limit as string) || 50, 500);
 
     const [notesRes, materialsRes] = await Promise.all([
       supabase
         .from('study_notes')
-        .select('id, title, content, tags, logical_path, papercore, ai_processed, viewed_after_process, created_at, updated_at')
+        .select(
+          'id, title, content, tags, logical_path, papercore, ai_processed, viewed_after_process, process_status, created_at, updated_at',
+        )
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
-        .limit(50),
+        .limit(perTableLimit),
       supabase
         .from('materials')
-        .select('id, name, tags, logical_path, papercore, ai_processed, viewed_after_process, created_at, updated_at')
+        .select(
+          'id, name, tags, logical_path, papercore, ai_processed, viewed_after_process, process_status, created_at, updated_at',
+        )
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
-        .limit(50),
+        .limit(perTableLimit),
     ]);
 
-    if (notesRes.error) throw new Error(notesRes.error.message);
-    if (materialsRes.error) throw new Error(materialsRes.error.message);
+    // process_status 由 migrations/004 引入，旧库缺列时降级为不带该列重查（无状态徽标）
+    let notesData: any[] | null = notesRes.data;
+    let notesError = notesRes.error;
+    let materialsData: any[] | null = materialsRes.data;
+    let materialsError = materialsRes.error;
+    if (notesError && /process_status/.test(notesError.message)) {
+      const retry = await supabase
+        .from('study_notes')
+        .select(
+          'id, title, content, tags, logical_path, papercore, ai_processed, viewed_after_process, created_at, updated_at',
+        )
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(perTableLimit);
+      notesData = retry.data;
+      notesError = retry.error;
+    }
+    if (materialsError && /process_status/.test(materialsError.message)) {
+      const retry = await supabase
+        .from('materials')
+        .select(
+          'id, name, tags, logical_path, papercore, ai_processed, viewed_after_process, created_at, updated_at',
+        )
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(perTableLimit);
+      materialsData = retry.data;
+      materialsError = retry.error;
+    }
 
-    const notes = (notesRes.data || []).map((n: any) => ({ ...n, record_type: 'study_note' }));
-    const materials = (materialsRes.data || []).map((m: any) => ({ ...m, record_type: 'material' }));
+    if (notesError) throw new Error(notesError.message);
+    if (materialsError) throw new Error(materialsError.message);
+
+    const notes = (notesData || []).map((n: any) => ({ ...n, record_type: 'study_note' }));
+    const materials = (materialsData || []).map((m: any) => ({
+      ...m,
+      record_type: 'material',
+    }));
 
     // Merge and sort by created_at descending
     const combined = [...notes, ...materials].sort(
-      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
     );
 
     res.json({ data: combined });
