@@ -166,6 +166,8 @@ router.post('/', async (req: Request, res: Response) => {
           ai_processed: false,
           process_status: 'processing',
           viewed_after_process: false,
+          // 提取文本随上传入库：打开资料时直接读取，不再重跑提取/视觉分析
+          extracted_text: (extracted.text || '').slice(0, 200000),
         };
         if (logicalPath) materialInsert.logical_path = logicalPath;
 

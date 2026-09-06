@@ -161,7 +161,8 @@ router.get('/:id/file-content', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'File not found on disk', name: material.name });
     }
 
-    // 3. 提取文本
+    // 3. 提取文本：优先用上传/分类时已落库的 extracted_text（pipeline 约定），
+    //    缺失时再从磁盘提取（视觉 OCR 结果会缓存并回写）
     const ext = path.extname(filePath).toLowerCase();
     const mimeMap: Record<string, string> = {
       '.pdf': 'application/pdf',
@@ -172,7 +173,24 @@ router.get('/:id/file-content', async (req: Request, res: Response) => {
       '.csv': 'text/plain',
     };
     const mimeType = mimeMap[ext] || 'application/octet-stream';
-    const extracted = await extractText(filePath, mimeType, path.basename(filePath));
+
+    let extracted: { text: string; pageCount?: number } | null = null;
+    const storedText = (material as any).extracted_text;
+    if (storedText && storedText.trim().length >= 5) {
+      extracted = { text: storedText };
+    } else {
+      extracted = await extractText(filePath, mimeType, path.basename(filePath));
+      if (extracted.text && extracted.text.trim().length >= 5) {
+        // 回写落库：老数据首次打开补一次提取，之后直接读库
+        client
+          .from('materials')
+          .update({ extracted_text: extracted.text.slice(0, 200000) })
+          .eq('id', id)
+          .then(({ error }) => {
+            if (error) console.warn('[file-content] 回写提取文本失败:', error.message);
+          });
+      }
+    }
 
     // 4. 分页：按换页符 \f 拆分，否则按双换行分块
     const fullText = extracted.text || '';

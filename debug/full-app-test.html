@@ -1357,9 +1357,9 @@ function fmtPath(raw) {
 }
 
 // Safe fetch with timeout
-async function safeFetch(url, opts) {
+async function safeFetch(url, opts, timeoutMs) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
+  const timer = setTimeout(() => controller.abort(), timeoutMs || FETCH_TIMEOUT);
   try {
     const res = await fetch(url, { ...opts, signal: controller.signal });
     clearTimeout(timer);
@@ -2131,12 +2131,13 @@ async function viewMaterialFullscreen(id, title) {
   _fsMatId = id; _fsNoteType = 'material';
   const overlay = document.getElementById('fs-material');
   document.getElementById('fs-mat-title').textContent = title || '学习资料';
-  document.getElementById('fs-mat-body').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;flex:1;"><div class="spinner"></div></div>';
+  document.getElementById('fs-mat-body').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;flex:1;"><div class="spinner"></div><div style="margin-top:12px;font-size:12px;color:var(--text3);">首次打开扫描件需提取文本（视觉 OCR），最长约 30 秒</div></div>';
   overlay.classList.add('show');
 
   try {
     const [fcRes, matRes] = await Promise.all([
-      safeFetch(API + '/materials/' + id + '/file-content'),
+      // 扫描件首次打开需视觉 OCR 提取（最长约 30s），放宽超时避免误报加载失败
+      safeFetch(API + '/materials/' + id + '/file-content', undefined, 90000),
       safeFetch(API + '/materials').then(r => r.ok ? r.json() : Promise.resolve({ data: [] }))
     ]);
 
@@ -4015,76 +4016,92 @@ viewMaterialFullscreen = async function(id, title) {
   overlay.classList.add('show');
 
   try {
-    const [fcRes, matRes] = await Promise.all([
-      safeFetch(API + '/materials/' + id + '/file-content'),
-      safeFetch(API + '/materials').then(r => r.ok ? r.json() : Promise.resolve({ data: [] }))
-    ]);
-
-    if (!fcRes.ok) throw new Error('HTTP ' + fcRes.status);
-    const fc = await fcRes.json();
-    const data = fc.data || fc;
-    const fileType = (data.fileType || '').toUpperCase();
-    let viewUrl = data.viewUrl || '';
-
-    // Find metadata
-    let papercore = '', tags = [], logicalPath = '', processStatus = '';
-    if (matRes) {
-      const matData = (matRes.data || matRes).data || matRes.data || [];
-      const found = Array.isArray(matData) ? matData.find(m => m.id === id) : null;
-      if (found) { papercore = found.papercore || ''; tags = found.tags || []; logicalPath = found.logical_path || ''; processStatus = found.process_status || ''; }
-    }
+    // 1) 先拉元数据（快）：PDF 立即上屏，不被文本提取（扫描件视觉 OCR 20-30s）阻塞
+    const matRes = await safeFetch(API + '/materials').then(r => r.ok ? r.json() : Promise.resolve({ data: [] }));
+    const matData = (matRes.data || matRes).data || matRes.data || [];
+    const found = Array.isArray(matData) ? matData.find(m => m.id === id) : null;
+    const papercore = found ? (found.papercore || '') : '';
+    const tags = found ? (found.tags || []) : [];
+    const logicalPath = found ? (found.logical_path || '') : '';
+    const processStatus = found ? (found.process_status || '') : '';
+    const filePath = found ? (found.file_path || found.file_url || '') : '';
+    const isPdf = ((found && found.file_type || '').toLowerCase().includes('pdf')) || /\.pdf$/i.test(filePath);
 
     document.getElementById('nh-fab').classList.add('show');
     document.getElementById('fs-mat-nh-btn').style.display = 'inline-flex';
 
-    let html = '';
+    // Footer（摘要 + 状态 + 重新分析）：元数据即时可得
+    let footerHtml = '<div style="padding:14px 18px;border-top:1px solid var(--border);flex-shrink:0;max-height:200px;overflow-y:auto;">';
+    footerHtml += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
+    footerHtml += '<div class="section-title" style="margin-bottom:0;">AI 摘要</div>';
+    footerHtml += '<div style="display:flex;align-items:center;gap:8px;">';
+    if (processStatus === 'failed') footerHtml += '<span style="background:#fdecea;color:#c0392b;font-size:11px;padding:3px 10px;border-radius:10px;">⚠️ 分类失败</span>';
+    if (processStatus === 'processing') footerHtml += '<span style="background:#fff3cd;color:#856404;font-size:11px;padding:3px 10px;border-radius:10px;">⏳ 处理中</span>';
+    if (processStatus === 'pending') footerHtml += '<span style="background:#fff4e5;color:#b9770e;font-size:11px;padding:3px 10px;border-radius:10px;">⏳ 待分类</span>';
+    footerHtml += '<button class="btn btn-neu" style="font-size:11px;padding:5px 12px;border-radius:12px;" onclick="reprocessMaterial(\'' + esc(id) + '\')">🔄 重新分析</button>';
+    footerHtml += '</div></div>';
+    if (papercore) footerHtml += '<div class="body-text" style="font-size:13px;line-height:1.7;margin-bottom:8px;">' + simpleMarkdown(papercore) + '</div>';
+    if (tags.length > 0) footerHtml += tags.map(t => '<span class="tag" style="background:var(--pri-pale);color:var(--primary);margin-right:4px;">' + esc(t) + '</span>').join('');
+    if (logicalPath) footerHtml += '<div class="meta-text" style="margin-top:6px;">📁 ' + esc(fmtPath(logicalPath)) + '</div>';
+    footerHtml += '</div>';
 
-    // PDF viewer with fallback open-in-new-tab link
-    if (fileType === 'PDF' && viewUrl) {
-      const fullUrl = viewUrl.startsWith('http') ? viewUrl : 'http://localhost:9091' + viewUrl;
-      html = '<div style="flex:1;display:flex;flex-direction:column;">' +
+    // PDF：立即渲染 iframe + 文本占位槽，提取完成后只填充文本槽（不重载 iframe）
+    let textSlot = '';
+    if (isPdf && filePath) {
+      const fullUrl = 'http://localhost:9091' + (filePath.startsWith('/') ? filePath : '/' + filePath);
+      const pdfHtml = '<div style="flex:1;display:flex;flex-direction:column;min-height:45vh;">' +
         '<iframe class="pdf-frame" src="' + esc(fullUrl) + '#toolbar=0" style="flex:1;min-height:400px;"></iframe>' +
         '<div style="text-align:center;padding:8px;">' +
         '<a href="' + esc(fullUrl) + '" target="_blank" class="btn btn-neu" style="display:inline-block;text-decoration:none;font-size:12px;">在新窗口打开 PDF</a>' +
         '</div>' +
         '</div>';
-    } else if (fileType === 'PPT') {
-      // 旧版 .ppt 无二进制解析分支，明确引导转存
-      html += '<div class="empty-state"><div class="empty-icon">📄</div><div class="empty-title">.ppt 旧格式暂不支持在线预览</div><div class="empty-desc">请转存为 PPTX 格式后重新上传查看</div></div>';
-    } else if (data.pages && data.pages.some(p => (typeof p === 'string' ? p : (p.text || '')).trim())) {
-      // PPTX/DOCX/MD/TXT 等：文本分页降级视图（与 PDF 的 file-content 分页同路径）
-      // MD/TXT 走 markdown 渲染（标题/加粗/表格/公式），PDF/PPTX 提取文本保持原文
+      textSlot = '<div id="fs-mat-text-slot" style="padding:0 18px;overflow-y:auto;flex:1;"><div style="text-align:center;padding:16px 0;font-size:12px;color:var(--text3);">正在提取文本…</div></div>';
+      document.getElementById('fs-mat-body').innerHTML = pdfHtml + textSlot + footerHtml;
+    }
+
+    // 2) 文本提取（扫描件首次 20-30s；超时放宽到 90s）
+    const fcRes = await safeFetch(API + '/materials/' + id + '/file-content', undefined, 90000);
+    if (!fcRes.ok) throw new Error('HTTP ' + fcRes.status);
+    const fc = await fcRes.json();
+    const data = fc.data || fc;
+    const fileType = (data.fileType || '').toUpperCase();
+    const viewUrl = data.viewUrl || '';
+
+    // 构建文本页 HTML（MD/TXT 走 markdown 渲染；PDF/PPTX 提取文本保持原文）
+    let textHtml = '';
+    if (data.pages && data.pages.some(p => (typeof p === 'string' ? p : (p.text || '')).trim())) {
       const useMd = fileType === 'MD' || fileType === 'TXT';
-      html += '<div style="padding:10px 18px;overflow-y:auto;flex:1;">';
-      html += '<div class="mat-text-pages">';
+      textHtml += '<div class="mat-text-pages">';
       data.pages.forEach((page, i) => {
         const raw = typeof page === 'string' ? page : (page.text || '');
-        html += (i > 0 ? '<div class="page-sep">— 第 ' + (i + 1) + ' 页 —</div>' : '');
-        html += useMd
+        textHtml += (i > 0 ? '<div class="page-sep">— 第 ' + (i + 1) + ' 页 —</div>' : '');
+        textHtml += useMd
           ? '<div style="margin-bottom:12px;" class="body-text">' + simpleMarkdown(raw) + '</div>'
           : '<p style="margin-bottom:12px;">' + esc(raw) + '</p>';
       });
-      html += '</div></div>';
-    } else {
-      html += '<div class="empty-state"><div class="empty-icon">📄</div><div class="empty-title">暂无可预览内容</div><div class="empty-desc">此文件类型不支持在线预览</div></div>';
+      textHtml += '</div>';
     }
 
-    // Footer with metadata + reprocess button
-    html += '<div style="padding:14px 18px;border-top:1px solid var(--border);flex-shrink:0;max-height:200px;overflow-y:auto;">';
-    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
-    html += '<div class="section-title" style="margin-bottom:0;">AI 摘要</div>';
-    html += '<div style="display:flex;align-items:center;gap:8px;">';
-    if (processStatus === 'failed') html += '<span style="background:#fdecea;color:#c0392b;font-size:11px;padding:3px 10px;border-radius:10px;">⚠️ 分类失败</span>';
-    if (processStatus === 'processing') html += '<span style="background:#fff3cd;color:#856404;font-size:11px;padding:3px 10px;border-radius:10px;">⏳ 处理中</span>';
-    if (processStatus === 'pending') html += '<span style="background:#fff4e5;color:#b9770e;font-size:11px;padding:3px 10px;border-radius:10px;">⏳ 待分类</span>';
-    html += '<button class="btn btn-neu" style="font-size:11px;padding:5px 12px;border-radius:12px;" onclick="reprocessMaterial(\'' + esc(id) + '\')">🔄 重新分析</button>';
-    html += '</div></div>';
-    if (papercore) html += '<div class="body-text" style="font-size:13px;line-height:1.7;margin-bottom:8px;">' + simpleMarkdown(papercore) + '</div>';
-    if (tags.length > 0) html += tags.map(t => '<span class="tag" style="background:var(--pri-pale);color:var(--primary);margin-right:4px;">' + esc(t) + '</span>').join('');
-    if (logicalPath) html += '<div class="meta-text" style="margin-top:6px;">📁 ' + esc(fmtPath(logicalPath)) + '</div>';
-    html += '</div>';
-
-    document.getElementById('fs-mat-body').innerHTML = html;
+    // PDF：填充文本槽；非 PDF：整体渲染
+    const slot = document.getElementById('fs-mat-text-slot');
+    if (slot) {
+      if (textHtml) {
+        slot.innerHTML = '<div class="section-title">提取文本</div>' + textHtml;
+      } else {
+        slot.innerHTML = '';
+      }
+    } else {
+      let html = '';
+      if (fileType === 'PPT') {
+        html += '<div class="empty-state"><div class="empty-icon">📄</div><div class="empty-title">.ppt 旧格式暂不支持在线预览</div><div class="empty-desc">请转存为 PPTX 格式后重新上传查看</div></div>';
+      } else if (textHtml) {
+        html += '<div style="padding:10px 18px;overflow-y:auto;flex:1;">' + textHtml + '</div>';
+      } else {
+        html += '<div class="empty-state"><div class="empty-icon">📄</div><div class="empty-title">暂无可预览内容</div><div class="empty-desc">此文件类型不支持在线预览</div></div>';
+      }
+      html += footerHtml;
+      document.getElementById('fs-mat-body').innerHTML = html;
+    }
 
     safeFetch(API + '/control-center/mark-viewed', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'material', id }) }).catch(() => {});
 

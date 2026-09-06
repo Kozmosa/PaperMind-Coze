@@ -925,6 +925,14 @@ export async function handleProcessContent(req: Request, res: Response) {
       if (diskText && diskText.trim().length >= 5) {
         text = stripTOC(diskText);
         console.log(`[process-content] Read ${text.length} chars from disk for material ${id}`);
+        // 提取文本随分类落库：打开资料时直接读取（不再重跑提取/视觉分析，issue 跟进）
+        supabase
+          .from(table)
+          .update({ extracted_text: diskText.slice(0, 200000) })
+          .eq('id', id)
+          .then(({ error }) => {
+            if (error) console.warn('[process-content] 持久化提取文本失败:', error.message);
+          });
       } else {
         text = dbExtractedText;
       }
