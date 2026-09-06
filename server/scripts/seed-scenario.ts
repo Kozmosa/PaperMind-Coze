@@ -551,13 +551,12 @@ async function importNotesAndMaterials(
   for (let i = 0; i < materialFiles.length; i++) {
     const filePath = materialFiles[i];
     const baseName = path.basename(filePath, path.extname(filePath));
-    const rel = path.relative(materialsDir, filePath).split(path.sep);
-    const folder = rel.length >= 2 ? rel[rel.length - 2] : '学习资料';
     const timeline = MATERIAL_TIMELINE.find((t) => baseName.includes(t.match));
 
     const up = await apiUpload(filePath, {
       title: baseName,
-      logical_path: JSON.stringify([`/学习资料/${folder}/`]),
+      // 不再传用户指定路径：让 AI 分类的 L1/L2/L3 派生 logical_path，
+      // 文件夹视图与知识树保持同一结构
     });
     if (up.json?.materialId) {
       const clsError = up.json.classification?.error;
