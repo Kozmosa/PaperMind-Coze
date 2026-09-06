@@ -2,7 +2,7 @@ import { Router } from 'express';
 import type { Request, Response } from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
-import { getSupabaseClient } from '../storage/database/supabase-client.js';
+import { getSupabaseClient, runWithRetry } from '../storage/database/supabase-client.js';
 import { extractText } from '../utils/extract-text.js';
 
 const router = Router();
@@ -104,13 +104,19 @@ router.get('/:id/file-content', async (req: Request, res: Response) => {
     const userId = (req as any).userId || 'guest';
     const { id } = req.params;
 
-    // 1. 获取 material 记录
-    const { data: material, error: fetchError } = await client
-      .from('materials')
-      .select('*')
-      .eq('id', id)
-      .eq('user_id', userId)
-      .single();
+    // 1. 获取 material 记录（网络瞬时失败重试，避免误报 Material not found）
+    const { data: material, error: fetchError } = await runWithRetry(async () => {
+      const r = await client
+        .from('materials')
+        .select('*')
+        .eq('id', id)
+        .eq('user_id', userId)
+        .single();
+      // supabase-js 网络失败（fetch failed/TLS reset）无 Postgres 错误码——抛给重试层；
+      // PGRST116（行不存在）等真查询错误直接返回，由下方 404 处理
+      if (r.error && !(r.error as any).code) throw r.error;
+      return r;
+    }, 4);
 
     if (fetchError || !material) {
       return res.status(404).json({ error: 'Material not found' });

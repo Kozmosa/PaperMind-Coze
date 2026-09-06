@@ -2,7 +2,7 @@ import { Router } from 'express';
 import type { Request, Response } from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
-import { anthropic, DEFAULT_MODEL } from '../config/ai.js';
+import { anthropic, DEFAULT_MODEL, NOTE_MODEL } from '../config/ai.js';
 import { getSupabaseClient } from '../storage/database/supabase-client.js';
 import { unifiedVectorIndex } from '../utils/unified-vector-index.js';
 import { extractText } from '../utils/extract-text.js';
@@ -1252,7 +1252,7 @@ router.post('/note-helper', async (req: Request, res: Response) => {
     let fullContent = '';
 
     const stream = anthropic.messages.stream({
-      model: DEFAULT_MODEL,
+      model: NOTE_MODEL,
       // 思考型模型先出 thinking blocks，预算过低会耗尽 max_tokens 导致正文为空（流式无法重试，直接给足）
       max_tokens: 16384,
       system: systemPrompt,
@@ -1262,7 +1262,8 @@ router.post('/note-helper', async (req: Request, res: Response) => {
     for await (const event of stream) {
       if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
         fullContent += event.delta.text;
-        res.write(`data: ${JSON.stringify({ content: fullContent })}\n\n`);
+        // 只发增量：此前每个 delta 重发全文，O(n²) 流量导致客户端卡顿
+        res.write(`data: ${JSON.stringify({ content: event.delta.text })}\n\n`);
       }
     }
 
@@ -1450,7 +1451,7 @@ ${sourcesText}
 请直接生成笔记内容。`;
 
     const stream = anthropic.messages.stream({
-      model: DEFAULT_MODEL,
+      model: NOTE_MODEL,
       // 思考型模型先出 thinking blocks，预算过低会耗尽 max_tokens 导致正文为空（流式无法重试，直接给足）
       max_tokens: 16384,
       system: systemPrompt,
@@ -1625,7 +1626,7 @@ ${sourcesContext}
 请直接输出修正后的完整笔记，包含所有标题、内容和引用标记。`;
 
     const stream = anthropic.messages.stream({
-      model: DEFAULT_MODEL,
+      model: NOTE_MODEL,
       // 思考型模型先出 thinking blocks，预算过低会耗尽 max_tokens 导致正文为空（流式无法重试，直接给足）
       max_tokens: 16384,
       system: systemPrompt,

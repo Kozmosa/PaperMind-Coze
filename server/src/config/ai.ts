@@ -42,6 +42,10 @@ export const anthropic: Anthropic = AI_API_KEY
 /** 当前使用的主模型 */
 export const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL || 'kimi-for-coding';
 
+/** 笔记生成专用快速模型（非思考型）：首字节从思考型的 ~30s 降到 ~2s。
+ *  思考型留给 tutor/反思等需要深度推理的场景；NOTE_MODEL 可经 .env 覆盖 */
+export const NOTE_MODEL = process.env.NOTE_MODEL || 'deepseek-chat';
+
 /** 可用模型列表：跟随 ANTHROPIC_MODEL 配置的网关模型（如 deepseek-v4-pro） */
 export const AVAILABLE_MODELS = [DEFAULT_MODEL];
 

@@ -144,3 +144,20 @@ function getSupabaseClient(token?: string): SupabaseClient {
 }
 
 export { loadEnv, getSupabaseCredentials, getSupabaseServiceRoleKey, getSupabaseClient };
+
+// Supabase 网络瞬时失败重试：国内网络对 supabase.co 偶发 TLS/reset（fetch failed），
+// 调用方把网络类错误（无 Postgres code）抛出来即可触发重试；真·查询错误直接返回
+export async function runWithRetry<T>(fn: () => Promise<T>, retries = 3, delayMs = 400): Promise<T> {
+  let lastErr: any;
+  for (let i = 0; i <= retries; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      lastErr = e;
+      if (i < retries) {
+        await new Promise((r) => setTimeout(r, delayMs * (i + 1)));
+      }
+    }
+  }
+  throw lastErr;
+}

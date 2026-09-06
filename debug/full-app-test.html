@@ -1779,7 +1779,7 @@ async function sendChatMessage(){
         if(!line.startsWith('data: '))continue;
         const data=line.substring(6);
         if(data==='[DONE]'){_chatLoading=false;if(sendBtn)sendBtn.style.opacity='1';break;}
-        try{const p=JSON.parse(data);if(p.content){full+=p.content;const bot=document.getElementById(botId);if(bot&&bot.querySelector('.avatar').nextElementSibling)bot.querySelector('.avatar').nextElementSibling.innerHTML=`<div style="line-height:1.7;">${simpleMarkdown(full)}</div>`;msgs.scrollTop=msgs.scrollHeight;}}catch(e){}
+        try{const p=JSON.parse(data);if(p.content){full+=p.content;if(mdRenderGate()){const bot=document.getElementById(botId);if(bot&&bot.querySelector('.avatar').nextElementSibling)bot.querySelector('.avatar').nextElementSibling.innerHTML=`<div style="line-height:1.7;">${simpleMarkdown(full)}</div>`;msgs.scrollTop=msgs.scrollHeight;}}}catch(e){}
       }
     }
   }catch(e){
@@ -1803,7 +1803,7 @@ async function startReflectionChat(){
         if(!line.startsWith('data: '))continue;
         const data=line.substring(6);
         if(data==='[DONE]')break;
-        try{const p=JSON.parse(data);if(p.content){full+=p.content;const bot=document.getElementById(botId);if(bot&&bot.querySelector('.avatar').nextElementSibling)bot.querySelector('.avatar').nextElementSibling.innerHTML=`<div style="line-height:1.7;">${simpleMarkdown(full)}</div>`;msgs.scrollTop=msgs.scrollHeight;}}catch(e){}
+        try{const p=JSON.parse(data);if(p.content){full+=p.content;if(mdRenderGate()){const bot=document.getElementById(botId);if(bot&&bot.querySelector('.avatar').nextElementSibling)bot.querySelector('.avatar').nextElementSibling.innerHTML=`<div style="line-height:1.7;">${simpleMarkdown(full)}</div>`;msgs.scrollTop=msgs.scrollHeight;}}}catch(e){}
       }
     }
   }catch(e){
@@ -1944,7 +1944,7 @@ async function generateReflectionFromModal(){
         if(data==='[DONE]')continue;
         try{
           const p=JSON.parse(data);
-          if(p.content){full+=p.content;streamArea.innerHTML=simpleMarkdown(full);streamArea.scrollTop=streamArea.scrollHeight;}
+          if(p.content){full+=p.content;if(mdRenderGate()){streamArea.innerHTML=simpleMarkdown(full);streamArea.scrollTop=streamArea.scrollHeight;}}
           if(p.done&&p.reflection){
             streamArea.innerHTML+='<div style="margin-top:16px;padding:12px;background:var(--success);color:white;border-radius:12px;text-align:center;">✓ 反思报告已保存！</div>';
             setTimeout(()=>{closeAppModal();loadProfile();},1500);
@@ -2302,7 +2302,7 @@ async function generateNoteStream() {
             const parsed = JSON.parse(data);
             if (parsed.content) {
               fullContent += parsed.content;
-              resultEl.innerHTML = simpleMarkdown(fullContent) + '<span class="generating-cursor"></span>';
+              if (mdRenderGate()) resultEl.innerHTML = simpleMarkdown(fullContent) + '<span class="generating-cursor"></span>';
               resultEl.scrollTop = resultEl.scrollHeight;
             }
             if (parsed.citations) citations = parsed.citations;
@@ -2383,7 +2383,7 @@ async function refineGeneratedNote() {
         if (line.startsWith('data: ')) {
           const data = line.slice(6).trim();
           if (data === '[DONE]') break;
-          try { const p = JSON.parse(data); if (p.content) { fullContent += p.content; document.getElementById('nh-panel-result').innerHTML = simpleMarkdown(fullContent) + '<span class="generating-cursor"></span>'; } } catch {}
+          try { const p = JSON.parse(data); if (p.content) { fullContent += p.content; if (mdRenderGate()) document.getElementById('nh-panel-result').innerHTML = simpleMarkdown(fullContent) + '<span class="generating-cursor"></span>'; } } catch {}
         }
       }
     }
@@ -2427,7 +2427,7 @@ function openRefineInput() {
         if (!line.startsWith('data: ')) continue;
         const data = line.slice(6).trim();
         if (data === '[DONE]') break;
-        try { const p = JSON.parse(data); if (p.content) { fullContent += p.content; document.getElementById('nh-panel-result').innerHTML = simpleMarkdown(fullContent) + '<span class="generating-cursor"></span>'; } } catch {}
+        try { const p = JSON.parse(data); if (p.content) { fullContent += p.content; if (mdRenderGate()) document.getElementById('nh-panel-result').innerHTML = simpleMarkdown(fullContent) + '<span class="generating-cursor"></span>'; } } catch {}
       }
     }
     document.getElementById('nh-panel-result').innerHTML = simpleMarkdown(fullContent);
@@ -2846,6 +2846,14 @@ function closeMoveFile() {
 // ═══════════════════════════════════════════════════
 // Obsidian 风格预处理（==高亮==、[[双链]]、> [!callout]）——
 // 与 App 端 MarkdownRenderer 的 obsidianPreprocess 对齐；输入为已 HTML 转义的文本（> 即 &gt;）
+// 流式渲染节流：每 150ms 最多重渲染一次，避免逐 token 全量解析导致卡顿
+let _mdThrottleTs = 0;
+function mdRenderGate() {
+  const now = Date.now();
+  if (now - _mdThrottleTs > 150) { _mdThrottleTs = now; return true; }
+  return false;
+}
+
 // HTML 实体还原：文本级转义会把公式里的 < > & 变成实体，
 // KaTeX 数学模式把 & 当对齐符，&lt; 会直接解析失败（M_o < M_e 案例）
 function unescapeEntities(s) {
@@ -3550,7 +3558,7 @@ generateNoteStream = async function() {
             const parsed = JSON.parse(data);
             if (parsed.content) {
               fullContent += parsed.content;
-              resultEl.innerHTML = simpleMarkdown(fullContent) + '<span class="generating-cursor"></span>';
+              if (mdRenderGate()) resultEl.innerHTML = simpleMarkdown(fullContent) + '<span class="generating-cursor"></span>';
               resultEl.scrollTop = resultEl.scrollHeight;
             }
             if (parsed.citations) citations = parsed.citations;

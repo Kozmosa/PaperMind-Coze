@@ -57,10 +57,47 @@ async function getPdfParser() {
   return PDFParse;
 }
 
+// 提取结果缓存：扫描件每次打开都重跑视觉 OCR（每页一次 LLM 调用，20-30s），
+// 按 文件路径+mtime+size 缓存，所有调用方（上传/查看/页码匹配）共享
+const extractCache = new Map<string, { mtimeMs: number; size: number; result: ExtractedContent }>();
+const EXTRACT_CACHE_MAX = 200;
+
 /**
- * 提取文本内容
+ * 提取文本内容（带缓存）
  */
 export async function extractText(
+  filePath: string,
+  mimeType: string,
+  fileName: string,
+): Promise<ExtractedContent> {
+  try {
+    let stat: { mtimeMs: number; size: number } | null = null;
+    try {
+      const s = fs.statSync(filePath);
+      stat = { mtimeMs: s.mtimeMs, size: s.size };
+    } catch {
+      stat = null;
+    }
+    if (stat) {
+      const hit = extractCache.get(filePath);
+      if (hit && hit.mtimeMs === stat.mtimeMs && hit.size === stat.size) return hit.result;
+    }
+    const result = await extractTextUncached(filePath, mimeType, fileName);
+    if (stat) {
+      if (extractCache.size >= EXTRACT_CACHE_MAX) {
+        const firstKey = extractCache.keys().next().value;
+        if (firstKey) extractCache.delete(firstKey);
+      }
+      extractCache.set(filePath, { mtimeMs: stat.mtimeMs, size: stat.size, result });
+    }
+    return result;
+  } catch (err) {
+    console.error('[extractText] Error:', err);
+    return { text: '' };
+  }
+}
+
+async function extractTextUncached(
   filePath: string,
   mimeType: string,
   fileName: string,
