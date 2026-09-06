@@ -25,10 +25,7 @@ export default function TabLayout() {
     paddingBottom: insets.bottom + 4,
     height: Platform.OS === 'web' ? 'auto' : 60 + insets.bottom,
     borderTopWidth: 0,
-    shadowColor: '#D1D9E6',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
+    boxShadow: '0px -4px 8px rgba(209, 217, 230, 0.5)',
     elevation: 10,
   };
 
@@ -45,7 +42,7 @@ export default function TabLayout() {
         headerShown: false,
         tabBarStyle,
         tabBarActiveTintColor: '#6C63FF',
-        tabBarInactiveTintColor: '#B2BEC3',
+        tabBarInactiveTintColor: '#8E8E93',
         // 桌面 Web 下（宽≥768 被视作平板）默认切换为标签在图标右侧的横排布局，
         // 行高不足导致标签被裁切（issue #2 P0），固定为「图标在上、标签在下」
         tabBarVariant: 'uikit',
@@ -88,10 +85,7 @@ export default function TabLayout() {
                   justifyContent: 'center',
                   alignItems: 'center',
                   marginTop: -12,
-                  shadowColor: '#6C63FF',
-                  shadowOffset: { width: 0, height: 4 },
-                  shadowOpacity: 0.3,
-                  shadowRadius: 8,
+                  boxShadow: '0px 4px 8px rgba(108, 99, 255, 0.3)',
                   elevation: 6,
                 }}
               >
@@ -103,13 +97,13 @@ export default function TabLayout() {
                   width: 44,
                   height: 44,
                   borderRadius: 22,
-                  backgroundColor: '#E8E8EB',
+                  backgroundColor: 'rgba(108,99,255,0.12)',
                   justifyContent: 'center',
                   alignItems: 'center',
                   marginTop: -12,
                 }}
               >
-                <Feather name="message-circle" size={22} color={color} />
+                <Feather name="message-circle" size={22} color="#6C63FF" />
               </View>
             ),
         }}

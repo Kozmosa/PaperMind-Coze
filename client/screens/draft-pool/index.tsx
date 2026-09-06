@@ -119,7 +119,7 @@ export default function DraftPoolScreen() {
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 24, fontWeight: '800', color: '#2D3436' }}>原始草稿池</Text>
-            <Text style={{ fontSize: 13, color: '#636E72', marginTop: 2 }}>
+            <Text style={{ fontSize: 13, color: '#4B5563', marginTop: 2 }}>
               {drafts.length} 条草稿 · {unprocessed.length} 条待处理
             </Text>
           </View>
@@ -169,10 +169,7 @@ export default function DraftPoolScreen() {
                     borderRadius: 20,
                     padding: 16,
                     marginBottom: 12,
-                    shadowColor: '#D1D9E6',
-                    shadowOffset: { width: 4, height: 4 },
-                    shadowOpacity: 0.6,
-                    shadowRadius: 6,
+                    boxShadow: '4px 4px 6px rgba(209, 217, 230, 0.6)',
                     elevation: 4,
                     borderLeftWidth: 4,
                     borderLeftColor: '#FF6B9D',
@@ -199,8 +196,14 @@ export default function DraftPoolScreen() {
                           <Text style={{ fontSize: 12, color: '#6C63FF' }}>{draft.file_url}</Text>
                         </View>
                       )}
-                      <Text style={{ fontSize: 11, color: '#B2BEC3', marginTop: 8 }}>
-                        {new Date(draft.created_at).toLocaleString()}
+                      <Text style={{ fontSize: 11, color: '#8E8E93', marginTop: 8 }}>
+                        {new Date(draft.created_at).toLocaleString('zh-CN', {
+                          year: 'numeric',
+                          month: 'numeric',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
                       </Text>
                     </View>
                   </View>
@@ -263,10 +266,7 @@ export default function DraftPoolScreen() {
                     borderRadius: 20,
                     padding: 16,
                     marginBottom: 12,
-                    shadowColor: '#D1D9E6',
-                    shadowOffset: { width: 4, height: 4 },
-                    shadowOpacity: 0.6,
-                    shadowRadius: 6,
+                    boxShadow: '4px 4px 6px rgba(209, 217, 230, 0.6)',
                     elevation: 4,
                     borderLeftWidth: 4,
                     borderLeftColor: '#00B894',
@@ -278,7 +278,7 @@ export default function DraftPoolScreen() {
                       style={{
                         flex: 1,
                         fontSize: 15,
-                        color: '#636E72',
+                        color: '#4B5563',
                         textDecorationLine: 'line-through',
                       }}
                       numberOfLines={2}
@@ -286,8 +286,14 @@ export default function DraftPoolScreen() {
                       {draft.content}
                     </Text>
                   </View>
-                  <Text style={{ fontSize: 11, color: '#B2BEC3', marginTop: 8 }}>
-                    {new Date(draft.created_at).toLocaleString()}
+                  <Text style={{ fontSize: 11, color: '#8E8E93', marginTop: 8 }}>
+                    {new Date(draft.created_at).toLocaleString('zh-CN', {
+                      year: 'numeric',
+                      month: 'numeric',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
                   </Text>
                 </View>
               ))}
@@ -296,11 +302,11 @@ export default function DraftPoolScreen() {
 
           {drafts.length === 0 && (
             <View style={{ alignItems: 'center', paddingVertical: 60 }}>
-              <Feather name="inbox" size={56} color="#B2BEC3" />
-              <Text style={{ fontSize: 16, color: '#636E72', marginTop: 16, fontWeight: '600' }}>
+              <Feather name="inbox" size={56} color="#8E8E93" />
+              <Text style={{ fontSize: 16, color: '#4B5563', marginTop: 16, fontWeight: '600' }}>
                 草稿池为空
               </Text>
-              <Text style={{ fontSize: 13, color: '#B2BEC3', marginTop: 8, textAlign: 'center' }}>
+              <Text style={{ fontSize: 13, color: '#8E8E93', marginTop: 8, textAlign: 'center' }}>
                 快速上传资料到草稿池，之后再整理成知识节点
               </Text>
             </View>

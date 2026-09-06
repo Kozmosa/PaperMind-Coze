@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-native-reanimated';
 import Svg, { Text as SvgText, Line, Circle, G } from 'react-native-svg';
+import { useCSSVariable } from 'uniwind';
 
 import { Screen } from '@/components/layout/Screen';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
@@ -30,7 +31,6 @@ const CANVAS = { w: 1200, h: 900 };
 const C = {
   bg: '#EEF0F5',
   surface: '#F7F8FC',
-  card: '#FFFFFF',
   primary: '#5B5FEF',
   primaryLight: '#8B8FF5',
   accent: '#FF6B6B',
@@ -135,6 +135,8 @@ export default function KnowledgePage() {
   const insets = useSafeAreaInsets();
   const { token } = useAuth();
   const { width: SCREEN_W, height: SCREEN_H } = useWindowDimensions();
+  const [surfaceVar] = useCSSVariable(['--color-surface']) as string[];
+  const cardColor = surfaceVar || '#FFFFFF';
 
   const [graphData, setGraphData] = useState<GraphData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -460,14 +462,11 @@ export default function KnowledgePage() {
           style={{
             flex: 1,
             minHeight: 400,
-            backgroundColor: C.card,
+            backgroundColor: cardColor,
             borderRadius: 24,
             marginHorizontal: 12,
             overflow: 'hidden',
-            shadowColor: C.shadowDark,
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.25,
-            shadowRadius: 12,
+            boxShadow: '0px 2px 12px rgba(160, 165, 181, 0.25)',
             elevation: 6,
           }}
         >
@@ -661,13 +660,10 @@ export default function KnowledgePage() {
               width: 36,
               height: 36,
               borderRadius: 18,
-              backgroundColor: C.card,
+              backgroundColor: cardColor,
               justifyContent: 'center',
               alignItems: 'center',
-              shadowColor: C.shadowDark,
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.3,
-              shadowRadius: 4,
+              boxShadow: '0px 2px 4px rgba(160, 165, 181, 0.3)',
               elevation: 4,
               borderWidth: 1,
               borderColor: C.border,
@@ -681,13 +677,10 @@ export default function KnowledgePage() {
               width: 36,
               height: 36,
               borderRadius: 18,
-              backgroundColor: C.card,
+              backgroundColor: cardColor,
               justifyContent: 'center',
               alignItems: 'center',
-              shadowColor: C.shadowDark,
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.3,
-              shadowRadius: 4,
+              boxShadow: '0px 2px 4px rgba(160, 165, 181, 0.3)',
               elevation: 4,
               borderWidth: 1,
               borderColor: C.border,
@@ -1046,13 +1039,10 @@ export default function KnowledgePage() {
               ) : (
                 <View
                   style={{
-                    backgroundColor: C.card,
+                    backgroundColor: cardColor,
                     borderRadius: 20,
                     overflow: 'hidden',
-                    shadowColor: C.shadow,
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.3,
-                    shadowRadius: 8,
+                    boxShadow: '0px 2px 8px rgba(200, 204, 216, 0.3)',
                     elevation: 4,
                   }}
                 >
@@ -1238,7 +1228,7 @@ export default function KnowledgePage() {
               bottom: 0,
               left: 0,
               right: 0,
-              backgroundColor: C.card,
+              backgroundColor: cardColor,
               borderTopWidth: 1,
               borderTopColor: C.border,
               paddingBottom: insets.bottom + 8,
@@ -1247,10 +1237,7 @@ export default function KnowledgePage() {
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'space-between',
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: -2 },
-              shadowOpacity: 0.08,
-              shadowRadius: 8,
+              boxShadow: '0px -2px 8px rgba(0, 0, 0, 0.08)',
               elevation: 10,
               zIndex: 100,
             }}
@@ -1314,6 +1301,8 @@ function ToggleBtn({
   active: boolean;
   onPress: () => void;
 }) {
+  const [surfaceVar] = useCSSVariable(['--color-surface']) as string[];
+  const cardColor = surfaceVar || '#FFFFFF';
   return (
     <TouchableOpacity
       style={{
@@ -1324,11 +1313,8 @@ function ToggleBtn({
         paddingVertical: 10,
         borderRadius: 12,
         gap: 6,
-        backgroundColor: active ? C.card : 'transparent',
-        shadowColor: active ? C.shadow : undefined,
-        shadowOffset: active ? { width: 0, height: 1 } : undefined,
-        shadowOpacity: active ? 0.4 : 0,
-        shadowRadius: active ? 4 : 0,
+        backgroundColor: active ? cardColor : 'transparent',
+        boxShadow: active ? '0px 1px 4px rgba(200, 204, 216, 0.4)' : undefined,
         elevation: active ? 2 : 0,
       }}
       onPress={onPress}
@@ -1379,19 +1365,21 @@ function FallbackCards({
   onSelect: (tag: TagNode) => void;
 }) {
   const { width: sw } = useWindowDimensions();
+  const [surfaceVar] = useCSSVariable(['--color-surface']) as string[];
+  const cardColor = surfaceVar || '#FFFFFF';
   return (
     <View style={{ paddingHorizontal: 16 }}>
       <View
         style={{
-          backgroundColor: '#FFF3E0',
+          backgroundColor: cardColor,
           borderRadius: 14,
           padding: 14,
           marginBottom: 14,
-          borderLeftWidth: 4,
-          borderLeftColor: C.accent,
+          boxShadow: '0px 2px 8px rgba(200, 204, 216, 0.3)',
+          elevation: 2,
         }}
       >
-        <Text style={{ fontSize: 13, color: '#E65100', fontWeight: '600' }}>
+        <Text style={{ fontSize: 13, color: C.text2, fontWeight: '600' }}>
           图形渲染暂不可用 — 共 {graphData.nodes.length} 个标签
         </Text>
       </View>
@@ -1401,12 +1389,11 @@ function FallbackCards({
             key={node.id}
             style={{
               width: (sw - 52) / 2,
-              backgroundColor: C.card,
+              backgroundColor: cardColor,
               borderRadius: 16,
               padding: 14,
-              borderLeftWidth: 3,
-              borderLeftColor:
-                node.level === 'L1' ? C.primary : node.level === 'L2' ? C.primaryLight : C.text3,
+              boxShadow: '0px 2px 8px rgba(200, 204, 216, 0.3)',
+              elevation: 2,
             }}
             onPress={() => onSelect(node)}
           >
