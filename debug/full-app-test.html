@@ -1883,41 +1883,37 @@ function openJumpSource(){
   else if(s.type==='material')viewMaterialFullscreen(s.id,s.title,s.page||null);
   else showAppModal('<h3>💡 '+esc(s.title||'知识节点')+'</h3>');
 }
-// 引用跳转：弹窗小卡片展示完整引用部分（不再截断）
+// 引用跳转：弹窗小卡片展示被引用的核心内容
+// （纪要=完整 papercore；资料=完整 papercore + 被引用页内容，MD 渲染、PDF/PPT 原文）
 async function jumpCitationAt(storeIdx, citIdx){
   const cit=_lastTutorAnswers[storeIdx]?.citations[citIdx];if(!cit)return;
   const ctype=cit.type;
   showAppModal('<div style="text-align:center;padding:24px;color:var(--text2);"><div class="spinner"></div><div style="margin-top:8px;font-size:12px;">加载引用内容...</div></div>');
   try{
     if(ctype==='study_note'){
-      const r=await safeFetch(API+'/study-notes/'+cit.sourceId);
-      if(!r.ok)throw new Error('HTTP '+r.status);
-      const j=await r.json();const n=j.data||j;
-      const full=n.blocks&&n.blocks.length?n.blocks.map(b=>b.content||'').filter(Boolean).join('\n\n'):(n.content||'');
-      const pc=n.papercore?'<div class="section-title" style="margin-top:12px;">AI 摘要</div><div class="body-text" style="line-height:1.7;">'+simpleMarkdown(n.papercore)+'</div>':'';
-      _jumpSource={type:'study_note',id:cit.sourceId,title:n.title||cit.title};
-      document.getElementById('app-modal').innerHTML=citationModalShell(cit,'学习纪要（完整笔记）',simpleMarkdown(full)+pc);
+      // 被引用的核心内容 = 该纪要的 papercore 全文（不加载整篇笔记）
+      _jumpSource={type:'study_note',id:cit.sourceId,title:cit.title||'学习纪要'};
+      document.getElementById('app-modal').innerHTML=citationModalShell(cit,'学习纪要 · 核心内容',cit.papercore?simpleMarkdown(cit.papercore):'（无 papercore）');
     }else if(ctype==='material'){
       const r=await safeFetch(API+'/materials/'+cit.sourceId+'/file-content',undefined,90000);
       if(!r.ok)throw new Error('HTTP '+r.status);
       const j=await r.json();const d=j.data||{};
       const pages=(d.pages||[]).map(p=>typeof p==='string'?{text:p}:p);
       const fileType=(d.fileType||'').toUpperCase();
-      // 完整引用部分：有页码取整页，否则全文；不再 200 字截断
-      let bodyText='';
+      // 被引用页内容：预处理阶段已按页存储，引用携带 pageNumber，直接取对应页
+      let pageHtml='';
       if(cit.pageNumber&&pages.some(p=>p.page_number===cit.pageNumber)){
         const pg=pages.find(p=>p.page_number===cit.pageNumber);
-        bodyText=pg?pg.text||'':pages.map(p=>p.text||'').join('\n\n');
-      }else{
-        bodyText=pages.map(p=>p.text||'').join('\n\n');
+        const pt=pg?pg.text||'':'';
+        pageHtml='<div class="section-title" style="margin-top:12px;">被引用内容 · 第 '+cit.pageNumber+' 页</div>'
+          +((fileType==='MD'||fileType==='TXT')?simpleMarkdown(pt):'<div style="white-space:pre-wrap;font-family:inherit;">'+esc(pt)+'</div>');
       }
-      if(!bodyText)bodyText=cit.snippet||'（无提取文本）';
-      const body=(fileType==='MD'||fileType==='TXT')?simpleMarkdown(bodyText):'<div style="white-space:pre-wrap;font-family:inherit;">'+esc(bodyText)+'</div>';
+      const core=cit.papercore?'<div class="section-title">核心内容（AI 摘要）</div><div style="line-height:1.7;">'+simpleMarkdown(cit.papercore)+'</div>':'';
       _jumpSource={type:'material',id:cit.sourceId,title:cit.title||d.fileName||'资料',page:cit.pageNumber||null};
-      document.getElementById('app-modal').innerHTML=citationModalShell(cit,'资料（完整引用部分）',body);
+      document.getElementById('app-modal').innerHTML=citationModalShell(cit,'资料 · 核心内容',core+pageHtml);
     }else if(ctype==='knowledge_node'){
       _jumpSource=null;
-      document.getElementById('app-modal').innerHTML=citationModalShell(cit,'知识节点（完整 papercore）',cit.papercore?simpleMarkdown(cit.papercore):'（无 papercore）');
+      document.getElementById('app-modal').innerHTML=citationModalShell(cit,'知识节点 · 核心内容',cit.papercore?simpleMarkdown(cit.papercore):'（无 papercore）');
     }else if(ctype==='file_content'){
       let bodyHtml='<div style="white-space:pre-wrap;font-family:inherit;">'+esc(cit.snippet||'（无内容）')+'</div>';
       if(cit.draftId){
@@ -1929,7 +1925,7 @@ async function jumpCitationAt(storeIdx, citIdx){
         }
       }
       _jumpSource=null;
-      document.getElementById('app-modal').innerHTML=citationModalShell(cit,'原文片段（完整提取文本）',bodyHtml);
+      document.getElementById('app-modal').innerHTML=citationModalShell(cit,'原文片段 · 被引用页全文',bodyHtml);
     }else{
       _jumpSource=null;
       document.getElementById('app-modal').innerHTML=citationModalShell(cit,'引用来源',cit.snippet?'<div style="white-space:pre-wrap;font-family:inherit;">'+esc(cit.snippet)+'</div>':'（无内容）');

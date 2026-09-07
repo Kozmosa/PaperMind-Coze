@@ -154,7 +154,7 @@ router.post('/tutor', async (req: Request, res: Response) => {
     // 打通架构规格 1.4 优先级 4（此前 allFileContents 从未传到这里，是死路径）
     const citations = await extractCitations(
       fullContent,
-      { ...context, fileContents: allFileContents },
+      { ...context, message, fileContents: allFileContents },
       searchResults,
     );
 
@@ -205,6 +205,14 @@ function cleanCitationSnippet(text?: string | null): string | undefined {
   return cleaned || undefined;
 }
 
+// 字符 bigram 集合（中文文本重合度打分用）
+function charBigrams(s: string): string[] {
+  const t = String(s || '').replace(/\s+/g, '');
+  const out: string[] = [];
+  for (let i = 0; i < t.length - 1; i++) out.push(t.slice(i, i + 2));
+  return out;
+}
+
 async function extractCitations(
   answer: string,
   context?: any,
@@ -226,6 +234,45 @@ async function extractCitations(
   }
 
   // ── From search results (unified vector index) ───────────────
+  // 资料引用补页数：预处理阶段已按页存储（\f 分隔），按问题与逐页文本的
+  // 字符 bigram 重合度定位被引用页——点击引用直接落到该页内容
+  if (context?.message && citations.some((c) => c.type === 'material' && c.sourceId)) {
+    try {
+      const matCits = citations.filter((c) => c.type === 'material' && c.sourceId);
+      const { data: mats } = await client
+        .from('materials')
+        .select('id, extracted_text, name')
+        .in('id', matCits.map((c) => c.sourceId))
+        .limit(50);
+      const q = String(context.message || '').slice(0, 500);
+      const qGrams = new Set(charBigrams(q));
+      for (const c of matCits) {
+        const m = (mats || []).find((x: any) => x.id === c.sourceId);
+        if (!m || !m.extracted_text) continue;
+        const pages = String(m.extracted_text)
+          .split('\f')
+          .map((p) => p.trim())
+          .filter(Boolean);
+        if (pages.length <= 1) continue;
+        let best = c.pageNumber ? c.pageNumber - 1 : -1;
+        let bestScore = best >= 0 ? 1 : -1;
+        pages.forEach((pg, i) => {
+          const overlap = [...new Set(charBigrams(pg.slice(0, 3000)))].filter((g) => qGrams.has(g)).length;
+          if (overlap > bestScore) {
+            bestScore = overlap;
+            best = i;
+          }
+        });
+        if (best >= 0) {
+          c.pageNumber = best + 1;
+          c.snippet = cleanCitationSnippet(pages[best].slice(0, 300));
+        }
+      }
+    } catch (e: any) {
+      console.warn('[extractCitations] 页码定位失败:', e?.message);
+    }
+  }
+
   if (searchResults && searchResults.length > 0) {
     for (const r of searchResults) {
       const c: Citation = {

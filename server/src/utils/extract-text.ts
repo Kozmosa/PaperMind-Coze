@@ -66,10 +66,13 @@ const extractCache = new Map<string, { mtimeMs: number; size: number; result: Ex
 const EXTRACT_CACHE_MAX = 200;
 const DISK_CACHE_DIR = path.join(process.cwd(), '.cache', 'extract');
 
+// 缓存版本：提取实现升级（如 PDF 改 mupdf 逐页）时 +1，旧缓存自动作废
+const EXTRACT_CACHE_VERSION = 'v2';
+
 function diskCachePath(filePath: string, stat: { mtimeMs: number; size: number }): string {
   const key = crypto
     .createHash('sha1')
-    .update(`${filePath}|${stat.mtimeMs}|${stat.size}`)
+    .update(`${EXTRACT_CACHE_VERSION}|${filePath}|${stat.mtimeMs}|${stat.size}`)
     .digest('hex');
   return path.join(DISK_CACHE_DIR, `${key}.json`);
 }
@@ -222,6 +225,18 @@ function cleanExtractedText(text: string): string {
 
 async function extractPdf(filePath: string): Promise<ExtractedContent> {
   try {
+    // 逐页提取（mupdf）：页间 \f 分隔 + pageCount——引用页数在预处理阶段就有归属。
+    // 同样过可读性/乱码检查：扫描件在 mupdf 下会产出破碎字形，必须放行给视觉兜底
+    const mupdfText = await extractPdfPerPage(filePath);
+    if (
+      mupdfText &&
+      mupdfText.text.trim().length >= 30 &&
+      isReadableText(mupdfText.text) &&
+      !looksLikeBrokenGlyphs(mupdfText.text)
+    ) {
+      return mupdfText;
+    }
+
     const PDFParse = await getPdfParser();
     const dataBuffer = fs.readFileSync(filePath);
     const parser = new PDFParse({ data: dataBuffer });
@@ -243,6 +258,30 @@ async function extractPdf(filePath: string): Promise<ExtractedContent> {
   } catch (err) {
     console.error('[extractPdf] Error:', err);
     return { text: '' };
+  }
+}
+
+// mupdf 逐页文本提取：页间 \f 分隔（与视觉 OCR、PPTX 的分页约定一致），
+// 供 引用页数记录 / 页码匹配 / 逐页预览 消费
+async function extractPdfPerPage(filePath: string): Promise<ExtractedContent | null> {
+  try {
+    const mupdf = await import('mupdf');
+    const data = fs.readFileSync(filePath);
+    const doc = mupdf.Document.openDocument(data, 'application/pdf');
+    const total = doc.countPages();
+    if (total === 0) return null;
+    const pages: string[] = [];
+    for (let i = 0; i < total; i++) {
+      const st = doc.loadPage(i).toStructuredText();
+      const pt = st.asText ? st.asText() : '';
+      pages.push(pt);
+    }
+    const joined = pages.map((p) => p.trim()).filter(Boolean).join('\f');
+    if (joined.length < 30) return null;
+    const text = cleanExtractedText(joined);
+    return { text, pageCount: total };
+  } catch {
+    return null;
   }
 }
 
