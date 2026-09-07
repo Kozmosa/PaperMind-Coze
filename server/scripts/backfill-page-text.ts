@@ -11,13 +11,21 @@ const { data: mats } = await supabase
   .from('materials')
   .select('id, name, file_path, file_type, extracted_text')
   .not('extracted_text', 'is', null);
-const targets = (mats || []).filter((m: any) => {
-  const isPdf = (m.file_type || '').includes('pdf') || /\.pdf$/i.test(m.file_path || '');
-  return isPdf && !String(m.extracted_text).includes('\f');
-});
-console.log(`待逐页重提 ${targets.length} 份 PDF`);
 const uploadsDir = path.join(process.cwd(), 'uploads');
 const testDataDir = path.resolve(process.cwd(), '..', 'test_data', '学习资料');
+const targets = (mats || []).filter((m: any) => {
+  if (String(m.extracted_text || '').includes('\f')) return false; // 已是分页版
+  // 讲义类材料文件名不带扩展名：按磁盘实际扩展名判断是否 PDF
+  let fp: string | null = null;
+  const c1 = path.join(uploadsDir, (m.file_path || '').replace(/^\/uploads\//, ''));
+  if (fs.existsSync(c1)) fp = c1;
+  if (!fp) {
+    const c2 = path.join(testDataDir, m.name || '');
+    if (fs.existsSync(c2)) fp = c2;
+  }
+  return !!fp && path.extname(fp).toLowerCase() === '.pdf';
+});
+console.log(`待逐页重提 ${targets.length} 份 PDF`);
 let done = 0;
 for (const m of targets) {
   let fp: string | null = null;

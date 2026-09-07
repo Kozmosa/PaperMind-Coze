@@ -234,6 +234,30 @@ async function extractCitations(
   }
 
   // ── From search results (unified vector index) ───────────────
+  if (searchResults && searchResults.length > 0) {
+    for (const r of searchResults) {
+      const c: Citation = {
+        type: r.sourceType,
+        sourceId: r.sourceId,
+        sourceType: r.sourceType,
+        title: r.title,
+        papercore: r.papercore,
+        tags: r.tags,
+        pageNumber: r.pageNumber || null,
+        snippet: cleanCitationSnippet(
+          r.sourceType === 'file_content'
+            ? r.papercore // already snipped in index
+            : r.sourceType === 'material'
+              ? (r.contentSnippet || r.papercore?.substring(0, 200))
+              : r.papercore?.substring(0, 200),
+        ),
+        fileName: r.fileName,
+        draftId: r.draftId,
+      };
+      citations.push(c);
+    }
+  }
+
   // 资料引用补页数：预处理阶段已按页存储（\f 分隔），按问题与逐页文本的
   // 字符 bigram 重合度定位被引用页——点击引用直接落到该页内容
   if (context?.message && citations.some((c) => c.type === 'material' && c.sourceId)) {
@@ -270,30 +294,6 @@ async function extractCitations(
       }
     } catch (e: any) {
       console.warn('[extractCitations] 页码定位失败:', e?.message);
-    }
-  }
-
-  if (searchResults && searchResults.length > 0) {
-    for (const r of searchResults) {
-      const c: Citation = {
-        type: r.sourceType,
-        sourceId: r.sourceId,
-        sourceType: r.sourceType,
-        title: r.title,
-        papercore: r.papercore,
-        tags: r.tags,
-        pageNumber: r.pageNumber || null,
-        snippet: cleanCitationSnippet(
-          r.sourceType === 'file_content'
-            ? r.papercore // already snipped in index
-            : r.sourceType === 'material'
-              ? (r.contentSnippet || r.papercore?.substring(0, 200))
-              : r.papercore?.substring(0, 200),
-        ),
-        fileName: r.fileName,
-        draftId: r.draftId,
-      };
-      citations.push(c);
     }
   }
 
