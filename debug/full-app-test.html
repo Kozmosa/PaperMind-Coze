@@ -961,8 +961,13 @@
   <div class="page" id="page-chat">
     <div style="display:flex;flex-direction:column;height:100%;">
       <div style="padding:14px 18px;border-bottom:1px solid var(--border);flex-shrink:0;">
-        <div class="page-title">AI 助手</div>
-        <div class="meta-text" style="margin-top:3px;">智能导师 · 知识问答与学习辅导</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div class="page-title">AI 助手</div>
+            <div class="meta-text" style="margin-top:3px;">智能导师 · 知识问答与学习辅导</div>
+          </div>
+          <button class="btn btn-neu" style="font-size:12px;padding:6px 14px;border-radius:14px;flex-shrink:0;" onclick="openChatHistory()">🕐 历史会话</button>
+        </div>
       </div>
 
       <div style="display:flex;gap:8px;padding:14px 18px;overflow-x:auto;flex-shrink:0;" id="chat-agents">
@@ -1615,8 +1620,15 @@ function renderGraph(){
     p.push(`<text x="${cx}" y="${cy-r+15}" text-anchor="middle" font-size="12" fill="#636E72" font-weight="600">${esc(l2.name)}</text>`);
   });
   (domains||[]).forEach(d=>{if(d.cx!=null&&d.cy!=null&&d.r!=null)p.push(`<circle cx="${d.cx}" cy="${d.cy}" r="${d.r}" fill="none" stroke="#6C63FF" stroke-width="1" stroke-dasharray="8,6" opacity="0.2"/>`);});
-  edges.filter(e=>e.type==='hierarchy').forEach(e=>{const f=tagMap.get(e.from),t=tagMap.get(e.to);if(!f||!t||f.level==='L1')return;p.push(`<line x1="${f.x}" y1="${f.y}" x2="${t.x}" y2="${t.y}" stroke="#896BFF" stroke-width="1.2" opacity="0.4"/>`);});
-  edges.filter(e=>e.type==='cooccurrence').slice(0,20).forEach(e=>{const f=tagMap.get(e.from),t=tagMap.get(e.to);if(!f||!t)return;const sw=Math.min((e.weight||1)*0.5+0.5,2);p.push(`<line x1="${f.x}" y1="${f.y}" x2="${t.x}" y2="${t.y}" stroke="#896BFF" stroke-width="${sw}" stroke-dasharray="3,4" opacity="0.3"/>`);});
+  edges.filter(e=>e.type==='hierarchy').forEach(e=>{const f=tagMap.get(e.from),t=tagMap.get(e.to);if(!f||!t)return;p.push(`<line x1="${f.x}" y1="${f.y}" x2="${t.x}" y2="${t.y}" stroke="#896BFF" stroke-width="1.2" opacity="0.4"/>`);});
+  edges.filter(e=>e.type==='cooccurrence').slice(0,20).forEach(e=>{
+    const f=tagMap.get(e.from),t=tagMap.get(e.to);if(!f||!t)return;
+    // 祖先-后代关系已由层级实线表达（每个文件的 tags 含 L1/L2/L3，
+    // 共现统计会把父子对也算进来），跳过避免实线+虚线重合
+    const isAncestor=(a,b)=>{let cur=b;while(cur&&cur.parentId){cur=tagMap.get(cur.parentId);if(cur&&cur.id===a.id)return true;}return false;};
+    if(isAncestor(f,t)||isAncestor(t,f))return;
+    const sw=Math.min((e.weight||1)*0.5+0.5,2);p.push(`<line x1="${f.x}" y1="${f.y}" x2="${t.x}" y2="${t.y}" stroke="#896BFF" stroke-width="${sw}" stroke-dasharray="3,4" opacity="0.3"/>`);
+  });
   l2s.forEach(n=>{const nm=esc(n.name);p.push(`<g onclick="selectKTag('${n.id}')" style="cursor:pointer;"><circle cx="${n.x}" cy="${n.y}" r="20" fill="#FFFFFF" stroke="#896BFF" stroke-width="2.5"/><text x="${n.x}" y="${n.y+4}" text-anchor="middle" font-size="11" fill="#2D3436" font-weight="700">${nm.length>4?nm.slice(0,4):nm}</text><text x="${n.x}" y="${n.y+36}" text-anchor="middle" font-size="10" fill="#A0A5B5" font-weight="600">${n.count}项</text></g>`);});
   l1s.forEach(n=>{p.push(`<g onclick="selectKTag('${n.id}')" style="cursor:pointer;"><circle cx="${n.x}" cy="${n.y}" r="28" fill="#6C63FF" stroke="#896BFF" stroke-width="3"/><text x="${n.x}" y="${n.y+5}" text-anchor="middle" font-size="14" fill="#FFFFFF" font-weight="800">${esc(n.name)}</text></g>`);});
   l3s.forEach(n=>{const nm=esc(n.name);p.push(`<g onclick="selectKTag('${n.id}')" style="cursor:pointer;"><circle cx="${n.x}" cy="${n.y}" r="13" fill="#FFFFFF" stroke="#C4C8D8" stroke-width="1.5"/><text x="${n.x}" y="${n.y+26}" text-anchor="middle" font-size="9" fill="#636E72" font-weight="500">${nm.length>5?nm.slice(0,5):nm}</text></g>`);});
@@ -1759,6 +1771,11 @@ async function sendChatMessage(){
   _chatLoading=true;
   const sendBtn=document.querySelector('#page-chat .btn-primary[onclick*="sendChatMessage"]');
   if(sendBtn)sendBtn.style.opacity='0.5';
+  // 会话持久化：首个问题建会话，逐条落库（历史会话功能）
+  try{
+    if(!_chatSessionId){const sRes=await safeFetch(API+'/chat-sessions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:userContent.slice(0,30)})});if(sRes.ok){const sj=await sRes.json();_chatSessionId=sj.data?.id||null;}}
+    if(_chatSessionId)await safeFetch(API+'/chat-sessions/'+_chatSessionId+'/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({role:'user',content:userContent})}).catch(()=>{});
+  }catch(e){}
   try{
     let endpoint=API+'/ai/chat';
     let body={agent:_currentAgent,message:msg||'(请分析上传的文件)'};
@@ -1777,7 +1794,7 @@ async function sendChatMessage(){
       }
     }
     const resp=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    const readerBody=resp.body.getReader();const decoder=new TextDecoder();let buf='',full='';
+    const readerBody=resp.body.getReader();const decoder=new TextDecoder();let buf='',full='',citations=[];
     while(true){
       const{done,value}=await readerBody.read();if(done)break;
       buf+=decoder.decode(value,{stream:true});
@@ -1786,14 +1803,141 @@ async function sendChatMessage(){
         if(!line.startsWith('data: '))continue;
         const data=line.substring(6);
         if(data==='[DONE]'){_chatLoading=false;if(sendBtn)sendBtn.style.opacity='1';break;}
-        try{const p=JSON.parse(data);if(p.content){full+=p.content;if(mdRenderGate()){const bot=document.getElementById(botId);if(bot&&bot.querySelector('.avatar').nextElementSibling)bot.querySelector('.avatar').nextElementSibling.innerHTML=`<div style="line-height:1.7;">${simpleMarkdown(full)}</div>`;msgs.scrollTop=msgs.scrollHeight;}}}catch(e){}
+        try{const p=JSON.parse(data);if(p.content){full+=p.content;if(mdRenderGate()){const bot=document.getElementById(botId);if(bot&&bot.querySelector('.avatar').nextElementSibling)bot.querySelector('.avatar').nextElementSibling.innerHTML=`<div style="line-height:1.7;">${simpleMarkdown(full)}</div>`;msgs.scrollTop=msgs.scrollHeight;}}if(p.done&&Array.isArray(p.citations))citations=p.citations;}catch(e){}
       }
     }
+    // 流结束：渲染引用卡片（5 色）+ 「我明白了」闭环按钮
+    const bot=document.getElementById(botId);
+    if(bot){
+      const bubble=bot.querySelector('.avatar').nextElementSibling;
+      if(bubble){
+        _lastTutorAnswers.push({question:userContent,answer:full,citations});
+        const aidx=_lastTutorAnswers.length-1;
+        if(citations.length>0)bubble.innerHTML+=renderCitationCards(citations,aidx);
+        bubble.innerHTML+=`<div style="margin-top:10px;"><button class="btn btn-neu" style="font-size:12px;padding:6px 14px;border-radius:14px;" onclick="markUnderstood(${aidx},this)">✅ 我明白了！记录到问题日志</button></div>`;
+      }
+      msgs.scrollTop=msgs.scrollHeight;
+    }
+    // 落库助手回答
+    if(_chatSessionId)await safeFetch(API+'/chat-sessions/'+_chatSessionId+'/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({role:'assistant',content:full,citations:citations.map(c=>({type:c.type,title:c.title||c.fileName||'',sourceId:c.sourceId}))})}).catch(()=>{});
   }catch(e){
     const bot=document.getElementById(botId);
     if(bot)bot.querySelector('.avatar').nextElementSibling.innerHTML='<div style="line-height:1.7;color:var(--accent);">抱歉，AI 回复出错，请重试。</div>';
   }finally{_chatLoading=false;if(sendBtn)sendBtn.style.opacity='1';}
 }
+// ── 智能导师闭环：引用卡片 / 跳转 / 我明白了 / 历史会话 ──
+let _lastTutorAnswers=[]; // {question, answer, citations}
+let _chatSessionId=null;
+
+// 5 色引用卡片（架构规格 1.5）；storeIdx 指向 _lastTutorAnswers 中的回答
+function renderCitationCards(citations,storeIdx){
+  const colors={
+    image:{bg:'#FFF8E1',border:'#F5B301',label:'图片'},
+    knowledge_node:{bg:'#F3F0FF',border:'#8B5CF6',label:'知识节点'},
+    study_note:{bg:'#E8F8F0',border:'#10B981',label:'学习纪要'},
+    material:{bg:'#FFF3EA',border:'#F97316',label:'资料'},
+    file_content:{bg:'#F3F4F6',border:'#9CA3AF',label:'原文'},
+  };
+  let h='<div style="margin-top:10px;border-top:1px dashed var(--border);padding-top:8px;font-size:11px;color:var(--text3);">📚 引用来源</div>';
+  citations.forEach((c,i)=>{
+    const s=colors[c.type]||colors.file_content;
+    const title=c.title||c.fileName||c.label||('来源'+(i+1));
+    h+=`<div class="cit-card" style="margin-top:6px;background:${s.bg};border-left:3px solid ${s.border};border-radius:8px;padding:8px 10px;cursor:pointer;" onclick="jumpCitationAt(${storeIdx},${i})">
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span style="font-size:10px;font-weight:700;color:${s.border};background:#FFF;border-radius:8px;padding:1px 7px;flex-shrink:0;">${s.label}</span>
+        <span style="font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">${esc(title)}</span>
+        ${c.pageNumber?'<span style="background:#3B82F6;color:#FFF;font-size:10px;border-radius:8px;padding:1px 7px;flex-shrink:0;">第'+c.pageNumber+'页</span>':''}
+      </div>
+      ${c.snippet?'<div style="margin-top:4px;font-size:11px;color:var(--text2);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">'+esc(c.snippet)+'</div>':''}
+    </div>`;
+  });
+  return h;
+}
+
+// 引用跳转：按类型打开来源（知识节点弹详情、纪要/资料全屏、原文弹片段）
+function jumpCitationAt(storeIdx, citIdx){
+  const cit=_lastTutorAnswers[storeIdx]?.citations[citIdx];if(!cit)return;
+  if(cit.type==='study_note'){viewNoteFullscreen(cit.sourceId,cit.title||'学习纪要');return;}
+  if(cit.type==='material'){viewMaterialFullscreen(cit.sourceId,cit.title||'资料',cit.pageNumber||null);return;}
+  if(cit.type==='knowledge_node'){
+    showAppModal('<h3>💡 '+esc(cit.title||'知识节点')+'</h3>'+(cit.papercore?'<div class="body-text" style="margin-top:10px;">'+simpleMarkdown(cit.papercore.slice(0,2000))+'</div>':'')+(cit.tags&&cit.tags.length?'<div style="margin-top:8px;">'+cit.tags.map(t=>'<span class="tag" style="background:var(--pri-pale);color:var(--primary);margin-right:4px;">'+esc(t)+'</span>').join('')+'</div>':''));
+    return;
+  }
+  showAppModal('<h3>📄 '+esc(cit.title||cit.fileName||'原文片段')+'</h3>'+(cit.snippet?'<div class="body-text" style="margin-top:10px;white-space:pre-wrap;">'+esc(cit.snippet)+'</div>':''));
+}
+
+// 「我明白了」：问答对 + 引用写入 problem_solving_logs（学习闭环 1.6）
+async function markUnderstood(idx,btn){
+  const rec=_lastTutorAnswers[idx];if(!rec)return;
+  if(btn){btn.disabled=true;btn.textContent='记录中...';}
+  try{
+    const res=await safeFetch(API+'/problem-solving-logs',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        question:rec.question,
+        answer:rec.answer.slice(0,20000),
+        citation_snippets:(rec.citations||[]).map(c=>c.title||c.fileName||'').filter(Boolean),
+        related_draft_ids:(rec.citations||[]).filter(c=>c.draftId).map(c=>c.draftId),
+      }),
+    });
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    if(btn){btn.textContent='✅ 已记录到问题日志';}
+    appToast('已记录到问题日志');
+  }catch(e){
+    if(btn){btn.disabled=false;btn.textContent='✅ 我明白了！记录到问题日志';}
+    appToast('记录失败: '+e.message,'error');
+  }
+}
+
+// 历史会话：列表 + 载入消息
+async function openChatHistory(){
+  showAppModal('<div style="text-align:center;padding:24px;color:var(--text2);"><div class="spinner"></div></div>');
+  try{
+    const res=await safeFetch(API+'/chat-sessions');
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    const json=await res.json();
+    const sessions=json.data||[];
+    let h='<div style="display:flex;justify-content:space-between;align-items:center;padding:2px 2px 12px;border-bottom:1px solid var(--border);"><div style="font-size:17px;font-weight:800;color:var(--text);">历史会话</div><button onclick="closeAppModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text2);">✕</button></div>';
+    if(!sessions.length){
+      h+='<div class="empty-state" style="padding:32px 0;"><div class="empty-icon">🕐</div><div class="empty-title">暂无历史会话</div></div>';
+    }else{
+      sessions.forEach(s=>{
+        h+=`<div class="list-item" style="cursor:pointer;" onclick="closeAppModal();loadChatSession('${esc(String(s.id).replace(/'/g,"\\'"))}','${esc((s.title||'新对话').replace(/'/g,"\\'"))}')">
+          <span class="li-left">💬</span>
+          <div class="li-body"><div class="li-title">${esc(s.title||'新对话')}</div><div class="li-sub">${fmtDate(s.created_at)}</div></div>
+          <span style="color:var(--text4);">›</span></div>`;
+      });
+    }
+    document.getElementById('app-modal').innerHTML=h;
+  }catch(e){
+    document.getElementById('app-modal').innerHTML='<div class="empty-state" style="padding:32px 0;"><div class="empty-icon">⚠️</div><div class="empty-title">加载失败</div><div class="empty-desc">'+esc(e.message)+'</div></div>';
+  }
+}
+async function loadChatSession(sessionId,title){
+  _chatSessionId=sessionId;
+  const msgs=document.getElementById('chat-messages');
+  msgs.innerHTML='<div style="text-align:center;padding:24px;color:var(--text2);"><div class="spinner"></div></div>';
+  try{
+    const res=await safeFetch(API+'/chat-sessions/'+sessionId+'/messages');
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    const json=await res.json();
+    const list=json.data||[];
+    let h='<div style="text-align:center;font-size:12px;color:var(--text3);padding:8px;">— 会话：'+esc(title||'新对话')+' —</div>';
+    if(!list.length)h+='<div class="empty-state"><div class="empty-icon">💬</div><div class="empty-title">会话为空</div></div>';
+    list.forEach(m=>{
+      if(m.role==='user'){
+        h+=`<div style="display:flex;justify-content:flex-end;margin-bottom:14px;"><div class="chat-msg-user">${esc(m.content||'')}</div></div>`;
+      }else{
+        h+=`<div class="chat-msg-row"><div class="avatar" style="width:34px;height:34px;background:var(--primary);font-size:16px;">🤖</div><div class="chat-msg-bot"><div style="line-height:1.7;">${simpleMarkdown(m.content||'')}</div></div></div>`;
+      }
+    });
+    msgs.innerHTML=h;
+    msgs.scrollTop=msgs.scrollHeight;
+  }catch(e){
+    msgs.innerHTML='<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">加载失败</div><div class="empty-desc">'+esc(e.message)+'</div></div>';
+  }
+}
+
 async function startReflectionChat(){
   const msgs=document.getElementById('chat-messages'),empty=msgs.querySelector('.empty-state');if(empty)empty.remove();
   const botId='refl-'+Date.now();
@@ -3936,6 +4080,14 @@ viewNoteFullscreen = async function(id, title) {
 
     let html = '';
 
+    // AI 摘要 + 标签置顶：长笔记滚动到底才看到是反直觉的
+    if (papercore) {
+      html += '<div class="card" style="margin:0 0 14px;"><div class="section-title">AI 摘要</div><div class="body-text" style="line-height:1.7;">' + simpleMarkdown(papercore) + '</div></div>';
+    }
+    if (tags.length > 0) {
+      html += '<div style="margin-bottom:14px;">' + tags.map(t => '<span class="tag" style="background:var(--pri-pale);color:var(--primary);margin-right:6px;margin-bottom:6px;">' + esc(t) + '</span>').join('') + '</div>';
+    }
+
     // Reading mode: render blocks
     if (blocks && blocks.length > 0) {
       blocks.forEach(b => {
@@ -3951,12 +4103,6 @@ viewNoteFullscreen = async function(id, title) {
       html += '<div class="be-read-block">' + simpleMarkdown(note.content) + '</div>';
     }
 
-    if (papercore) {
-      html += '<div class="card" style="margin:14px 0;"><div class="section-title">AI 摘要</div><div class="body-text" style="line-height:1.7;">' + simpleMarkdown(papercore) + '</div></div>';
-    }
-    if (tags.length > 0) {
-      html += '<div style="margin-bottom:8px;">' + tags.map(t => '<span class="tag" style="background:var(--pri-pale);color:var(--primary);margin-right:6px;margin-bottom:6px;">' + esc(t) + '</span>').join('') + '</div>';
-    }
     // Edit button
     html += '<div style="text-align:center;margin-top:16px;"><button class="btn btn-primary" style="font-size:14px;padding:10px 24px;border-radius:20px;" onclick="openBlockEditorForNote()">✏️ 编辑笔记</button></div>';
 
@@ -4015,7 +4161,7 @@ saveGeneratedNote = async function() {
 // UPDATE: material viewer adds reprocess button
 // ═══════════════════════════════════════════════════
 const origViewMaterialFullscreen = viewMaterialFullscreen;
-viewMaterialFullscreen = async function(id, title) {
+viewMaterialFullscreen = async function(id, title, page) {
   _fsMatId = id; _fsNoteType = 'material';
   const overlay = document.getElementById('fs-material');
   document.getElementById('fs-mat-title').textContent = title || '学习资料';
@@ -4055,8 +4201,9 @@ viewMaterialFullscreen = async function(id, title) {
     // PDF：立即渲染原文件（iframe），不请求提取文本——扫描件直接看原图即可
     if (isPdf && filePath) {
       const fullUrl = 'http://localhost:9091' + (filePath.startsWith('/') ? filePath : '/' + filePath);
+      const pageHash = page && page > 0 ? '#page=' + page : '#toolbar=0';
       const pdfHtml = '<div style="flex:1;display:flex;flex-direction:column;min-height:45vh;">' +
-        '<iframe class="pdf-frame" src="' + esc(fullUrl) + '#toolbar=0" style="flex:1;min-height:400px;"></iframe>' +
+        '<iframe class="pdf-frame" src="' + esc(fullUrl) + esc(pageHash) + '" style="flex:1;min-height:400px;"></iframe>' +
         '<div style="text-align:center;padding:8px;">' +
         '<a href="' + esc(fullUrl) + '" target="_blank" class="btn btn-neu" style="display:inline-block;text-decoration:none;font-size:12px;">在新窗口打开 PDF</a>' +
         '</div>' +
