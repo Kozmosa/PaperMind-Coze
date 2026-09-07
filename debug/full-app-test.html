@@ -1846,7 +1846,9 @@ function renderCitationCards(citations,storeIdx){
     image:{bg:'#FFF8E1',border:'#F5B301',label:'图片'},
     knowledge_node:{bg:'#F3F0FF',border:'#8B5CF6',label:'知识节点'},
     study_note:{bg:'#E8F8F0',border:'#10B981',label:'学习纪要'},
-    material:{bg:'#FFF3EA',border:'#F97316',label:'资料'},
+    // 资料与原文统一为「文件」样式（中性灰）——橙灰视觉无区分度，
+    // 具体类型由标签文字说明（两者点击内容不同：资料=摘要+被引用页，原文=原始提取文本）
+    material:{bg:'#F3F4F6',border:'#9CA3AF',label:'资料'},
     file_content:{bg:'#F3F4F6',border:'#9CA3AF',label:'原文'},
   };
   let h='<div style="margin-top:10px;border-top:1px dashed var(--border);padding-top:8px;font-size:11px;color:var(--text3);">📚 引用来源</div>';
