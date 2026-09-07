@@ -1739,6 +1739,7 @@ function selectAgent(agent,btn){
   if(inputContainer)inputContainer.style.height=agent==='reflection_mind'?'calc(100% - 90px)':'';
   var inputArea=inputContainer?inputContainer.nextElementSibling:null;
   if(inputArea)inputArea.style.display=agent==='reflection_mind'?'none':'flex';
+  updateUnderstoodBar();
 }
 function triggerFileInput(){
   document.getElementById('chat-file-input').click();
@@ -1821,7 +1822,8 @@ async function sendChatMessage(){
       msgs.scrollTop=msgs.scrollHeight;
     }
     const ub=document.getElementById('chat-understood-bar');
-    if(ub)ub.style.display='block';
+    if(ub)ub.style.display=(_currentAgent==='tutor')?'block':'none';
+    updateUnderstoodBar();
     // 落库助手回答
     if(_chatSessionId)await safeFetch(API+'/chat-sessions/'+_chatSessionId+'/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({role:'assistant',content:full,citations:citations.map(c=>({type:c.type,title:c.title||c.fileName||'',sourceId:c.sourceId}))})}).catch(()=>{});
   }catch(e){
@@ -1939,21 +1941,27 @@ async function loadChatSession(sessionId,title){
         h+=`<div class="chat-msg-row"><div class="avatar" style="width:34px;height:34px;background:var(--primary);font-size:16px;">🤖</div><div class="chat-msg-bot"><div style="line-height:1.7;">${simpleMarkdown(m.content||'')}</div>${Array.isArray(m.citations)&&m.citations.length?renderCitationCards(m.citations,_lastTutorAnswers.length):''}</div></div>`;
       }
     });
-    // 历史会话的最近一条问答也可用「我明白了」记录（按钮固定在输入框上方）
+    // 历史会话的最近一条问答也可用「我明白了」记录（按钮固定在输入框上方，仅智能导师）
     if(lastBot){
       _lastTutorAnswers.push({
         question:lastUser?lastUser.content:'（历史会话）',
         answer:lastBot.content||'',
         citations:(lastBot.citations||[]).map((c,i)=>({...c,storeIdx:_lastTutorAnswers.length,idx:i})),
       });
-      const ub=document.getElementById('chat-understood-bar');
-      if(ub)ub.style.display='block';
+      updateUnderstoodBar();
     }
     msgs.innerHTML=h;
     msgs.scrollTop=msgs.scrollHeight;
   }catch(e){
     msgs.innerHTML='<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">加载失败</div><div class="empty-desc">'+esc(e.message)+'</div></div>';
   }
+}
+
+// 「我明白了」按钮显隐：仅智能导师（非反思助手）且有至少一条回答时出现
+function updateUnderstoodBar(){
+  const ub=document.getElementById('chat-understood-bar');
+  if(!ub)return;
+  ub.style.display=(_currentAgent==='tutor'&&_lastTutorAnswers.length>0)?'block':'none';
 }
 
 async function startReflectionChat(){
