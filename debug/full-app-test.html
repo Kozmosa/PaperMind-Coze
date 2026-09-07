@@ -1865,16 +1865,78 @@ function renderCitationCards(citations,storeIdx){
   return h;
 }
 
-// 引用跳转：按类型打开来源（知识节点弹详情、纪要/资料全屏、原文弹片段）
-function jumpCitationAt(storeIdx, citIdx){
+// 引用弹窗：展示完整引用内容（纪要全文/资料完整引用页/节点完整 papercore/原文全文）
+let _jumpSource=null;
+function citationModalShell(cit,label,bodyHtml){
+  const badge=cit.pageNumber?'<span class="tag" style="background:#3B82F6;color:#FFF;margin-left:6px;">第'+cit.pageNumber+'页</span>':'';
+  const tags=cit.tags&&cit.tags.length?'<div style="margin-top:8px;">'+cit.tags.map(t=>'<span class="tag" style="background:var(--pri-pale);color:var(--primary);margin-right:4px;">'+esc(t)+'</span>').join('')+'</div>':'';
+  return '<h3>📄 '+esc(cit.title||cit.fileName||'引用来源')+badge+'</h3>'
+    +'<div style="font-size:11px;color:var(--text3);margin:4px 0 10px;">'+label+' · 完整内容</div>'
+    +'<div style="max-height:45vh;overflow-y:auto;background:var(--surface);border-radius:12px;padding:12px;" class="body-text">'+bodyHtml+'</div>'
+    +tags
+    +(_jumpSource?'<div style="text-align:center;margin-top:10px;"><button class="btn btn-primary" style="font-size:13px;padding:8px 20px;border-radius:16px;" onclick="openJumpSource()">打开完整来源</button></div>':'');
+}
+function openJumpSource(){
+  const s=_jumpSource;_jumpSource=null;if(!s)return;
+  closeAppModal();
+  if(s.type==='study_note')viewNoteFullscreen(s.id,s.title);
+  else if(s.type==='material')viewMaterialFullscreen(s.id,s.title,s.page||null);
+  else showAppModal('<h3>💡 '+esc(s.title||'知识节点')+'</h3>');
+}
+// 引用跳转：弹窗小卡片展示完整引用部分（不再截断）
+async function jumpCitationAt(storeIdx, citIdx){
   const cit=_lastTutorAnswers[storeIdx]?.citations[citIdx];if(!cit)return;
-  if(cit.type==='study_note'){viewNoteFullscreen(cit.sourceId,cit.title||'学习纪要');return;}
-  if(cit.type==='material'){viewMaterialFullscreen(cit.sourceId,cit.title||'资料',cit.pageNumber||null);return;}
-  if(cit.type==='knowledge_node'){
-    showAppModal('<h3>💡 '+esc(cit.title||'知识节点')+'</h3>'+(cit.papercore?'<div class="body-text" style="margin-top:10px;">'+simpleMarkdown(cit.papercore.slice(0,2000))+'</div>':'')+(cit.tags&&cit.tags.length?'<div style="margin-top:8px;">'+cit.tags.map(t=>'<span class="tag" style="background:var(--pri-pale);color:var(--primary);margin-right:4px;">'+esc(t)+'</span>').join('')+'</div>':''));
-    return;
+  const ctype=cit.type;
+  showAppModal('<div style="text-align:center;padding:24px;color:var(--text2);"><div class="spinner"></div><div style="margin-top:8px;font-size:12px;">加载引用内容...</div></div>');
+  try{
+    if(ctype==='study_note'){
+      const r=await safeFetch(API+'/study-notes/'+cit.sourceId);
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      const j=await r.json();const n=j.data||j;
+      const full=n.blocks&&n.blocks.length?n.blocks.map(b=>b.content||'').filter(Boolean).join('\n\n'):(n.content||'');
+      const pc=n.papercore?'<div class="section-title" style="margin-top:12px;">AI 摘要</div><div class="body-text" style="line-height:1.7;">'+simpleMarkdown(n.papercore)+'</div>':'';
+      _jumpSource={type:'study_note',id:cit.sourceId,title:n.title||cit.title};
+      document.getElementById('app-modal').innerHTML=citationModalShell(cit,'学习纪要（完整笔记）',simpleMarkdown(full)+pc);
+    }else if(ctype==='material'){
+      const r=await safeFetch(API+'/materials/'+cit.sourceId+'/file-content',undefined,90000);
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      const j=await r.json();const d=j.data||{};
+      const pages=(d.pages||[]).map(p=>typeof p==='string'?{text:p}:p);
+      const fileType=(d.fileType||'').toUpperCase();
+      // 完整引用部分：有页码取整页，否则全文；不再 200 字截断
+      let bodyText='';
+      if(cit.pageNumber&&pages.some(p=>p.page_number===cit.pageNumber)){
+        const pg=pages.find(p=>p.page_number===cit.pageNumber);
+        bodyText=pg?pg.text||'':pages.map(p=>p.text||'').join('\n\n');
+      }else{
+        bodyText=pages.map(p=>p.text||'').join('\n\n');
+      }
+      if(!bodyText)bodyText=cit.snippet||'（无提取文本）';
+      const body=(fileType==='MD'||fileType==='TXT')?simpleMarkdown(bodyText):'<div style="white-space:pre-wrap;font-family:inherit;">'+esc(bodyText)+'</div>';
+      _jumpSource={type:'material',id:cit.sourceId,title:cit.title||d.fileName||'资料',page:cit.pageNumber||null};
+      document.getElementById('app-modal').innerHTML=citationModalShell(cit,'资料（完整引用部分）',body);
+    }else if(ctype==='knowledge_node'){
+      _jumpSource=null;
+      document.getElementById('app-modal').innerHTML=citationModalShell(cit,'知识节点（完整 papercore）',cit.papercore?simpleMarkdown(cit.papercore):'（无 papercore）');
+    }else if(ctype==='file_content'){
+      let bodyHtml='<div style="white-space:pre-wrap;font-family:inherit;">'+esc(cit.snippet||'（无内容）')+'</div>';
+      if(cit.draftId){
+        const r=await safeFetch(API+'/file-contents/'+cit.draftId);
+        if(r.ok){
+          const j=await r.json();const list=j.data||[];
+          const picked=cit.pageNumber?(list.find(x=>x.page_number===cit.pageNumber)||list[0]):list[0];
+          if(picked&&picked.extracted_text)bodyHtml='<div style="white-space:pre-wrap;font-family:inherit;">'+esc(picked.extracted_text)+'</div>';
+        }
+      }
+      _jumpSource=null;
+      document.getElementById('app-modal').innerHTML=citationModalShell(cit,'原文片段（完整提取文本）',bodyHtml);
+    }else{
+      _jumpSource=null;
+      document.getElementById('app-modal').innerHTML=citationModalShell(cit,'引用来源',cit.snippet?'<div style="white-space:pre-wrap;font-family:inherit;">'+esc(cit.snippet)+'</div>':'（无内容）');
+    }
+  }catch(e){
+    document.getElementById('app-modal').innerHTML='<div class="empty-state" style="padding:32px 0;"><div class="empty-icon">⚠️</div><div class="empty-title">加载失败</div><div class="empty-desc">'+esc(e.message)+'</div></div>';
   }
-  showAppModal('<h3>📄 '+esc(cit.title||cit.fileName||'原文片段')+'</h3>'+(cit.snippet?'<div class="body-text" style="margin-top:10px;white-space:pre-wrap;">'+esc(cit.snippet)+'</div>':''));
 }
 
 // 「我明白了」：完整对话交给 tutor 做结构化总结，同一会话覆盖更新（不照搬原文）
