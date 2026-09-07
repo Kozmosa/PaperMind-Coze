@@ -990,6 +990,9 @@
           <button style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;" onclick="clearChatFile()">✕</button>
         </div>
       </div>
+      <div id="chat-understood-bar" style="display:none;padding:0 18px 8px;flex-shrink:0;">
+        <button class="btn btn-neu" style="width:100%;font-size:12px;padding:8px 14px;border-radius:14px;" onclick="markUnderstood(this)">✅ 我明白了！记录到问题日志</button>
+      </div>
       <div style="display:flex;gap:10px;padding:0 18px 12px;flex-shrink:0;">
         <input type="file" id="chat-file-input" accept="image/*,.pdf,.doc,.docx,.txt,.md,.pptx,.xlsx" style="display:none;" onchange="handleFileSelected(event)">
         <button class="btn-icon" onclick="triggerFileInput()" style="flex-shrink:0;" id="chat-attach-btn">📎</button>
@@ -1806,7 +1809,7 @@ async function sendChatMessage(){
         try{const p=JSON.parse(data);if(p.content){full+=p.content;if(mdRenderGate()){const bot=document.getElementById(botId);if(bot&&bot.querySelector('.avatar').nextElementSibling)bot.querySelector('.avatar').nextElementSibling.innerHTML=`<div style="line-height:1.7;">${simpleMarkdown(full)}</div>`;msgs.scrollTop=msgs.scrollHeight;}}if(p.done&&Array.isArray(p.citations))citations=p.citations;}catch(e){}
       }
     }
-    // 流结束：渲染引用卡片（5 色）+ 「我明白了」闭环按钮
+    // 流结束：渲染引用卡片（5 色）；「我明白了」按钮固定在输入框上方
     const bot=document.getElementById(botId);
     if(bot){
       const bubble=bot.querySelector('.avatar').nextElementSibling;
@@ -1814,10 +1817,11 @@ async function sendChatMessage(){
         _lastTutorAnswers.push({question:userContent,answer:full,citations});
         const aidx=_lastTutorAnswers.length-1;
         if(citations.length>0)bubble.innerHTML+=renderCitationCards(citations,aidx);
-        bubble.innerHTML+=`<div style="margin-top:10px;"><button class="btn btn-neu" style="font-size:12px;padding:6px 14px;border-radius:14px;" onclick="markUnderstood(${aidx},this)">✅ 我明白了！记录到问题日志</button></div>`;
       }
       msgs.scrollTop=msgs.scrollHeight;
     }
+    const ub=document.getElementById('chat-understood-bar');
+    if(ub)ub.style.display='block';
     // 落库助手回答
     if(_chatSessionId)await safeFetch(API+'/chat-sessions/'+_chatSessionId+'/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({role:'assistant',content:full,citations:citations.map(c=>({type:c.type,title:c.title||c.fileName||'',sourceId:c.sourceId}))})}).catch(()=>{});
   }catch(e){
@@ -1866,9 +1870,10 @@ function jumpCitationAt(storeIdx, citIdx){
   showAppModal('<h3>📄 '+esc(cit.title||cit.fileName||'原文片段')+'</h3>'+(cit.snippet?'<div class="body-text" style="margin-top:10px;white-space:pre-wrap;">'+esc(cit.snippet)+'</div>':''));
 }
 
-// 「我明白了」：问答对 + 引用写入 problem_solving_logs（学习闭环 1.6）
-async function markUnderstood(idx,btn){
-  const rec=_lastTutorAnswers[idx];if(!rec)return;
+// 「我明白了」：最新问答对 + 引用写入 problem_solving_logs（学习闭环 1.6）
+// 按钮固定在输入框上方，记录最近一条导师回答
+async function markUnderstood(btn){
+  const rec=_lastTutorAnswers[_lastTutorAnswers.length-1];if(!rec){appToast('先提问再记录','error');return;}
   if(btn){btn.disabled=true;btn.textContent='记录中...';}
   try{
     const res=await safeFetch(API+'/problem-solving-logs',{
