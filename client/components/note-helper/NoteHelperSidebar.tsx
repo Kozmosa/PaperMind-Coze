@@ -73,8 +73,8 @@ function SidebarPDFViewer({ url }: { url: string }) {
   } catch {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <Feather name="file" size={40} color="#B2BEC3" />
-        <Text style={{ color: '#B2BEC3', marginTop: 8 }}>PDF 预览需要 WebView 支持</Text>
+        <Feather name="file" size={40} color="#8E8E93" />
+        <Text style={{ color: '#8E8E93', marginTop: 8 }}>PDF 预览需要 WebView 支持</Text>
       </View>
     );
   }
@@ -86,8 +86,9 @@ export default function NoteHelperSidebar({
   sourceFiles,
   citations,
 }: NoteHelperSidebarProps) {
-  const [border] = useCSSVariable(['--color-border']) as string[];
+  const [border, surfaceVar] = useCSSVariable(['--color-border', '--color-surface']) as string[];
   const borderColor = border || '#E3DED9';
+  const surface = surfaceVar || '#FFFFFF';
   const [selectedFile, setSelectedFile] = useState<SourceFileMeta | null>(null);
   const [fileContent, setFileContent] = useState<string>('');
   const [fileViewUrl, setFileViewUrl] = useState<string>('');
@@ -181,7 +182,7 @@ export default function NoteHelperSidebar({
       </Animated.View>
 
       {/* Sidebar */}
-      <Animated.View style={[styles.sidebar, sidebarAnimStyle]}>
+      <Animated.View style={[styles.sidebar, sidebarAnimStyle, { backgroundColor: surface }]}>
         {/* Header */}
         <View style={[styles.header, { borderBottomColor: borderColor }]}>
           {selectedFile ? (
@@ -198,7 +199,7 @@ export default function NoteHelperSidebar({
                 {selectedFile.title}
               </Text>
               <TouchableOpacity onPress={onClose}>
-                <Feather name="x" size={22} color="#636E72" />
+                <Feather name="x" size={22} color="#4B5563" />
               </TouchableOpacity>
             </View>
           ) : (
@@ -208,7 +209,7 @@ export default function NoteHelperSidebar({
                 <Text style={styles.headerTitle}>源文件 ({sourceFiles.length})</Text>
               </View>
               <TouchableOpacity onPress={onClose}>
-                <Feather name="x" size={22} color="#636E72" />
+                <Feather name="x" size={22} color="#4B5563" />
               </TouchableOpacity>
             </View>
           )}
@@ -281,13 +282,13 @@ export default function NoteHelperSidebar({
                       {citeCount > 0 ? ` · 引用 ${citeCount} 处` : ''}
                     </Text>
                   </View>
-                  <Feather name="chevron-right" size={16} color="#B2BEC3" />
+                  <Feather name="chevron-right" size={16} color="#8E8E93" />
                 </TouchableOpacity>
               );
             })}
             {sourceFiles.length === 0 && (
               <View style={styles.emptyState}>
-                <Feather name="folder" size={40} color="#B2BEC3" />
+                <Feather name="folder" size={40} color="#8E8E93" />
                 <Text style={styles.emptyText}>暂无源文件</Text>
               </View>
             )}
@@ -315,10 +316,7 @@ const styles = StyleSheet.create({
   sidebar: {
     width: SIDEBAR_WIDTH,
     backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: -2, height: 0 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+    boxShadow: '-2px 0px 8px rgba(0, 0, 0, 0.1)',
     elevation: 10,
   },
   header: {
@@ -369,7 +367,7 @@ const styles = StyleSheet.create({
   },
   fileSubtitle: {
     fontSize: 12,
-    color: '#B2BEC3',
+    color: '#8E8E93',
     marginTop: 2,
   },
   emptyState: {
@@ -378,7 +376,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 14,
-    color: '#B2BEC3',
+    color: '#8E8E93',
     marginTop: 12,
   },
   loadingContainer: {
@@ -387,7 +385,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 13,
-    color: '#B2BEC3',
+    color: '#8E8E93',
     marginTop: 8,
   },
   fileMeta: {
@@ -402,7 +400,7 @@ const styles = StyleSheet.create({
   },
   fileMetaText: {
     fontSize: 12,
-    color: '#636E72',
+    color: '#4B5563',
   },
   fileContentText: {
     fontSize: 14,

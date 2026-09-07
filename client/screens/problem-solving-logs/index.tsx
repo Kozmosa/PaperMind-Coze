@@ -38,12 +38,16 @@ type DailyCount = {
 
 export default function ProblemSolvingLogsScreen() {
   const router = useSafeRouter();
-  const [backgroundSecondary, border] = useCSSVariable([
+  const [backgroundSecondary, border, surfaceVar, backgroundVar] = useCSSVariable([
     '--color-background-secondary',
     '--color-border',
+    '--color-surface',
+    '--color-background',
   ]) as string[];
   const bgSecondary = backgroundSecondary || '#E7E7EC';
   const borderColor = border || '#E3DED9';
+  const surface = surfaceVar || '#FFFFFF';
+  const pageBg = backgroundVar || '#F0F0F3';
   const [logs, setLogs] = useState<ProblemLog[]>([]);
   const [dailyCounts, setDailyCounts] = useState<DailyCount[]>([]);
   const [statsTotal, setStatsTotal] = useState(0);
@@ -67,7 +71,11 @@ export default function ProblemSolvingLogsScreen() {
         process: processText.trim() || null,
         solution: solutionText.trim() || null,
       });
-      Toast.show({ type: 'success', text1: '已记录', text2: '问题解决记录已保存，将参与后续反思报告' });
+      Toast.show({
+        type: 'success',
+        text1: '已记录',
+        text2: '问题解决记录已保存，将参与后续反思报告',
+      });
       setProblemText('');
       setProcessText('');
       setSolutionText('');
@@ -119,7 +127,7 @@ export default function ProblemSolvingLogsScreen() {
           alignItems: 'center',
           paddingHorizontal: 16,
           paddingVertical: 12,
-          backgroundColor: '#FFF',
+          backgroundColor: surface,
           borderBottomWidth: 1,
           borderBottomColor: borderColor,
         }}
@@ -154,41 +162,65 @@ export default function ProblemSolvingLogsScreen() {
           {/* Summary stats */}
           <View style={{ padding: 16 }}>
             <View
-              style={{ backgroundColor: '#FFF', borderRadius: 16, padding: 20, marginBottom: 16 }}
+              style={{
+                backgroundColor: surface,
+                borderRadius: 16,
+                padding: 20,
+                marginBottom: 16,
+                boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.06)',
+                elevation: 2,
+              }}
             >
-              <Text style={{ fontSize: 16, fontWeight: '700', color: '#2D3436', marginBottom: 16 }}>
-                <AntDesign name="pie-chart" size={16} color="#2D3436" /> 学习数据
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+                <View
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 10,
+                    backgroundColor: 'rgba(108,99,255,0.12)',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    marginRight: 8,
+                  }}
+                >
+                  <AntDesign name="pie-chart" size={16} color="#6C63FF" />
+                </View>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: '#2D3436' }}>学习数据</Text>
+              </View>
 
               <View style={{ flexDirection: 'row', marginBottom: 20 }}>
                 <View
                   style={{
                     flex: 1,
-                    backgroundColor: bgSecondary,
+                    backgroundColor: pageBg,
                     borderRadius: 12,
                     padding: 16,
                     alignItems: 'center',
+                    boxShadow: '0px 1px 4px rgba(0, 0, 0, 0.05)',
+                    elevation: 1,
                   }}
                 >
                   <Text style={{ fontSize: 32, fontWeight: '800', color: '#6C63FF' }}>
                     {totalCount}
                   </Text>
-                  <Text style={{ fontSize: 13, color: '#636E72', marginTop: 4 }}>近30天解决</Text>
+                  <Text style={{ fontSize: 13, color: '#4B5563', marginTop: 4 }}>近30天解决</Text>
                 </View>
                 <View style={{ width: 12 }} />
                 <View
                   style={{
                     flex: 1,
-                    backgroundColor: bgSecondary,
+                    backgroundColor: pageBg,
                     borderRadius: 12,
                     padding: 16,
                     alignItems: 'center',
+                    boxShadow: '0px 1px 4px rgba(0, 0, 0, 0.05)',
+                    elevation: 1,
                   }}
                 >
                   <Text style={{ fontSize: 32, fontWeight: '800', color: '#00B894' }}>
                     {dailyCounts.length > 0 ? dailyCounts.length : 0}
                   </Text>
-                  <Text style={{ fontSize: 13, color: '#636E72', marginTop: 4 }}>
+                  <Text style={{ fontSize: 13, color: '#4B5563', marginTop: 4 }}>
                     活跃天数（近30天）
                   </Text>
                 </View>
@@ -220,7 +252,7 @@ export default function ProblemSolvingLogsScreen() {
                       backgroundGradientFrom: '#F8F9FA',
                       backgroundGradientTo: '#F8F9FA',
                       color: (opacity = 1) => `rgba(108, 99, 255, ${opacity})`,
-                      labelColor: (opacity = 1) => `rgba(178, 190, 195, ${opacity})`,
+                      labelColor: (opacity = 1) => `rgba(142, 142, 147, ${opacity})`,
                       strokeWidth: 2,
                       decimalPlaces: 0,
                       propsForBackgroundLines: {
@@ -256,15 +288,15 @@ export default function ProblemSolvingLogsScreen() {
             {logs.length === 0 && (
               <View
                 style={{
-                  backgroundColor: '#FFF',
+                  backgroundColor: surface,
                   borderRadius: 16,
                   padding: 40,
                   alignItems: 'center',
                 }}
               >
-                <Feather name="inbox" size={48} color="#B2BEC3" />
-                <Text style={{ color: '#B2BEC3', marginTop: 12, fontSize: 15 }}>暂无解答记录</Text>
-                <Text style={{ color: '#B2BEC3', fontSize: 13, marginTop: 4 }}>
+                <Feather name="inbox" size={48} color="#8E8E93" />
+                <Text style={{ color: '#8E8E93', marginTop: 12, fontSize: 15 }}>暂无解答记录</Text>
+                <Text style={{ color: '#8E8E93', fontSize: 13, marginTop: 4 }}>
                   在 Tutor 对话中点击「我明白了！」来记录
                 </Text>
               </View>
@@ -273,7 +305,12 @@ export default function ProblemSolvingLogsScreen() {
             {logs.map((log) => (
               <TouchableOpacity
                 key={log.id}
-                style={{ backgroundColor: '#FFF', borderRadius: 16, padding: 16, marginBottom: 12 }}
+                style={{
+                  backgroundColor: surface,
+                  borderRadius: 16,
+                  padding: 16,
+                  marginBottom: 12,
+                }}
                 onPress={() => {
                   // 回跳完整 Tutor 对话页（主 Tab），不再进入无引用卡片的 /ai-chat 降级页
                   router.push('/');
@@ -301,12 +338,12 @@ export default function ProblemSolvingLogsScreen() {
                       {log.question}
                     </Text>
                     <Text
-                      style={{ fontSize: 13, color: '#636E72', marginTop: 6 }}
+                      style={{ fontSize: 13, color: '#4B5563', marginTop: 6 }}
                       numberOfLines={2}
                     >
                       {log.answer?.slice(0, 100)}...
                     </Text>
-                    <Text style={{ fontSize: 12, color: '#B2BEC3', marginTop: 8 }}>
+                    <Text style={{ fontSize: 12, color: '#8E8E93', marginTop: 8 }}>
                       {new Date(log.created_at).toLocaleDateString('zh-CN', {
                         year: 'numeric',
                         month: 'long',
@@ -314,7 +351,7 @@ export default function ProblemSolvingLogsScreen() {
                       })}
                     </Text>
                   </View>
-                  <Feather name="chevron-right" size={18} color="#B2BEC3" />
+                  <Feather name="chevron-right" size={18} color="#8E8E93" />
                 </View>
               </TouchableOpacity>
             ))}
@@ -332,7 +369,7 @@ export default function ProblemSolvingLogsScreen() {
         <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.35)' }}>
           <View
             style={{
-              backgroundColor: '#FFF',
+              backgroundColor: surface,
               borderTopLeftRadius: 24,
               borderTopRightRadius: 24,
               padding: 20,
@@ -342,7 +379,7 @@ export default function ProblemSolvingLogsScreen() {
             <Text style={{ fontSize: 18, fontWeight: '700', color: '#2D3436', marginBottom: 16 }}>
               记录问题解决
             </Text>
-            <Text style={{ fontSize: 13, color: '#636E72', marginBottom: 6 }}>问题描述 *</Text>
+            <Text style={{ fontSize: 13, color: '#4B5563', marginBottom: 6 }}>问题描述 *</Text>
             <TextInput
               style={{
                 backgroundColor: bgSecondary,
@@ -354,12 +391,12 @@ export default function ProblemSolvingLogsScreen() {
                 ...noWebResize,
               }}
               placeholder="遇到了什么问题？"
-              placeholderTextColor="#B2BEC3"
+              placeholderTextColor="#8E8E93"
               value={problemText}
               onChangeText={setProblemText}
               multiline
             />
-            <Text style={{ fontSize: 13, color: '#636E72', marginBottom: 6 }}>
+            <Text style={{ fontSize: 13, color: '#4B5563', marginBottom: 6 }}>
               解决过程（可选）
             </Text>
             <TextInput
@@ -373,12 +410,12 @@ export default function ProblemSolvingLogsScreen() {
                 ...noWebResize,
               }}
               placeholder="你是怎么一步步解决的？"
-              placeholderTextColor="#B2BEC3"
+              placeholderTextColor="#8E8E93"
               value={processText}
               onChangeText={setProcessText}
               multiline
             />
-            <Text style={{ fontSize: 13, color: '#636E72', marginBottom: 6 }}>
+            <Text style={{ fontSize: 13, color: '#4B5563', marginBottom: 6 }}>
               解决方案（可选）
             </Text>
             <TextInput
@@ -392,7 +429,7 @@ export default function ProblemSolvingLogsScreen() {
                 ...noWebResize,
               }}
               placeholder="最终方案 / 结论"
-              placeholderTextColor="#B2BEC3"
+              placeholderTextColor="#8E8E93"
               value={solutionText}
               onChangeText={setSolutionText}
               multiline
@@ -408,7 +445,7 @@ export default function ProblemSolvingLogsScreen() {
                   alignItems: 'center',
                 }}
               >
-                <Text style={{ color: '#636E72', fontWeight: '600' }}>取消</Text>
+                <Text style={{ color: '#4B5563', fontWeight: '600' }}>取消</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleSubmitProblemLog}

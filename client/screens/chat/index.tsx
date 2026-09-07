@@ -64,12 +64,14 @@ const AGENTS = [
 
 export default function ChatScreen() {
   const router = useSafeRouter();
-  const [backgroundSecondary, border] = useCSSVariable([
+  const [backgroundSecondary, border, surfaceVar] = useCSSVariable([
     '--color-background-secondary',
     '--color-border',
+    '--color-surface',
   ]) as string[];
   const bgSecondary = backgroundSecondary || '#E7E7EC';
   const borderColor = border || '#E3DED9';
+  const surface = surfaceVar || '#FFFFFF';
   const scrollRef = useRef<ScrollView>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -386,54 +388,66 @@ export default function ChatScreen() {
     }
   };
 
+  // 统一中性引用卡（issue #2 P1-1）：白底 + 大圆角 + 阴影分层，
+  // 去掉彩色竖条纹/彩色填充，类型区分只保留图标 + 小号类型文字标签
+  const citationCardStyle = {
+    backgroundColor: surface,
+    borderRadius: 16,
+    padding: 12,
+    marginTop: 8,
+    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.06)',
+    elevation: 2,
+  } as const;
+  const citationIconColor = '#6C63FF';
+  const citationTagStyle = {
+    backgroundColor: 'rgba(108,99,255,0.08)',
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+  } as const;
+  const citationTagTextStyle = { color: '#6C63FF', fontSize: 11 } as const;
+  const citationTypeBadge = (label: string) => (
+    <View
+      style={{
+        backgroundColor: 'rgba(108,99,255,0.12)',
+        borderRadius: 6,
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+      }}
+    >
+      <Text style={{ color: '#6C63FF', fontSize: 10, fontWeight: '600' }}>{label}</Text>
+    </View>
+  );
+
   const renderCitation = (citation: any, idx: number) => {
     // Image citation
     if (citation.type === 'image') {
       return (
-        <View
-          key={idx}
-          style={{
-            backgroundColor: '#FFF8E6',
-            borderRadius: 12,
-            padding: 12,
-            marginTop: 8,
-            borderWidth: 1,
-            borderColor: '#F5D88A',
-          }}
-        >
+        <View key={idx} style={citationCardStyle}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-            <Feather name="image" size={14} color="#D97706" />
+            <Feather name="image" size={14} color={citationIconColor} />
             <Text
               style={{ marginLeft: 6, color: '#2D3436', fontWeight: '600', fontSize: 13, flex: 1 }}
               numberOfLines={1}
             >
               {citation.label || citation.fileName || citation.title || '用户上传的图片'}
             </Text>
+            {citationTypeBadge('图片')}
           </View>
-          <Text style={{ color: '#636E72', fontSize: 13, lineHeight: 20 }}>
+          <Text style={{ color: '#4B5563', fontSize: 13, lineHeight: 20 }}>
             {citation.snippet || 'AI 已分析图片内容'}
           </Text>
         </View>
       );
     }
 
-    // Knowledge node citation (purple)
+    // Knowledge node citation
     if (citation.type === 'knowledge_node' || citation.type === 'node') {
       const hasPapercore = !!citation.papercore;
       return (
-        <View
-          key={idx}
-          style={{
-            backgroundColor: '#EEF0FF',
-            borderRadius: 12,
-            padding: 12,
-            marginTop: 8,
-            borderLeftWidth: 3,
-            borderLeftColor: '#6C63FF',
-          }}
-        >
+        <View key={idx} style={citationCardStyle}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-            <Feather name="book-open" size={14} color="#6C63FF" />
+            <Feather name="book-open" size={14} color={citationIconColor} />
             <Text
               style={{ marginLeft: 6, color: '#2D3436', fontWeight: '600', fontSize: 13, flex: 1 }}
               numberOfLines={1}
@@ -442,81 +456,43 @@ export default function ChatScreen() {
                 citation.label ||
                 `知识节点 ${citation.sourceId || citation.nodeId}`}
             </Text>
-            <View
-              style={{
-                backgroundColor: '#6C63FF20',
-                borderRadius: 6,
-                paddingHorizontal: 6,
-                paddingVertical: 2,
-              }}
-            >
-              <Text style={{ color: '#6C63FF', fontSize: 10, fontWeight: '600' }}>知识节点</Text>
-            </View>
+            {citationTypeBadge('知识节点')}
           </View>
           {hasPapercore && (
-            <Text style={{ color: '#636E72', fontSize: 13, lineHeight: 20 }} numberOfLines={3}>
+            <Text style={{ color: '#4B5563', fontSize: 13, lineHeight: 20 }} numberOfLines={3}>
               {citation.papercore}
             </Text>
           )}
           {!hasPapercore && (
-            <Text style={{ color: '#636E72', fontSize: 13, lineHeight: 20 }}>关联的知识库节点</Text>
+            <Text style={{ color: '#4B5563', fontSize: 13, lineHeight: 20 }}>关联的知识库节点</Text>
           )}
         </View>
       );
     }
 
-    // Study note citation (green)
+    // Study note citation
     if (citation.type === 'study_note') {
       return (
-        <View
-          key={idx}
-          style={{
-            backgroundColor: '#E8F5E9',
-            borderRadius: 12,
-            padding: 12,
-            marginTop: 8,
-            borderLeftWidth: 3,
-            borderLeftColor: '#00B894',
-          }}
-        >
+        <View key={idx} style={citationCardStyle}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-            <Feather name="edit-3" size={14} color="#00B894" />
+            <Feather name="edit-3" size={14} color={citationIconColor} />
             <Text
               style={{ marginLeft: 6, color: '#2D3436', fontWeight: '600', fontSize: 13, flex: 1 }}
               numberOfLines={1}
             >
               {citation.title || citation.fileName || `学习纪要`}
             </Text>
-            <View
-              style={{
-                backgroundColor: '#00B89420',
-                borderRadius: 6,
-                paddingHorizontal: 6,
-                paddingVertical: 2,
-              }}
-            >
-              <Text style={{ color: '#00B894', fontSize: 10, fontWeight: '600' }}>学习纪要</Text>
-            </View>
+            {citationTypeBadge('学习纪要')}
           </View>
           {citation.papercore ? (
-            <Text style={{ color: '#636E72', fontSize: 13, lineHeight: 20 }} numberOfLines={3}>
+            <Text style={{ color: '#4B5563', fontSize: 13, lineHeight: 20 }} numberOfLines={3}>
               {citation.papercore}
             </Text>
           ) : null}
           {citation.tags?.length > 0 && (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 4, gap: 4 }}>
               {(citation.tags || []).slice(0, 5).map((t: string, i: number) => (
-                <Text
-                  key={i}
-                  style={{
-                    color: '#00B894',
-                    fontSize: 11,
-                    backgroundColor: '#00B89414',
-                    borderRadius: 4,
-                    paddingHorizontal: 6,
-                    paddingVertical: 1,
-                  }}
-                >
+                <Text key={i} style={[citationTagTextStyle, citationTagStyle]}>
                   #{t}
                 </Text>
               ))}
@@ -526,58 +502,29 @@ export default function ChatScreen() {
       );
     }
 
-    // Material citation (orange)
+    // Material citation
     if (citation.type === 'material') {
       return (
-        <View
-          key={idx}
-          style={{
-            backgroundColor: '#FFF3E0',
-            borderRadius: 12,
-            padding: 12,
-            marginTop: 8,
-            borderLeftWidth: 3,
-            borderLeftColor: '#FF9F43',
-          }}
-        >
+        <View key={idx} style={citationCardStyle}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-            <Feather name="file-text" size={14} color="#FF9F43" />
+            <Feather name="file-text" size={14} color={citationIconColor} />
             <Text
               style={{ marginLeft: 6, color: '#2D3436', fontWeight: '600', fontSize: 13, flex: 1 }}
               numberOfLines={1}
             >
               {citation.title || citation.fileName || `学习资料`}
             </Text>
-            <View
-              style={{
-                backgroundColor: '#FF9F4320',
-                borderRadius: 6,
-                paddingHorizontal: 6,
-                paddingVertical: 2,
-              }}
-            >
-              <Text style={{ color: '#FF9F43', fontSize: 10, fontWeight: '600' }}>资料</Text>
-            </View>
+            {citationTypeBadge('资料')}
           </View>
           {citation.papercore ? (
-            <Text style={{ color: '#636E72', fontSize: 13, lineHeight: 20 }} numberOfLines={3}>
+            <Text style={{ color: '#4B5563', fontSize: 13, lineHeight: 20 }} numberOfLines={3}>
               {citation.papercore}
             </Text>
           ) : null}
           {citation.tags?.length > 0 && (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 4, gap: 4 }}>
               {(citation.tags || []).slice(0, 5).map((t: string, i: number) => (
-                <Text
-                  key={i}
-                  style={{
-                    color: '#FF9F43',
-                    fontSize: 11,
-                    backgroundColor: '#FF9F4314',
-                    borderRadius: 4,
-                    paddingHorizontal: 6,
-                    paddingVertical: 1,
-                  }}
-                >
+                <Text key={i} style={[citationTagTextStyle, citationTagStyle]}>
                   #{t}
                 </Text>
               ))}
@@ -587,23 +534,13 @@ export default function ChatScreen() {
       );
     }
 
-    // File content citation (gray with page number)
+    // File content citation (page number badge)
     if (citation.type === 'file_content' || citation.type === 'file') {
       const pageNum = citation.pageNumber || citation.page;
       return (
-        <View
-          key={idx}
-          style={{
-            backgroundColor: bgSecondary,
-            borderRadius: 12,
-            padding: 12,
-            marginTop: 8,
-            borderLeftWidth: 3,
-            borderLeftColor: pageNum ? '#0984E3' : '#636E72',
-          }}
-        >
+        <View key={idx} style={citationCardStyle}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-            <Feather name="file-text" size={14} color={pageNum ? '#0984E3' : '#636E72'} />
+            <Feather name="file-text" size={14} color={citationIconColor} />
             <Text
               style={{ marginLeft: 6, color: '#2D3436', fontWeight: '600', fontSize: 13, flex: 1 }}
               numberOfLines={1}
@@ -624,19 +561,10 @@ export default function ChatScreen() {
                 </Text>
               </View>
             ) : (
-              <View
-                style={{
-                  backgroundColor: '#636E7220',
-                  borderRadius: 6,
-                  paddingHorizontal: 6,
-                  paddingVertical: 2,
-                }}
-              >
-                <Text style={{ color: '#636E72', fontSize: 10, fontWeight: '600' }}>原文</Text>
-              </View>
+              citationTypeBadge('原文')
             )}
           </View>
-          <Text style={{ color: '#636E72', fontSize: 13, lineHeight: 20 }} numberOfLines={4}>
+          <Text style={{ color: '#4B5563', fontSize: 13, lineHeight: 20 }} numberOfLines={4}>
             {citation.snippet || '关联的原文内容'}
           </Text>
         </View>
@@ -645,11 +573,8 @@ export default function ChatScreen() {
 
     // Unknown / fallback
     return (
-      <View
-        key={idx}
-        style={{ backgroundColor: bgSecondary, borderRadius: 12, padding: 12, marginTop: 8 }}
-      >
-        <Text style={{ color: '#636E72', fontSize: 13 }}>
+      <View key={idx} style={citationCardStyle}>
+        <Text style={{ color: '#4B5563', fontSize: 13 }}>
           {citation.title || citation.label || '引用来源'}
         </Text>
       </View>
@@ -664,7 +589,7 @@ export default function ChatScreen() {
           <View
             style={{
               width: 260,
-              backgroundColor: '#FFF',
+              backgroundColor: surface,
               borderRightWidth: 1,
               borderRightColor: borderColor,
               paddingTop: 12,
@@ -697,14 +622,14 @@ export default function ChatScreen() {
                   >
                     {s.title}
                   </Text>
-                  <Text style={{ color: '#636E72', fontSize: 12, marginTop: 4 }}>
-                    {new Date(s.lastTime).toLocaleDateString()}
+                  <Text style={{ color: '#4B5563', fontSize: 12, marginTop: 4 }}>
+                    {new Date(s.lastTime).toLocaleDateString('zh-CN')}
                   </Text>
                 </TouchableOpacity>
               ))}
               {sessions.length === 0 && (
                 <Text
-                  style={{ textAlign: 'center', color: '#B2BEC3', marginTop: 40, fontSize: 14 }}
+                  style={{ textAlign: 'center', color: '#8E8E93', marginTop: 40, fontSize: 14 }}
                 >
                   暂无历史对话
                 </Text>
@@ -722,7 +647,7 @@ export default function ChatScreen() {
               alignItems: 'center',
               paddingHorizontal: 16,
               paddingVertical: 12,
-              backgroundColor: '#FFF',
+              backgroundColor: surface,
               borderBottomWidth: 1,
               borderBottomColor: borderColor,
             }}
@@ -751,7 +676,7 @@ export default function ChatScreen() {
                   >
                     <Text
                       style={{
-                        color: selectedAgent === agent.id ? '#FFF' : '#636E72',
+                        color: selectedAgent === agent.id ? '#FFF' : '#4B5563',
                         fontWeight: '600',
                         fontSize: 14,
                       }}
@@ -805,12 +730,16 @@ export default function ChatScreen() {
           <ScrollView
             ref={scrollRef}
             style={{ flex: 1 }}
-            contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 12 }}
+            contentContainerStyle={{
+              flexGrow: 1,
+              paddingHorizontal: 16,
+              paddingVertical: 12,
+            }}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
             {messages.length === 0 && (
-              <View style={{ alignItems: 'center', paddingTop: 60 }}>
+              <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
                 <View
                   style={{
                     width: 64,
@@ -830,7 +759,7 @@ export default function ChatScreen() {
                   智能导师
                 </Text>
                 <Text
-                  style={{ fontSize: 14, color: '#636E72', textAlign: 'center', maxWidth: 280 }}
+                  style={{ fontSize: 14, color: '#4B5563', textAlign: 'center', maxWidth: 280 }}
                 >
                   基于你的知识库回答问题，可以上传文件或选择知识节点作为上下文
                 </Text>
@@ -883,7 +812,7 @@ export default function ChatScreen() {
                       {msg.content ? (
                         <MarkdownRenderer content={msg.content} />
                       ) : (
-                        <Text style={{ color: '#636E72', fontSize: 14 }}>...</Text>
+                        <Text style={{ color: '#4B5563', fontSize: 14 }}>...</Text>
                       )}
                     </View>
                     {msg.citations && msg.citations.length > 0 && (
@@ -916,7 +845,7 @@ export default function ChatScreen() {
                     paddingVertical: 12,
                   }}
                 >
-                  <Text style={{ color: '#636E72' }}>思考中...</Text>
+                  <Text style={{ color: '#4B5563' }}>思考中...</Text>
                 </View>
               </View>
             )}
@@ -946,7 +875,7 @@ export default function ChatScreen() {
             style={{
               paddingHorizontal: 16,
               paddingVertical: 10,
-              backgroundColor: '#FFF',
+              backgroundColor: surface,
               borderTopWidth: 1,
               borderTopColor: borderColor,
             }}
@@ -1013,7 +942,7 @@ export default function ChatScreen() {
                   ...noWebResize,
                 }}
                 placeholder="输入问题..."
-                placeholderTextColor="#B2BEC3"
+                placeholderTextColor="#8E8E93"
                 value={input}
                 onChangeText={setInput}
                 multiline
@@ -1036,7 +965,7 @@ export default function ChatScreen() {
                 <Feather
                   name="send"
                   size={18}
-                  color={input.trim() && !loading ? '#FFF' : '#B2BEC3'}
+                  color={input.trim() && !loading ? '#FFF' : '#8E8E93'}
                 />
               </TouchableOpacity>
             </View>
@@ -1055,7 +984,7 @@ export default function ChatScreen() {
           }}
           onPress={() => setShowUploadModal(false)}
         >
-          <View style={{ backgroundColor: '#FFF', borderRadius: 20, padding: 24, width: 300 }}>
+          <View style={{ backgroundColor: surface, borderRadius: 20, padding: 24, width: 300 }}>
             <Text style={{ fontSize: 18, fontWeight: '700', color: '#2D3436', marginBottom: 16 }}>
               上传文件
             </Text>
@@ -1078,7 +1007,7 @@ export default function ChatScreen() {
               <Text style={{ marginTop: 8, color: '#6C63FF', fontWeight: '600' }}>
                 从相册选择图片
               </Text>
-              <Text style={{ marginTop: 4, color: '#B2BEC3', fontSize: 12 }}>
+              <Text style={{ marginTop: 4, color: '#8E8E93', fontSize: 12 }}>
                 手写笔记、公式推导、教材截图
               </Text>
             </TouchableOpacity>
@@ -1095,7 +1024,11 @@ export default function ChatScreen() {
               onPress={() => {
                 setShowUploadModal(false);
                 if (knowledgeNodes.length === 0) {
-                  Toast.show({ type: 'info', text1: '提示', text2: '暂无知识节点，请先在知识库中创建节点' });
+                  Toast.show({
+                    type: 'info',
+                    text1: '提示',
+                    text2: '暂无知识节点，请先在知识库中创建节点',
+                  });
                   return;
                 }
                 Alert.alert(
@@ -1115,7 +1048,7 @@ export default function ChatScreen() {
               <Text style={{ marginTop: 6, color: '#7C6FF7', fontWeight: '600' }}>
                 关联知识节点
               </Text>
-              <Text style={{ marginTop: 2, color: '#B2BEC3', fontSize: 12 }}>
+              <Text style={{ marginTop: 2, color: '#8E8E93', fontSize: 12 }}>
                 {selectedNodeId
                   ? `已选: ${knowledgeNodes.find((n) => n.id === selectedNodeId)?.short_name || `节点${selectedNodeId}`}`
                   : '可选，提高回答准确性'}
@@ -1123,7 +1056,7 @@ export default function ChatScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity onPress={() => setShowUploadModal(false)}>
-              <Text style={{ textAlign: 'center', color: '#636E72', fontSize: 14 }}>取消</Text>
+              <Text style={{ textAlign: 'center', color: '#4B5563', fontSize: 14 }}>取消</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>

@@ -31,6 +31,7 @@ import { api } from '@/utils/api';
 import { noWebResize } from '@/utils';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
+import { useCSSVariable } from 'uniwind';
 import MiniGraphPreview from '@/components/knowledge/MiniGraphPreview';
 import type { RelatedNode } from '@/components/knowledge/MiniGraphPreview';
 
@@ -65,6 +66,8 @@ interface RelationSuggestion {
 
 export default function KnowledgeBuilderScreen() {
   const router = useSafeRouter();
+  const [surfaceVar] = useCSSVariable(['--color-surface']) as string[];
+  const surface = surfaceVar || '#FFFFFF';
 
   // —— State ——
   const [step, setStep] = useState<Step>('upload');
@@ -382,7 +385,7 @@ export default function KnowledgeBuilderScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { backgroundColor: surface }]}>
           <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
             <Feather name="arrow-left" size={22} color={CC.text} />
           </TouchableOpacity>
