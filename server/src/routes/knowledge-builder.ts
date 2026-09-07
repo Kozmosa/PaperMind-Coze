@@ -2090,7 +2090,7 @@ router.get('/tag-documents', async (req: Request, res: Response) => {
     const supabase = getSupabaseClient();
 
     // tag is the display name (not the full ID). Match against tags arrays
-    const [notesRes, materialsRes] = await Promise.all([
+    const [notesRes, materialsRes, nodesRes] = await Promise.all([
       supabase
         .from('study_notes')
         .select('id, title, tags, papercore, logical_path, created_at')
@@ -2103,6 +2103,14 @@ router.get('/tag-documents', async (req: Request, res: Response) => {
         .select('id, name, tags, papercore, logical_path, created_at')
         .eq('user_id', userId)
         .eq('ai_processed', true)
+        .order('created_at', { ascending: false })
+        .limit(200),
+      // 知识节点也参与图谱聚合（graph-data 同口径）：弹窗必须能列出，
+      // 否则「共 N 条关联记录」与列表条数对不上（统计学 4 条只有 2 份文件案例）
+      supabase
+        .from('knowledge_nodes')
+        .select('id, short_name, tags, papercore, created_at')
+        .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(200),
     ]);
@@ -2136,7 +2144,19 @@ router.get('/tag-documents', async (req: Request, res: Response) => {
         created_at: m.created_at || '',
       }));
 
-    const documents = [...matchedNotes, ...matchedMaterials].sort(
+    const matchedNodes = (nodesRes.data || [])
+      .filter((n: any) => matchTag(n.tags))
+      .map((n: any) => ({
+        id: n.id,
+        title: n.short_name || `知识节点 ${n.id}`,
+        type: 'knowledge_node' as const,
+        papercore: n.papercore || '',
+        tags: n.tags || [],
+        logical_path: '',
+        created_at: n.created_at || '',
+      }));
+
+    const documents = [...matchedNotes, ...matchedMaterials, ...matchedNodes].sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
     );
 

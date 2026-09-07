@@ -1637,7 +1637,14 @@ async function selectKTag(id){
     if(!res.ok) throw new Error('HTTP '+res.status);
     const json=await res.json();const docs=json.data||[];
     let dh=docs.length===0?'<div style="text-align:center;color:var(--text3);padding:20px;">暂无关联文档</div>'
-      :docs.map(d=>`<div class="tag-doc" style="cursor:pointer;" onclick="event.stopPropagation();${d.type==='study_note'?'viewNoteFullscreen':'viewMaterialFullscreen'}('${d.id}','${esc((d.title||'未命名').replace(/'/g,"\\'"))}')"><span style="font-size:22px;">${d.type==='study_note'?'📝':'📄'}</span><div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(d.title||'未命名')}</div><div class="meta-text">${esc(fmtPath(d.logical_path))}</div></div><span style="color:var(--text4);">›</span></div>`).join('');
+      :docs.map(d=>{
+        const icon=d.type==='study_note'?'📝':d.type==='knowledge_node'?'💡':'📄';
+        const sub=d.type==='knowledge_node'?'知识节点':d.type==='study_note'?'学习纪要':'上传资料';
+        const onClick=d.type==='knowledge_node'
+          ? `showAppModal('<h3>💡 ${esc(d.title||'知识节点').replace(/'/g,"\\'")}</h3>${d.papercore?'<div class="body-text" style="margin-top:10px;">'+simpleMarkdown(d.papercore.slice(0,2000))+'</div>':''}')`
+          : `${d.type==='study_note'?'viewNoteFullscreen':'viewMaterialFullscreen'}('${d.id}','${esc((d.title||'未命名').replace(/'/g,"\\'"))}')`;
+        return `<div class="tag-doc" style="cursor:pointer;" onclick="event.stopPropagation();${onClick}"><span style="font-size:22px;">${icon}</span><div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(d.title||'未命名')}</div><div class="meta-text">${d.type==='knowledge_node'?esc(sub):esc(fmtPath(d.logical_path)||sub)}</div></div><span style="color:var(--text4);">›</span></div>`;
+      }).join('');
     sheet.innerHTML=`<div class="tag-sheet-handle"></div><div style="display:flex;justify-content:space-between;align-items:center;padding:0 18px 14px;border-bottom:1px solid var(--border);"><div style="display:flex;align-items:center;gap:10px;"><span style="display:inline-block;width:14px;height:14px;border-radius:7px;background:${lc[node.level]};"></span><span style="font-size:18px;font-weight:700;color:var(--text);">${esc(node.name)}</span><span class="tag" style="background:var(--pri-pale);color:var(--primary);">${node.level}</span></div><button onclick="closeKTagPopup()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--text2);">✕</button></div><div style="padding:14px 18px;font-size:13px;color:var(--text2);">共 ${node.count} 条关联记录</div><div style="overflow-y:auto;max-height:280px;padding:0 18px 20px;">${dh}</div>`;
   }catch(e){sheet.innerHTML=`<div class="tag-sheet-handle"></div><div style="padding:32px;text-align:center;color:var(--text2);">加载失败: ${esc(e.message)}</div>`;}
 }
