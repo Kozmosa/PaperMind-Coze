@@ -1654,7 +1654,7 @@ router.get('/graph-data', async (req: Request, res: Response) => {
       // knowledge_nodes 也参与图谱聚合（issue #7 Task 5）
       supabase
         .from('knowledge_nodes')
-        .select('id, short_name, tags, papercore, created_at')
+        .select('id, short_name, tags, papercore, created_at, original_file')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(100),
@@ -1674,11 +1674,20 @@ router.get('/graph-data', async (req: Request, res: Response) => {
       type: 'material' as const,
       title: m.name || '未命名资料',
     }));
-    const knodes: any[] = (nodesRes.data || []).map((n: any) => ({
-      ...n,
-      type: 'node' as const,
-      title: n.short_name || '知识节点',
-    }));
+    // 影子节点：材料分类时自动同步生成的知识节点（syncKnowledgeNodeForMaterial），
+    // 与文件同名同 tags——文件已直接参与聚合，影子节点是重复的第二份，
+    // 跳过使 节点计数=弹窗列表=实际文件数（统计学 4 条只有 2 文件案例的根治）
+    const materialNames = new Set((materialsRes.data || []).map((m: any) => m.name));
+    const knodes: any[] = (nodesRes.data || [])
+      .filter((n: any) => {
+        const orig = (n as any).original_file || n.original_material;
+        return !(orig && materialNames.has(orig));
+      })
+      .map((n: any) => ({
+        ...n,
+        type: 'node' as const,
+        title: n.short_name || '知识节点',
+      }));
     const allRecords = [...notes, ...materials, ...knodes];
 
     // ====== Build Tag nodes ======
@@ -2106,10 +2115,11 @@ router.get('/tag-documents', async (req: Request, res: Response) => {
         .order('created_at', { ascending: false })
         .limit(200),
       // 知识节点也参与图谱聚合（graph-data 同口径）：弹窗必须能列出，
-      // 否则「共 N 条关联记录」与列表条数对不上（统计学 4 条只有 2 份文件案例）
+      // 否则「共 N 条关联记录」与列表条数对不上（统计学 4 条只有 2 份文件案例）；
+      // 影子节点（original_file 与材料同名）跳过——文件条目已代表
       supabase
         .from('knowledge_nodes')
-        .select('id, short_name, tags, papercore, created_at')
+        .select('id, short_name, tags, papercore, created_at, original_file')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(200),
@@ -2145,7 +2155,11 @@ router.get('/tag-documents', async (req: Request, res: Response) => {
       }));
 
     const matchedNodes = (nodesRes.data || [])
-      .filter((n: any) => matchTag(n.tags))
+      .filter((n: any) => {
+        const orig = (n as any).original_file || n.original_material;
+        const isShadow = orig && (materialsRes.data || []).some((m: any) => m.name === orig);
+        return !isShadow && matchTag(n.tags);
+      })
       .map((n: any) => ({
         id: n.id,
         title: n.short_name || `知识节点 ${n.id}`,
