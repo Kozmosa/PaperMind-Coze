@@ -1007,7 +1007,7 @@ async function buildReflectionPrompt(context?: any, period?: string): Promise<st
     // 问答日志（Tutor 对话记录，按时间过滤）
     let qaLogsQuery = client
       .from('problem_solving_logs')
-      .select('question, answer, created_at')
+      .select('question, answer, created_at, confusions, mastered, question_patterns, open_questions, knowledge_links, depth_score')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(30);

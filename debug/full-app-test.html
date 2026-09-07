@@ -1730,6 +1730,8 @@ function getAgentWelcome(agent){
 }
 function selectAgent(agent,btn){
   _currentAgent=agent;
+  // 切换助手 = 开启新对话：会话与转录重置（反思助手不参与「我明白了」总结）
+  _chatSessionId=null;_currentTranscript=[];
   document.querySelectorAll('#chat-agents button').forEach(b=>{b.className='btn btn-neu';b.style.cssText='font-size:13px;padding:8px 18px;border-radius:18px;';});
   btn.className='btn btn-primary';btn.style.cssText='font-size:13px;padding:8px 18px;border-radius:18px;';
   document.getElementById('chat-messages').innerHTML=getAgentWelcome(agent);
@@ -1780,6 +1782,7 @@ async function sendChatMessage(){
     if(!_chatSessionId){const sRes=await safeFetch(API+'/chat-sessions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:userContent.slice(0,30)})});if(sRes.ok){const sj=await sRes.json();_chatSessionId=sj.data?.id||null;}}
     if(_chatSessionId)await safeFetch(API+'/chat-sessions/'+_chatSessionId+'/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({role:'user',content:userContent})}).catch(()=>{});
   }catch(e){}
+  _currentTranscript.push({role:'user',content:userContent});
   try{
     let endpoint=API+'/ai/chat';
     let body={agent:_currentAgent,message:msg||'(请分析上传的文件)'};
@@ -1826,6 +1829,7 @@ async function sendChatMessage(){
     updateUnderstoodBar();
     // 落库助手回答
     if(_chatSessionId)await safeFetch(API+'/chat-sessions/'+_chatSessionId+'/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({role:'assistant',content:full,citations:citations.map(c=>({type:c.type,title:c.title||c.fileName||'',sourceId:c.sourceId}))})}).catch(()=>{});
+    _currentTranscript.push({role:'assistant',content:full});
   }catch(e){
     const bot=document.getElementById(botId);
     if(bot)bot.querySelector('.avatar').nextElementSibling.innerHTML='<div style="line-height:1.7;color:var(--accent);">抱歉，AI 回复出错，请重试。</div>';
@@ -1834,6 +1838,7 @@ async function sendChatMessage(){
 // ── 智能导师闭环：引用卡片 / 跳转 / 我明白了 / 历史会话 ──
 let _lastTutorAnswers=[]; // {question, answer, citations}
 let _chatSessionId=null;
+let _currentTranscript=[]; // 当前会话完整对话 [{role,content}]——「我明白了」按此做总结
 
 // 5 色引用卡片（架构规格 1.5）；storeIdx 指向 _lastTutorAnswers 中的回答
 function renderCitationCards(citations,storeIdx){
@@ -1872,27 +1877,23 @@ function jumpCitationAt(storeIdx, citIdx){
   showAppModal('<h3>📄 '+esc(cit.title||cit.fileName||'原文片段')+'</h3>'+(cit.snippet?'<div class="body-text" style="margin-top:10px;white-space:pre-wrap;">'+esc(cit.snippet)+'</div>':''));
 }
 
-// 「我明白了」：最新问答对 + 引用写入 problem_solving_logs（学习闭环 1.6）
-// 按钮固定在输入框上方，记录最近一条导师回答
+// 「我明白了」：完整对话交给 tutor 做结构化总结，同一会话覆盖更新（不照搬原文）
 async function markUnderstood(btn){
-  const rec=_lastTutorAnswers[_lastTutorAnswers.length-1];if(!rec){appToast('先提问再记录','error');return;}
-  if(btn){btn.disabled=true;btn.textContent='记录中...';}
+  if(!_chatSessionId){appToast('会话尚未建立，请先提问','error');return;}
+  if(!_currentTranscript.length){appToast('会话内容为空','error');return;}
+  if(btn){btn.disabled=true;btn.textContent='🧠 总结中...';}
   try{
-    const res=await safeFetch(API+'/problem-solving-logs',{
+    const res=await safeFetch(API+'/problem-solving-logs/summarize',{
       method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        question:rec.question,
-        answer:rec.answer.slice(0,20000),
-        citation_snippets:(rec.citations||[]).map(c=>c.title||c.fileName||'').filter(Boolean),
-        related_draft_ids:(rec.citations||[]).filter(c=>c.draftId).map(c=>c.draftId),
-      }),
+      body:JSON.stringify({chat_session_id:_chatSessionId,messages:_currentTranscript}),
     });
     if(!res.ok)throw new Error('HTTP '+res.status);
-    if(btn){btn.textContent='✅ 已记录到问题日志';}
-    appToast('已记录到问题日志');
+    const j=await res.json();
+    if(btn){btn.textContent=j.data&&j.overwritten?'✅ 已覆盖更新本会话总结':'✅ 已生成本会话总结';}
+    appToast(j.data&&j.overwritten?'已覆盖更新本会话总结':'已生成本会话总结');
   }catch(e){
     if(btn){btn.disabled=false;btn.textContent='✅ 我明白了！记录到问题日志';}
-    appToast('记录失败: '+e.message,'error');
+    appToast('总结失败: '+e.message,'error');
   }
 }
 
@@ -1941,6 +1942,8 @@ async function loadChatSession(sessionId,title){
         h+=`<div class="chat-msg-row"><div class="avatar" style="width:34px;height:34px;background:var(--primary);font-size:16px;">🤖</div><div class="chat-msg-bot"><div style="line-height:1.7;">${simpleMarkdown(m.content||'')}</div>${Array.isArray(m.citations)&&m.citations.length?renderCitationCards(m.citations,_lastTutorAnswers.length):''}</div></div>`;
       }
     });
+    // 历史会话载入时同步重建转录，供「我明白了」总结
+    _currentTranscript=list.map(m=>({role:m.role,content:m.content||''}));
     // 历史会话的最近一条问答也可用「我明白了」记录（按钮固定在输入框上方，仅智能导师）
     if(lastBot){
       _lastTutorAnswers.push({
