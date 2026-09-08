@@ -148,7 +148,9 @@ class UnifiedVectorIndex {
           );
         }
 
-        // ── 4. Load file_contents (attached to drafts / uploaded files) ─
+                // ── 4. Load file_contents (attached to drafts / uploaded files) ─
+        // 检索模式不变：原文页作为辅助独立参与命中；引用返回时
+        // 由 extractCitations 统一映射回源材料，不单独出引用卡
         console.log('[UnifiedVectorIndex] Loading file_contents...');
         const { data: fileContents, error: fcErr } = await client
           .from('file_contents')
@@ -196,7 +198,7 @@ class UnifiedVectorIndex {
           );
         }
 
-        if (records.length === 0) {
+if (records.length === 0) {
           console.log('[UnifiedVectorIndex] No records found, index empty.');
           this.records = [];
           this.ready = true;

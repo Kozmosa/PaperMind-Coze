@@ -213,6 +213,53 @@ function charBigrams(s: string): string[] {
   return out;
 }
 
+// file_content 命中映射回源材料：检索可用分页原文辅助命中（检索模式不变），
+// 但引用只返回原材料——MD/DOCX 显示相应文字（snippet=该页文本），
+// PPT/PDF/扫描件显示对应页（pageNumber 保留）；无源材料可映射时
+// 保留 file_content（用户上传文件未建材料等场景）。
+// 在所有引用来源（检索结果/上下文原文/上传草稿）收集完毕后统一执行。
+async function mapFileContentsToMaterials(citations: Citation[]): Promise<void> {
+  if (!citations.some((c) => c.type === 'file_content')) return;
+  try {
+    const fcCits = citations.filter((c) => c.type === 'file_content' && c.draftId);
+    const { data: drafts } = await client
+      .from('draft_pool')
+      .select('id, file_url')
+      .in('id', fcCits.map((c) => c.draftId));
+    const urls = (drafts || []).map((d: any) => d.file_url).filter(Boolean);
+    const { data: mats } = urls.length
+      ? await client
+          .from('materials')
+          .select('id, name, papercore, tags, file_path')
+          .in('file_path', urls)
+          .limit(50)
+      : { data: null };
+    const urlToMat = new Map((mats || []).map((m: any) => [m.file_path, m]));
+    const seenMaterials = new Set(citations.filter((c) => c.type === 'material').map((c) => c.sourceId));
+    for (const c of citations) {
+      if (c.type !== 'file_content' || !c.draftId) continue;
+      const d = (drafts || []).find((x: any) => x.id === c.draftId);
+      const m = d ? urlToMat.get(d.file_url) : null;
+      if (!m) continue;
+      if (seenMaterials.has(m.id)) {
+        (c as any)._drop = true;
+        continue;
+      }
+      c.type = 'material';
+      c.sourceId = m.id;
+      c.title = m.name || c.title;
+      c.papercore = m.papercore || '';
+      c.tags = m.tags || [];
+      seenMaterials.add(m.id);
+    }
+    for (let i = citations.length - 1; i >= 0; i--) {
+      if ((citations[i] as any)._drop) citations.splice(i, 1);
+    }
+  } catch (e: any) {
+    console.warn('[extractCitations] file_content 映射回源材料失败:', e?.message);
+  }
+}
+
 async function extractCitations(
   answer: string,
   context?: any,
@@ -385,6 +432,8 @@ async function extractCitations(
       }
     }
   }
+
+  await mapFileContentsToMaterials(citations);
 
   return citations;
 }
