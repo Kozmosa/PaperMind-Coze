@@ -1914,13 +1914,17 @@ async function jumpCitationAt(storeIdx, citIdx){
       const j=await r.json();const d=j.data||{};
       const pages=(d.pages||[]).map(p=>typeof p==='string'?{text:p}:p);
       const fileType=(d.fileType||'').toUpperCase();
-      // 被引用页内容：预处理阶段已按页存储，引用携带 pageNumber，直接取对应页
+      // 被引用内容：PPT/PDF/扫描件按页取整页；MD/TXT 无页码概念，
+      // 与纪要一致直接显示服务端定位到的相应文字（snippet）
       let pageHtml='';
       if(cit.pageNumber&&pages.some(p=>p.page_number===cit.pageNumber)){
         const pg=pages.find(p=>p.page_number===cit.pageNumber);
         const pt=pg?pg.text||'':'';
         pageHtml='<div class="section-title" style="margin-top:12px;">被引用内容 · 第 '+cit.pageNumber+' 页</div>'
           +((fileType==='MD'||fileType==='TXT')?simpleMarkdown(pt):'<div style="white-space:pre-wrap;font-family:inherit;">'+esc(pt)+'</div>');
+      }else if(cit.snippet){
+        pageHtml='<div class="section-title" style="margin-top:12px;">被引用内容</div>'
+          +((fileType==='MD'||fileType==='TXT')?simpleMarkdown(cit.snippet):'<div style="white-space:pre-wrap;font-family:inherit;">'+esc(cit.snippet)+'</div>');
       }
       const core=cit.papercore?'<div class="section-title">核心内容（AI 摘要）</div><div style="line-height:1.7;">'+simpleMarkdown(cit.papercore)+'</div>':'';
       _jumpSource={type:'material',id:cit.sourceId,title:cit.title||d.fileName||'资料',page:cit.pageNumber||null};

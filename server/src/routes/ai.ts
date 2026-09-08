@@ -223,7 +223,7 @@ async function mapFileContentsToMaterials(citations: Citation[]): Promise<void> 
     const { data: mats } = urls.length
       ? await client
           .from('materials')
-          .select('id, name, papercore, tags, file_path')
+          .select('id, name, papercore, tags, file_path, file_type')
           .in('file_path', urls)
           .limit(50)
       : { data: null };
@@ -243,6 +243,12 @@ async function mapFileContentsToMaterials(citations: Citation[]): Promise<void> 
       c.title = m.name || c.title;
       c.papercore = m.papercore || '';
       c.tags = m.tags || [];
+      // MD/TXT 无页码概念：映射后清掉 pageNumber（与纪要一致只给文字）
+      const isTextLike =
+        (m.file_type || '').includes('markdown') ||
+        (m.file_type || '').includes('text/plain') ||
+        /\.(md|txt)$/i.test(m.name || '');
+      if (isTextLike) c.pageNumber = null;
       seenMaterials.add(m.id);
     }
     for (let i = citations.length - 1; i >= 0; i--) {
@@ -303,7 +309,7 @@ async function extractCitations(
       const matCits = citations.filter((c) => c.type === 'material' && c.sourceId);
       const { data: mats } = await client
         .from('materials')
-        .select('id, extracted_text, name')
+        .select('id, extracted_text, name, file_type')
         .in('id', matCits.map((c) => c.sourceId))
         .limit(50);
       const q = String(context.message || '').slice(0, 500);
@@ -312,9 +318,14 @@ async function extractCitations(
         matCits.map(async (c) => {
           const m = (mats || []).find((x: any) => x.id === c.sourceId);
           if (!m || !m.extracted_text) return;
+          // MD/TXT 没有页码概念：与纪要一致只返回相应文字，不携带 pageNumber
+          const isTextLike =
+            (m.file_type || '').includes('markdown') ||
+            (m.file_type || '').includes('text/plain') ||
+            /\.(md|txt)$/i.test(m.name || '');
           const hit = await locatePassage(String(m.id), String(m.extracted_text), q);
           if (hit) {
-            c.pageNumber = hit.pageNumber;
+            c.pageNumber = isTextLike ? null : hit.pageNumber;
             c.snippet = cleanCitationSnippet(hit.text.slice(0, 300));
           }
         }),
