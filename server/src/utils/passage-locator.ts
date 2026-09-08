@@ -98,6 +98,15 @@ function getIndexCached(key: string, fileText: string): Promise<PassageIndex | n
   return p;
 }
 
+// 封面/简介块识别：位置（第 0 块）+ 内容信号双重判断。
+// 单看位置不可靠（笔记可能内容直开），封面块通常：标题开头 + 简介标志词
+function looksLikeCover(text: string): boolean {
+  const t = String(text || '').trim();
+  if (!t || t.length > 600) return false;
+  const signals = ['本资料根据', '教材整理', '课件', '来源：', '目录', '涵盖第', '学习资料', '整理'];
+  return /^#{1,3}\s/.test(t) && signals.some((s) => t.includes(s));
+}
+
 /**
  * 在单份文件的全文里定位与问题最相关的文段。
  * @returns 命中块（页码+文字+分数）；未过阈值返回 null
@@ -120,14 +129,21 @@ export async function locatePassage(
 
     let best = -1;
     let bestScore = -1;
-    for (let i = 0; i < idx.chunks.length; i++) {
-      const score = queryVec
-        ? cosineSimilarity(queryVec, idx.vecs[i] || [])
-        : bigramScore(query, idx.chunks[i].text);
-      if (score > bestScore) {
-        bestScore = score;
-        best = i;
+    // 第一轮跳过「封面块」（第 0 块且命中封面特征）；正文块全部
+    // 低于阈值时第二轮放开封面块兜底
+    const skipCover = (i: number) => i === 0 && looksLikeCover(idx.chunks[i].text);
+    for (let round = 0; round < 2; round++) {
+      for (let i = 0; i < idx.chunks.length; i++) {
+        if (round === 0 && skipCover(i)) continue;
+        const score = queryVec
+          ? cosineSimilarity(queryVec, idx.vecs[i] || [])
+          : bigramScore(query, idx.chunks[i].text);
+        if (score > bestScore) {
+          bestScore = score;
+          best = i;
+        }
       }
+      if (best >= 0 && bestScore >= MIN_SCORE) break;
     }
     if (best < 0 || bestScore < MIN_SCORE) return null;
     return {
