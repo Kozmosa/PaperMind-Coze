@@ -1784,7 +1784,9 @@ async function sendChatMessage(){
   }catch(e){}
   _currentTranscript.push({role:'user',content:userContent});
   try{
-    let endpoint=API+'/ai/chat';
+    // 智能导师一律走 /ai/tutor（含引用提取）；反思助手走 /ai/chat。
+    // /ai/chat 的 tutor 分支只输出正文不返回 citations——纯文字提问会丢引用
+    let endpoint=_currentAgent==='reflection_mind'?API+'/ai/chat':API+'/ai/tutor';
     let body={agent:_currentAgent,message:msg||'(请分析上传的文件)'};
     if(file){
       if(file.type.startsWith('image/')){
