@@ -35,6 +35,6 @@ for (let i = START - 1; i < total; i++) {
   console.log(`第${i + 1}页 → ${t ? t.length + ' 字' : '失败'}:`, JSON.stringify(t.slice(0, 50)));
   pages[i] = t || pages[i] || '';
 }
-const text = pages.map((p) => (p || '').trim()).filter(Boolean).join('\f');
+const text = pages.map((p: string) => (p || '').trim()).filter(Boolean).join('\f');
 const { error } = await supabase.from('materials').update({ extracted_text: text }).eq('id', m.id);
 console.log(error ? '❌ ' + error.message : `✅ ${NAME} 更新完成：${pages.filter((p: string) => p && p.trim()).length} 页 / ${text.length} 字`);
