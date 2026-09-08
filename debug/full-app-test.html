@@ -2012,20 +2012,22 @@ async function loadChatSession(sessionId,title){
         h+=`<div style="display:flex;justify-content:flex-end;margin-bottom:14px;"><div class="chat-msg-user">${esc(m.content||'')}</div></div>`;
       }else{
         lastBot=m;
-        h+=`<div class="chat-msg-row"><div class="avatar" style="width:34px;height:34px;background:var(--primary);font-size:16px;">🤖</div><div class="chat-msg-bot"><div style="line-height:1.7;">${simpleMarkdown(m.content||'')}</div>${Array.isArray(m.citations)&&m.citations.length?renderCitationCards(m.citations,_lastTutorAnswers.length):''}</div></div>`;
+        // 每条回答先入队再渲染：引用卡闭包引用各自独立的 storeIdx。
+        // 此前所有回答共用同一 storeIdx、只有最后一条被入队，
+        // 多轮会话里前面的引用卡点击后取到错误/空引用（无反应）
+        _lastTutorAnswers.push({
+          question:lastUser?lastUser.content:'（历史会话）',
+          answer:m.content||'',
+          citations:(m.citations||[]).map(c=>({...c})),
+        });
+        const aidx=_lastTutorAnswers.length-1;
+        h+=`<div class="chat-msg-row"><div class="avatar" style="width:34px;height:34px;background:var(--primary);font-size:16px;">🤖</div><div class="chat-msg-bot"><div style="line-height:1.7;">${simpleMarkdown(m.content||'')}</div>${Array.isArray(m.citations)&&m.citations.length?renderCitationCards(m.citations,aidx):''}</div></div>`;
       }
     });
     // 历史会话载入时同步重建转录，供「我明白了」总结
     _currentTranscript=list.map(m=>({role:m.role,content:m.content||''}));
-    // 历史会话的最近一条问答也可用「我明白了」记录（按钮固定在输入框上方，仅智能导师）
-    if(lastBot){
-      _lastTutorAnswers.push({
-        question:lastUser?lastUser.content:'（历史会话）',
-        answer:lastBot.content||'',
-        citations:(lastBot.citations||[]).map((c,i)=>({...c,storeIdx:_lastTutorAnswers.length,idx:i})),
-      });
-      updateUnderstoodBar();
-    }
+    // 最近一条问答可用「我明白了」记录（按钮固定在输入框上方，仅智能导师）
+    if(lastBot){ updateUnderstoodBar(); }
     msgs.innerHTML=h;
     msgs.scrollTop=msgs.scrollHeight;
   }catch(e){
