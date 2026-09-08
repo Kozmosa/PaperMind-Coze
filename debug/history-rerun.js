@@ -1,4 +1,4 @@
-// 历史会话问题重跑：用新检索管线重新提问，对比旧引用与新引用
+// 历史会话问题重跑：用新检索管线重新提问；加 --write 时重建会话消息写回数据库
 import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import * as path from 'path';
@@ -37,32 +37,45 @@ async function ask(message) {
   return { full, cits, ms: Date.now() - t0 };
 }
 
-(async () => {
-  const supabase = createClient(process.env.COZE_SUPABASE_URL, process.env.COZE_SUPABASE_SERVICE_ROLE_KEY);
-  const { data: sessions } = await supabase.from('chat_sessions').select('id,title').order('created_at', { ascending: true });
-  for (const s of sessions || []) {
-    const { data: msgs } = await supabase.from('chat_messages').select('role,content,citations').eq('session_id', s.id).order('created_at', { ascending: true });
-    const userMsgs = (msgs || []).filter((m) => m.role === 'user');
-    console.log('\n════════════════════════════════════════');
-    console.log('【会话】' + s.title + '（' + userMsgs.length + ' 问）');
-    for (const um of userMsgs) {
-      console.log('\n【重跑问题】' + um.content);
-      try {
-        const { full, cits, ms } = await ask(um.content);
-        console.log(`【耗时】${(ms / 1000).toFixed(0)}s 【回答】${full.length} 字`);
-        console.log(`【新引用】${cits.length} 条:`);
-        for (const c of cits) {
-          const page = c.pageNumber ? `第${c.pageNumber}页` : '无页';
-          console.log(`  - ${c.type.padEnd(11)} | ${(c.title || '').slice(0, 22).padEnd(24)} | ${page}`);
-        }
-      } catch (e) {
-        console.log('【失败】', e.message);
+const WRITE_BACK = process.argv.includes('--write');
+const supabase = createClient(process.env.COZE_SUPABASE_URL, process.env.COZE_SUPABASE_SERVICE_ROLE_KEY);
+const { data: sessions } = await supabase.from('chat_sessions').select('id,title').order('created_at', { ascending: true });
+for (const s of sessions || []) {
+  const { data: msgs } = await supabase.from('chat_messages').select('id,role,content,citations').eq('session_id', s.id).order('created_at', { ascending: true });
+  const userMsgs = (msgs || []).filter((m) => m.role === 'user');
+  console.log('\n════════════════════════════════════════');
+  console.log('【会话】' + s.title + '（' + userMsgs.length + ' 问）' + (WRITE_BACK ? ' [写回模式]' : ''));
+  const newMsgs = [];
+  for (const um of userMsgs) {
+    console.log('\n【重跑问题】' + um.content);
+    try {
+      const { full, cits, ms } = await ask(um.content);
+      console.log(`【耗时】${(ms / 1000).toFixed(0)}s 【回答】${full.length} 字 【新引用】${cits.length} 条:`);
+      for (const c of cits) {
+        const page = c.pageNumber ? `第${c.pageNumber}页` : '无页';
+        console.log(`  - ${c.type.padEnd(11)} | ${(c.title || '').slice(0, 22).padEnd(24)} | ${page}`);
       }
+      newMsgs.push({ role: 'user', content: um.content });
+      newMsgs.push({
+        role: 'assistant',
+        content: full,
+        citations: cits.map((c) => ({
+          type: c.type, sourceType: c.sourceType, title: c.title || c.fileName || '',
+          sourceId: c.sourceId, papercore: c.papercore || '', snippet: c.snippet || '',
+          tags: c.tags || [], pageNumber: c.pageNumber || null, fileName: c.fileName || '', draftId: c.draftId || null,
+        })),
+      });
+    } catch (e) {
+      console.log('【失败】', e.message);
     }
-    // 旧引用对比
-    const oldCits = (msgs || []).filter((m) => m.role === 'assistant' && m.citations && m.citations.length);
-    const oldCount = oldCits.reduce((n, m) => n + m.citations.length, 0);
-    console.log(`【旧引用总数】${oldCount} 条（${oldCits.length} 条回答）`);
   }
-  console.log('\n重跑完成');
-})();
+  if (WRITE_BACK && newMsgs.length > 0) {
+    const { error: delErr } = await supabase.from('chat_messages').delete().eq('session_id', s.id);
+    if (delErr) { console.log('【删除旧消息失败】', delErr.message); continue; }
+    const { error: insErr } = await supabase.from('chat_messages').insert(
+      newMsgs.map((m) => ({ session_id: s.id, role: m.role, content: m.content, citations: m.citations || [] })),
+    );
+    console.log(insErr ? '【写回失败】' + insErr.message : '【已写回】会话消息重建完成');
+  }
+}
+console.log('\n重跑完成');
