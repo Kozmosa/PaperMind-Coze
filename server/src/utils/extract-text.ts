@@ -67,7 +67,7 @@ const EXTRACT_CACHE_MAX = 200;
 const DISK_CACHE_DIR = path.join(process.cwd(), '.cache', 'extract');
 
 // 缓存版本：提取实现升级（如 PDF 改 mupdf 逐页）时 +1，旧缓存自动作废
-const EXTRACT_CACHE_VERSION = 'v2';
+const EXTRACT_CACHE_VERSION = 'v3';
 
 function diskCachePath(filePath: string, stat: { mtimeMs: number; size: number }): string {
   const key = crypto
@@ -287,7 +287,7 @@ async function extractPdfPerPage(filePath: string): Promise<ExtractedContent | n
 
 // 视觉 OCR 兜底（扫描件）：渲染前 N 页为图片交给视觉模型识别，逐页 \f 拼接
 // 走 OpenAI 兼容端点（DeepSeek 的 Anthropic 端点不转发图片块，实测 OpenAI 格式可用）
-async function extractPdfWithVision(filePath: string, maxPages = 5): Promise<ExtractedContent> {
+async function extractPdfWithVision(filePath: string, maxPages = 15): Promise<ExtractedContent> {
   if (!VISION_CONFIG.apiKey) return { text: '' };
   try {
     const mupdf = await import('mupdf');

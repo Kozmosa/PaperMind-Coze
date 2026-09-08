@@ -1897,6 +1897,11 @@ function openJumpSource(){
 async function jumpCitationAt(storeIdx, citIdx){
   const cit=_lastTutorAnswers[storeIdx]?.citations[citIdx];if(!cit)return;
   const ctype=cit.type;
+  // PPT/PDF/扫描件引用：直接打开原文件对应页（视觉页面，不是文字）
+  if(ctype==='material'&&cit.pageNumber){
+    viewMaterialFullscreen(cit.sourceId,cit.title||'资料',cit.pageNumber);
+    return;
+  }
   showAppModal('<div style="text-align:center;padding:24px;color:var(--text2);"><div class="spinner"></div><div style="margin-top:8px;font-size:12px;">加载引用内容...</div></div>');
   try{
     if(ctype==='study_note'){
