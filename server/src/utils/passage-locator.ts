@@ -52,9 +52,26 @@ function chunkPages(text: string): { pages: string[]; chunks: { page: number; te
       if (p.length >= 20) chunks.push({ page: pi + 1, text: p });
       continue;
     }
-    for (let s = 0; s < p.length && chunks.length < MAX_CHUNKS_PER_FILE; s += CHUNK_SIZE) {
-      const piece = p.slice(s, s + CHUNK_SIZE).trim();
+    let s = 0;
+    while (s < p.length && chunks.length < MAX_CHUNKS_PER_FILE) {
+      // 在目标长度附近找断点：优先换行（markdown 行边界），
+      // 其次句末标点——避免把词句拦腰截断、避免片段从表格/列表中间开始
+      const min = Math.floor(s + CHUNK_SIZE * 0.8);
+      const max = s + CHUNK_SIZE;
+      let cut = -1;
+      for (let i = max; i >= min; i--) {
+        if (p[i] === '\n') { cut = i + 1; break; }
+      }
+      if (cut < 0) {
+        for (let i = max; i >= min; i--) {
+          const ch = p[i];
+          if (ch === '。' || ch === '！' || ch === '？' || ch === '；' || ch === '．') { cut = i + 1; break; }
+        }
+      }
+      if (cut < 0) cut = max;
+      const piece = p.slice(s, cut).replace(/^[\s、，,。；;：:．]+/, '').trim();
       if (piece.length >= 20) chunks.push({ page: pi + 1, text: piece });
+      s = cut;
     }
   }
   return { pages, chunks };

@@ -1868,7 +1868,7 @@ function renderCitationCards(citations,storeIdx){
         <span style="font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">${esc(title)}</span>
         ${c.pageNumber?'<span style="background:#3B82F6;color:#FFF;font-size:10px;border-radius:8px;padding:1px 7px;flex-shrink:0;">第'+c.pageNumber+'页</span>':''}
       </div>
-      ${c.snippet?'<div style="margin-top:4px;font-size:11px;color:var(--text2);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">'+esc(c.snippet)+'</div>':''}
+      ${c.snippet?'<div style="margin-top:4px;font-size:11px;color:var(--text2);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">'+esc(c.snippet.replace(/\s*\|\s*/g,' · '))+'</div>':''}
     </div>`;
   });
   return h;
