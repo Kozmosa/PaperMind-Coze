@@ -5,6 +5,7 @@ import * as path from 'path';
 import { anthropic, DEFAULT_MODEL, NOTE_MODEL } from '../config/ai.js';
 import { getSupabaseClient } from '../storage/database/supabase-client.js';
 import { unifiedVectorIndex } from '../utils/unified-vector-index.js';
+import { locatePassage } from '../utils/passage-locator.js';
 import { extractText } from '../utils/extract-text.js';
 import {
   extractNotePreferences,
@@ -205,14 +206,6 @@ function cleanCitationSnippet(text?: string | null): string | undefined {
   return cleaned || undefined;
 }
 
-// 字符 bigram 集合（中文文本重合度打分用）
-function charBigrams(s: string): string[] {
-  const t = String(s || '').replace(/\s+/g, '');
-  const out: string[] = [];
-  for (let i = 0; i < t.length - 1; i++) out.push(t.slice(i, i + 2));
-  return out;
-}
-
 // file_content 命中映射回源材料：检索可用分页原文辅助命中（检索模式不变），
 // 但引用只返回原材料——MD/DOCX 显示相应文字（snippet=该页文本），
 // PPT/PDF/扫描件显示对应页（pageNumber 保留）；无源材料可映射时
@@ -294,9 +287,7 @@ async function extractCitations(
         snippet: cleanCitationSnippet(
           r.sourceType === 'file_content'
             ? r.papercore // already snipped in index
-            : r.sourceType === 'material'
-              ? (r.contentSnippet || r.papercore?.substring(0, 200))
-              : r.papercore?.substring(0, 200),
+            : r.papercore?.substring(0, 200),
         ),
         fileName: r.fileName,
         draftId: r.draftId,
@@ -305,8 +296,8 @@ async function extractCitations(
     }
   }
 
-  // 资料引用补页数：预处理阶段已按页存储（\f 分隔），按问题与逐页文本的
-  // 字符 bigram 重合度定位被引用页——点击引用直接落到该页内容
+  // Stage 2 文段定位：对命中的资料全文做文段级检索（\f 分页 + 500 字分块，
+  // 惰性嵌入缓存），返回精确页码 + 相关文段文字；MD 等单页文件同样受益
   if (context?.message && citations.some((c) => c.type === 'material' && c.sourceId)) {
     try {
       const matCits = citations.filter((c) => c.type === 'material' && c.sourceId);
@@ -316,31 +307,20 @@ async function extractCitations(
         .in('id', matCits.map((c) => c.sourceId))
         .limit(50);
       const q = String(context.message || '').slice(0, 500);
-      const qGrams = new Set(charBigrams(q));
-      for (const c of matCits) {
-        const m = (mats || []).find((x: any) => x.id === c.sourceId);
-        if (!m || !m.extracted_text) continue;
-        const pages = String(m.extracted_text)
-          .split('\f')
-          .map((p) => p.trim())
-          .filter(Boolean);
-        if (pages.length <= 1) continue;
-        let best = c.pageNumber ? c.pageNumber - 1 : -1;
-        let bestScore = best >= 0 ? 1 : -1;
-        pages.forEach((pg, i) => {
-          const overlap = [...new Set(charBigrams(pg.slice(0, 3000)))].filter((g) => qGrams.has(g)).length;
-          if (overlap > bestScore) {
-            bestScore = overlap;
-            best = i;
+      // 并行定位（用户方案：被命中文件的原文并行检索）
+      await Promise.all(
+        matCits.map(async (c) => {
+          const m = (mats || []).find((x: any) => x.id === c.sourceId);
+          if (!m || !m.extracted_text) return;
+          const hit = await locatePassage(String(m.id), String(m.extracted_text), q);
+          if (hit) {
+            c.pageNumber = hit.pageNumber;
+            c.snippet = cleanCitationSnippet(hit.text.slice(0, 300));
           }
-        });
-        if (best >= 0) {
-          c.pageNumber = best + 1;
-          c.snippet = cleanCitationSnippet(pages[best].slice(0, 300));
-        }
-      }
+        }),
+      );
     } catch (e: any) {
-      console.warn('[extractCitations] 页码定位失败:', e?.message);
+      console.warn('[extractCitations] 文段定位失败:', e?.message);
     }
   }
 

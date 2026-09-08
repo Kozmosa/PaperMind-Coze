@@ -36,9 +36,6 @@ interface IndexRecord {
   pageNumber?: number;
   draftId?: number;
   fileName?: string;
-  // material 记录的提取文本（视觉分析产物）：检索嵌入与引用片段使用
-  extractedText?: string;
-  contentSnippet?: string;
   vec: number[];
 }
 
@@ -119,7 +116,7 @@ class UnifiedVectorIndex {
         console.log('[UnifiedVectorIndex] Loading materials...');
         const { data: materials, error: mErr } = await client
           .from('materials')
-          .select('id, papercore, tags, name, extracted_text')
+          .select('id, papercore, tags, name')
           .eq('ai_processed', true)
           .not('papercore', 'is', null)
           .order('created_at', { ascending: false });
@@ -136,9 +133,6 @@ class UnifiedVectorIndex {
                 title: (row as any).name || `资料${(row as any).id}`,
                 papercore,
                 tags: (row as any).tags || [],
-                // 提取文本（扫描件视觉分析产物）进入索引：检索/引用片段用
-                extractedText: (row as any).extracted_text || '',
-                contentSnippet: ((row as any).extracted_text || '').replace(/\s+/g, ' ').slice(0, 200),
                 vec: [], // placeholder
               });
             }
@@ -148,55 +142,9 @@ class UnifiedVectorIndex {
           );
         }
 
-                // ── 4. Load file_contents (attached to drafts / uploaded files) ─
-        // 检索模式不变：原文页作为辅助独立参与命中；引用返回时
-        // 由 extractCitations 统一映射回源材料，不单独出引用卡
-        console.log('[UnifiedVectorIndex] Loading file_contents...');
-        const { data: fileContents, error: fcErr } = await client
-          .from('file_contents')
-          .select('id, draft_id, extracted_text, page_number')
-          .not('extracted_text', 'is', null)
-          .order('created_at', { ascending: false })
-          .limit(500); // cap for performance
-
-        if (fcErr) {
-          console.error('[UnifiedVectorIndex] file_contents fetch error:', fcErr);
-        } else if (fileContents) {
-          // Collect unique draft_ids to look up file names
-          const draftIds = [...new Set(fileContents.map((fc: any) => fc.draft_id).filter(Boolean))];
-          const draftMap: Record<number, string> = {};
-          if (draftIds.length > 0) {
-            const { data: drafts } = await client
-              .from('draft_pool')
-              .select('id, file_name')
-              .in('id', draftIds);
-            (drafts || []).forEach((d: any) => {
-              draftMap[d.id] = d.file_name || '';
-            });
-          }
-
-          for (const row of fileContents) {
-            const text = ((row as any).extracted_text || '').trim();
-            if (text.length < 20) continue; // skip tiny fragments
-            // Use first 300 chars as "papercore" for embedding
-            const snippet = text.substring(0, 300);
-            const fileName = draftMap[(row as any).draft_id] || '';
-            records.push({
-              sourceType: 'file_content',
-              sourceId: (row as any).id,
-              title: fileName ? `${fileName} P${(row as any).page_number || '?'}` : `文件片段`,
-              papercore: snippet,
-              tags: [], // file_contents have no tags of their own
-              pageNumber: (row as any).page_number || undefined,
-              draftId: (row as any).draft_id,
-              fileName: fileName || undefined,
-              vec: [], // placeholder
-            });
-          }
-          console.log(
-            `[UnifiedVectorIndex]   → ${records.filter((r) => r.sourceType === 'file_content').length} file_contents`,
-          );
-        }
+                // ── 4. file_contents 退出统一索引 ──
+        // 两阶段检索：Stage 1 只做文档层（tags+papercore），
+        // Stage 2 由 passage-locator 对命中文件的全文做文段级检索
 
 if (records.length === 0) {
           console.log('[UnifiedVectorIndex] No records found, index empty.');
@@ -205,14 +153,11 @@ if (records.length === 0) {
           return;
         }
 
-        // ── 5. Embed all papercores ──────────────────────────────
+        // ── 5. Embed docs: papercore + L1/L2/L3 标签名 ───────────
         console.log(`[UnifiedVectorIndex] Embedding ${records.length} records...`);
-        // material 记录把提取文本（视觉分析产物）前 1500 字并入嵌入，检索质量对齐真实内容
-        const texts = records.map((r: any) =>
-          r.sourceType === 'material' && r.extractedText
-            ? `${r.papercore}\n${r.extractedText.slice(0, 1500)}`
-            : r.papercore,
-        );
+        // 文档层嵌入 = 摘要 + 全部标签名（分类信号直接参与语义匹配）；
+        // 正文不再进文档层——文段级检索由 passage-locator（Stage 2）负责
+        const texts = records.map((r: any) => `${r.papercore}\n${(r.tags || []).join(' ')}`);
         const vectors = await embedBatch(texts);
 
         for (let i = 0; i < records.length; i++) {
