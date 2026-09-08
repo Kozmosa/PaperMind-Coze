@@ -42,7 +42,6 @@ interface IndexRecord {
 // ── Constants ──────────────────────────────────────────────────────
 
 const TAG_BOOST_FACTOR = 0.3; // max score boost from tag matching
-const TAG_BOOST_PER_MATCH = 0.1; // per matched tag boost
 
 // ── Index Class ────────────────────────────────────────────────────
 
@@ -242,10 +241,17 @@ if (records.length === 0) {
             const recordTags = item.record.tags;
             if (recordTags.length === 0) continue;
 
-            const overlapCount = recordTags.filter((t) => queryTags.has(t)).length;
-            if (overlapCount > 0) {
-              const boost = Math.min(overlapCount * TAG_BOOST_PER_MATCH, TAG_BOOST_FACTOR);
-              item.score = item.rawScore * (1 + boost);
+            // 层级加权：L1 学科（数学/计算机科学）几乎覆盖全部资料，
+            // 平权 +10% 等于无差别加分把无关资料抬过阈值——L3 匹配权重最高
+            let boost = 0;
+            recordTags.forEach((t, idx) => {
+              if (!queryTags.has(t)) return;
+              if (idx === 0) boost += 0.02; // L1：学科，弱信号
+              else if (idx === 1) boost += 0.05; // L2：领域，中信号
+              else boost += 0.1; // L3：章节/概念，强信号
+            });
+            if (boost > 0) {
+              item.score = item.rawScore * (1 + Math.min(boost, TAG_BOOST_FACTOR));
               boostedCount++;
             }
           }

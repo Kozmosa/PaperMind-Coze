@@ -415,7 +415,38 @@ async function extractCitations(
 
   await mapFileContentsToMaterials(citations);
 
-  return citations;
+  // 引用收敛到「回答真正用到的来源」：prompt 要求 AI 用 【来源：XXX】 标注，
+  // 解析标记并只保留被提及的来源（否则 top-10 全量返回，混入大量无关引用卡）。
+  // 无标记时兜底取前 5 条（按检索分数序）。
+  const mentions = [...answer.matchAll(/【来源[:：]\s*([^】\n]+)】/g)].map((m) => m[1].trim());
+  if (mentions.length > 0) {
+    const images = citations.filter((c) => c.type === 'image');
+    const matched = citations.filter((c) => {
+      if (c.type === 'image') return false;
+      const name = String(c.title || c.fileName || '').replace(/\s+/g, '');
+      return mentions.some((mm) => {
+        const m2 = mm.replace(/\s+/g, '');
+        return name.includes(m2) || m2.includes(name);
+      });
+    });
+    if (matched.length > 0) {
+      const deduped = [...images, ...matched];
+      const seen = new Set<string>();
+      const out: Citation[] = [];
+      for (const c of deduped) {
+        const key = `${c.type}_${c.sourceId}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push(c);
+      }
+      return out;
+    }
+  }
+
+  // 无【来源】标记：兜底只保留检索分数最高的前 5 条（避免无关卡片淹没正文）
+  const images = citations.filter((c) => c.type === 'image');
+  const top = citations.filter((c) => c.type !== 'image').slice(0, 5);
+  return [...images, ...top];
 }
 
 /**
