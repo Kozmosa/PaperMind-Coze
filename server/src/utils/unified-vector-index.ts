@@ -80,33 +80,10 @@ class UnifiedVectorIndex {
         const client = getSupabaseClient();
         const records: IndexRecord[] = [];
 
-        // ── 1. Load knowledge_nodes ───────────────────────────────
-        console.log('[UnifiedVectorIndex] Loading knowledge_nodes...');
-        const { data: kNodes, error: knErr } = await client
-          .from('knowledge_nodes')
-          .select('id, papercore, tags, short_name, attached_draft_ids')
-          .order('created_at', { ascending: false });
-
-        if (knErr) {
-          console.error('[UnifiedVectorIndex] knowledge_nodes fetch error:', knErr);
-        } else if (kNodes) {
-          for (const row of kNodes) {
-            const papercore = (row as any).papercore || '';
-            if (papercore.trim()) {
-              records.push({
-                sourceType: 'knowledge_node',
-                sourceId: (row as any).id,
-                title: (row as any).short_name || `节点${(row as any).id}`,
-                papercore,
-                tags: (row as any).tags || [],
-                vec: [], // placeholder, filled below
-              });
-            }
-          }
-          console.log(
-            `[UnifiedVectorIndex]   → ${records.filter((r) => r.sourceType === 'knowledge_node').length} knowledge_nodes`,
-          );
-        }
+        // ── 1. knowledge_nodes 已退出检索（用户设计演进：只剩 文件+L1/L2/L3）──
+        // 分类管线会为每份材料同步一条同名影子节点，检索命中会产生与资料
+        // 重复的「知识节点」引用卡；图谱显示层已排除，检索层同样跳过。
+        // （库中历史影子节点保留，反思助手仍读节点活动，如需彻底清退另议）
 
         // ── 2. Load study_notes (ai_processed=true, papercore non-empty) ─
         console.log('[UnifiedVectorIndex] Loading study_notes...');
