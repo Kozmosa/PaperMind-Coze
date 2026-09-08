@@ -106,12 +106,14 @@ async function buildIndex(fileText: string): Promise<PassageIndex | null> {
 }
 
 function getIndexCached(key: string, fileText: string): Promise<PassageIndex | null> {
-  let p = cache.get(key);
+  // 缓存键纳入文本指纹：extracted_text 补提取/更新后旧索引自动失效
+  const cacheKey = `${key}::${fileText.length}`;
+  let p = cache.get(cacheKey);
   if (!p) {
     p = buildIndex(fileText);
-    cache.set(key, p);
+    cache.set(cacheKey, p);
   }
-  touch(key);
+  touch(cacheKey);
   return p;
 }
 
