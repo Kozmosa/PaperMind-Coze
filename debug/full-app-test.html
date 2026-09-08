@@ -120,6 +120,10 @@
   .body-text mark, mark { background: #FFF3B8; border-radius: 3px; padding: 0 2px; color: inherit; }
   .body-text del, del { color: #9CA3AF; }
   .wiki-link { color: #8B5CF6; text-decoration: none; border-bottom: 1px dashed #C4B5FD; cursor: pointer; }
+  /* 回答正文里的【来源】可点击小圆片 */
+  .src-chip { display: inline-flex; align-items: center; gap: 4px; background: var(--pri-pale); color: var(--primary); border: none; border-radius: 9999px; padding: 2px 10px; font-size: 12px; font-weight: 600; cursor: pointer; margin: 0 2px; vertical-align: middle; font-family: inherit; line-height: 1.6; }
+  .src-chip:hover { background: #E4E1FF; }
+  .src-chip:active { transform: scale(0.96); }
   .task-item { list-style: none; }
   .task-box { margin-right: 6px; color: var(--text2); }
   .callout { border-radius: 8px; padding: 10px 12px; margin: 8px 0; background: #F3F4F6; border-left: 4px solid #9CA3AF; }
@@ -1815,13 +1819,14 @@ async function sendChatMessage(){
         try{const p=JSON.parse(data);if(p.content){full+=p.content;if(mdRenderGate()){const bot=document.getElementById(botId);if(bot&&bot.querySelector('.avatar').nextElementSibling)bot.querySelector('.avatar').nextElementSibling.innerHTML=`<div style="line-height:1.7;">${simpleMarkdown(full)}</div>`;msgs.scrollTop=msgs.scrollHeight;}}if(p.done&&Array.isArray(p.citations))citations=p.citations;}catch(e){}
       }
     }
-    // 流结束：渲染引用卡片（5 色）；「我明白了」按钮固定在输入框上方
+    // 流结束：终版渲染（【来源】标记→可点击小圆片）+ 引用卡片 + 「我明白了」按钮
     const bot=document.getElementById(botId);
     if(bot){
       const bubble=bot.querySelector('.avatar').nextElementSibling;
       if(bubble){
         _lastTutorAnswers.push({question:userContent,answer:full,citations});
         const aidx=_lastTutorAnswers.length-1;
+        bubble.innerHTML='<div style="line-height:1.7;">'+renderAnswerWithCitationChips(full,aidx)+'</div>';
         if(citations.length>0)bubble.innerHTML+=renderCitationCards(citations,aidx);
       }
       msgs.scrollTop=msgs.scrollHeight;
@@ -1950,6 +1955,31 @@ async function jumpCitationAt(storeIdx, citIdx){
   }
 }
 
+// 把回答正文中的【来源：XXX】标记渲染为可点击小圆片（点击弹出对应引用卡）
+function renderAnswerWithCitationChips(text, storeIdx){
+  const rec=_lastTutorAnswers[storeIdx];
+  const cits=rec?(rec.citations||[]):[];
+  const chips=[];
+  let t=String(text||'').replace(/【来源[:：]\s*([^】\n]+)】/g,(m,nameRaw)=>{
+    const name=nameRaw.trim().replace(/\s+/g,'');
+    const idx=cits.findIndex(c=>{
+      const n=String(c.title||c.fileName||'').replace(/\s+/g,'');
+      return n.includes(name)||name.includes(n);
+    });
+    if(idx<0)return m;
+    const ph=`%%SRCCHIP_${chips.length}%%`;
+    chips.push({ph,idx});
+    return ph;
+  });
+  let html=simpleMarkdown(t);
+  chips.forEach(ch=>{
+    const c=cits[ch.idx];
+    const nm=c?(c.title||c.fileName||'来源'):'来源';
+    html=html.split(ch.ph).join(`<button class="src-chip" onclick="event.stopPropagation();jumpCitationAt(${storeIdx},${ch.idx})" title="查看引用来源">📄 ${esc(nm)}</button>`);
+  });
+  return html;
+}
+
 // 「我明白了」：完整对话交给 tutor 做结构化总结，同一会话覆盖更新（不照搬原文）
 async function markUnderstood(btn){
   if(!_chatSessionId){appToast('会话尚未建立，请先提问','error');return;}
@@ -2021,7 +2051,7 @@ async function loadChatSession(sessionId,title){
           citations:(m.citations||[]).map(c=>({...c})),
         });
         const aidx=_lastTutorAnswers.length-1;
-        h+=`<div class="chat-msg-row"><div class="avatar" style="width:34px;height:34px;background:var(--primary);font-size:16px;">🤖</div><div class="chat-msg-bot"><div style="line-height:1.7;">${simpleMarkdown(m.content||'')}</div>${Array.isArray(m.citations)&&m.citations.length?renderCitationCards(m.citations,aidx):''}</div></div>`;
+        h+=`<div class="chat-msg-row"><div class="avatar" style="width:34px;height:34px;background:var(--primary);font-size:16px;">🤖</div><div class="chat-msg-bot"><div style="line-height:1.7;">${renderAnswerWithCitationChips(m.content||'',aidx)}</div>${Array.isArray(m.citations)&&m.citations.length?renderCitationCards(m.citations,aidx):''}</div></div>`;
       }
     });
     // 历史会话载入时同步重建转录，供「我明白了」总结
