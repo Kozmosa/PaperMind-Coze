@@ -324,7 +324,9 @@ async function extractCitations(
           const hit = await locatePassage(String(m.id), String(m.extracted_text), q);
           if (hit) {
             c.pageNumber = hasPages ? hit.pageNumber : null;
-            c.snippet = cleanCitationSnippet(hit.text.slice(0, 300));
+            // 保留换行原样：弹窗按 markdown 渲染需要段落结构；
+            // cleanCitationSnippet 会把 \n 压成空格，整段塌成一个巨型 h1
+            c.snippet = hit.text.slice(0, 300);
           }
         }),
       );
