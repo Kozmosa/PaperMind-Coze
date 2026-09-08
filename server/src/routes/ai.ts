@@ -223,7 +223,7 @@ async function mapFileContentsToMaterials(citations: Citation[]): Promise<void> 
     const { data: mats } = urls.length
       ? await client
           .from('materials')
-          .select('id, name, papercore, tags, file_path, file_type')
+          .select('id, name, papercore, tags, file_path, file_type, extracted_text')
           .in('file_path', urls)
           .limit(50)
       : { data: null };
@@ -243,12 +243,11 @@ async function mapFileContentsToMaterials(citations: Citation[]): Promise<void> 
       c.title = m.name || c.title;
       c.papercore = m.papercore || '';
       c.tags = m.tags || [];
-      // MD/TXT 无页码概念：映射后清掉 pageNumber（与纪要一致只给文字）
-      const isTextLike =
-        (m.file_type || '').includes('markdown') ||
-        (m.file_type || '').includes('text/plain') ||
-        /\.(md|txt)$/i.test(m.name || '');
-      if (isTextLike) c.pageNumber = null;
+      // MD/TXT 无页码概念：映射后清掉 pageNumber（与纪要一致只给文字）。
+      // 数据驱动判断：提取文本含 \f 分页符 = 有多页概念（PPT/PDF/扫描件）；
+      // 种子数据 file_type 可能错标 text/plain，不可依赖
+      const hasPages = String(m.extracted_text || '').includes('\f');
+      if (!hasPages) c.pageNumber = null;
       seenMaterials.add(m.id);
     }
     for (let i = citations.length - 1; i >= 0; i--) {
@@ -318,14 +317,13 @@ async function extractCitations(
         matCits.map(async (c) => {
           const m = (mats || []).find((x: any) => x.id === c.sourceId);
           if (!m || !m.extracted_text) return;
-          // MD/TXT 没有页码概念：与纪要一致只返回相应文字，不携带 pageNumber
-          const isTextLike =
-            (m.file_type || '').includes('markdown') ||
-            (m.file_type || '').includes('text/plain') ||
-            /\.(md|txt)$/i.test(m.name || '');
+          // MD/TXT 没有页码概念：与纪要一致只返回相应文字，不携带 pageNumber。
+          // 数据驱动判断：提取文本含 \f 分页符 = 有多页概念（PPT/PDF/扫描件）；
+          // 种子数据 file_type 可能错标 text/plain，不可依赖
+          const hasPages = String(m.extracted_text).includes('\f');
           const hit = await locatePassage(String(m.id), String(m.extracted_text), q);
           if (hit) {
-            c.pageNumber = isTextLike ? null : hit.pageNumber;
+            c.pageNumber = hasPages ? hit.pageNumber : null;
             c.snippet = cleanCitationSnippet(hit.text.slice(0, 300));
           }
         }),
