@@ -31,6 +31,10 @@ services:
         sync: false
       - key: ANTHROPIC_API_KEY
         sync: false
+      # 笔记生成用的模型。代码默认值是 deepseek-chat，在非 DeepSeek 网关上会
+      # 报「模型不存在」，必须显式指定为网关上真实存在的模型
+      - key: NOTE_MODEL
+        value: glm-5.3-flash
 
       # Embedding 走 API（SiliconFlow BAAI/bge-m3），不再在进程内跑 ONNX：
       # 免去模型下载与原生依赖，且不会阻塞事件循环
