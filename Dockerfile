@@ -29,9 +29,8 @@ FROM node:22-bookworm-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 
-# libgomp1：onnxruntime-node（嵌入模型运行时）必需，slim 镜像不自带，缺了会在首次
-# 调用嵌入时报 "libgomp.so.1: cannot open shared object file"
-# ca-certificates：嵌入模型走 HTTPS 从 hf-mirror 下载
+# ca-certificates：调用外部 API（Embedding / AI 网关）走 HTTPS
+# libgomp1：mupdf 等剩余原生模块的 OpenMP 依赖兜底（原为 onnxruntime 所需）
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates libgomp1 \
   && rm -rf /var/lib/apt/lists/*

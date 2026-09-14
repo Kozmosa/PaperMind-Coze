@@ -1,4 +1,4 @@
-import { embed, embedBatch, findTopK } from './embedding.js';
+import { embedBatch, findTopK } from './embedding.js';
 import { getSupabaseClient } from '../storage/database/supabase-client.js';
 
 interface TagEntry {
@@ -23,25 +23,21 @@ class TagVectorStore {
   async buildFromHierarchy(hierarchy: { L1: string[]; L2: string[]; L3: string[] }) {
     this.tags = [];
 
-    // Index L1 tags
-    for (const name of hierarchy.L1) {
-      if (!name) continue;
-      const vec = await embed(name);
-      this.tags.push({ id: `L1_${name}`, name, level: 'L1', vec });
+    // 三个层级的标签合并成一次批量请求（逐条 embed 在 API 模式下会产生
+    // 每条一次 HTTP 往返，标签多时非常慢）
+    const pending: { id: string; name: string; level: 'L1' | 'L2' | 'L3' }[] = [];
+    for (const level of ['L1', 'L2', 'L3'] as const) {
+      for (const name of hierarchy[level]) {
+        if (!name) continue;
+        pending.push({ id: `${level}_${name}`, name, level });
+      }
     }
 
-    // Index L2 tags
-    for (const name of hierarchy.L2) {
-      if (!name) continue;
-      const vec = await embed(name);
-      this.tags.push({ id: `L2_${name}`, name, level: 'L2', vec });
-    }
-
-    // Index L3 tags
-    for (const name of hierarchy.L3) {
-      if (!name) continue;
-      const vec = await embed(name);
-      this.tags.push({ id: `L3_${name}`, name, level: 'L3', vec });
+    if (pending.length > 0) {
+      const vecs = await embedBatch(pending.map((p) => p.name));
+      pending.forEach((p, i) => {
+        this.tags.push({ ...p, vec: vecs[i] });
+      });
     }
 
     this.initialized = true;
@@ -123,13 +119,20 @@ class TagVectorStore {
     }
   }
   async addTags(tags: { name: string; level: 'L1' | 'L2' | 'L3' }[]) {
-    for (const tag of tags) {
-      if (!tag.name) continue;
-      // Skip if already exists
-      if (this.tags.some((t) => t.id === `${tag.level}_${tag.name}`)) continue;
-      const vec = await embed(tag.name);
-      this.tags.push({ id: `${tag.level}_${tag.name}`, name: tag.name, level: tag.level, vec });
-    }
+    const fresh = tags
+      .filter((tag) => tag.name)
+      .filter((tag) => !this.tags.some((t) => t.id === `${tag.level}_${tag.name}`));
+    if (fresh.length === 0) return;
+
+    const vecs = await embedBatch(fresh.map((t) => t.name));
+    fresh.forEach((tag, i) => {
+      this.tags.push({
+        id: `${tag.level}_${tag.name}`,
+        name: tag.name,
+        level: tag.level,
+        vec: vecs[i],
+      });
+    });
   }
 
   /**

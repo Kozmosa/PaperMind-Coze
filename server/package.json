@@ -11,7 +11,6 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
-    "@huggingface/transformers": "^4.2.0",
     "@napi-rs/canvas": "^1.0.8",
     "@supabase/supabase-js": "2.95.3",
     "@types/pdf-parse": "^1.1.5",

@@ -31,6 +31,15 @@ services:
         sync: false
       - key: ANTHROPIC_API_KEY
         sync: false
+
+      # Embedding 走 API（SiliconFlow BAAI/bge-m3），不再在进程内跑 ONNX：
+      # 免去模型下载与原生依赖，且不会阻塞事件循环
+      - key: EMBEDDING_API_BASE
+        value: https://api.siliconflow.cn/v1
+      - key: EMBEDDING_MODEL
+        value: BAAI/bge-m3
+      - key: EMBEDDING_API_KEY
+        sync: false
       - key: COZE_SUPABASE_URL
         sync: false
       - key: COZE_SUPABASE_ANON_KEY
