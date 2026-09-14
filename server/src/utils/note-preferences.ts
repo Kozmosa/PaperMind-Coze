@@ -50,7 +50,7 @@ export async function extractNotePreferences(
   try {
     const msg = await anthropic.messages.create({
       model: DEFAULT_MODEL,
-      max_tokens: 512,
+      max_tokens: 8192,
       system: `你是笔记偏好分析助手。用户正在修正一份 AI 生成的学习笔记，请从修正指令中提取用户的笔记风格偏好，并判断偏好所属的学科。
 
 可选偏好键（只输出用户明确表达或强烈暗示的）：

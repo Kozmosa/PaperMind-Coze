@@ -65,7 +65,7 @@ router.post('/chat', async (req: Request, res: Response) => {
 
     const stream = anthropic.messages.stream({
       model: DEFAULT_MODEL,
-      max_tokens: 4096,
+      max_tokens: 8192,
       system: systemPrompt,
       messages: [{ role: 'user', content: message }],
     });
@@ -136,7 +136,7 @@ router.post('/tutor', async (req: Request, res: Response) => {
 
     const stream = anthropic.messages.stream({
       model: DEFAULT_MODEL,
-      max_tokens: 4096,
+      max_tokens: 8192,
       system: systemPrompt,
       messages,
     });
@@ -406,7 +406,7 @@ TAGS: <标签列表>`;
 
     const stream = anthropic.messages.stream({
       model: DEFAULT_MODEL,
-      max_tokens: 4096,
+      max_tokens: 8192,
       system: systemPrompt,
       messages,
     });
@@ -485,7 +485,7 @@ router.post('/suggest', async (req: Request, res: Response) => {
 
     const stream = anthropic.messages.stream({
       model: DEFAULT_MODEL,
-      max_tokens: 4096,
+      max_tokens: 8192,
       system: systemPrompt,
       messages: [{ role: 'user', content: userContent }],
     });
@@ -555,7 +555,7 @@ ${candidates}
 
     const msg = await anthropic.messages.create({
       model: DEFAULT_MODEL,
-      max_tokens: 2048,
+      max_tokens: 8192,
       system: systemPrompt,
       messages: [{ role: 'user', content: '请分析并返回 JSON 数组。' }],
     });
@@ -1150,7 +1150,7 @@ router.post('/generate-reflection', async (req: Request, res: Response) => {
 
     const stream = anthropic.messages.stream({
       model: DEFAULT_MODEL,
-      max_tokens: 4096,
+      max_tokens: 8192,
       system: systemPrompt,
       messages: [
         {
@@ -1251,7 +1251,7 @@ router.post('/note-helper', async (req: Request, res: Response) => {
 
     const stream = anthropic.messages.stream({
       model: DEFAULT_MODEL,
-      max_tokens: 4096,
+      max_tokens: 8192,
       system: systemPrompt,
       messages: [{ role: 'user', content: '请为这个知识节点生成一份结构化的学习笔记。' }],
     });
@@ -1448,7 +1448,7 @@ ${sourcesText}
 
     const stream = anthropic.messages.stream({
       model: DEFAULT_MODEL,
-      max_tokens: 8192,
+      max_tokens: 16384,
       system: systemPrompt,
       messages: [{ role: 'user', content: '请根据以上所有来源资料，生成一份综合学习笔记。' }],
     });
@@ -1622,7 +1622,7 @@ ${sourcesContext}
 
     const stream = anthropic.messages.stream({
       model: DEFAULT_MODEL,
-      max_tokens: 8192,
+      max_tokens: 16384,
       system: systemPrompt,
       messages: [{ role: 'user', content: `当前笔记：\n\n${currentNote}\n\n请按修正指令修改。` }],
     });

@@ -32,9 +32,7 @@ export function isReadableText(text: string): boolean {
   }
 
   // Count overall readable characters (CJK, ASCII letters, digits, common punctuation)
-  const readable = text.match(
-    /[一-鿿　-〿＀-￯a-zA-Z0-9\s.,;:!?()[\]\]{}\-+=_"'<>/\\@#$%^&*]/g,
-  );
+  const readable = text.match(/[一-鿿　-〿＀-￯a-zA-Z0-9\s.,;:!?()[\]\]{}\-+=_"'<>/\\@#$%^&*]/g);
   if (!readable) return false;
   return readable.length / text.length > 0.15;
 }
@@ -202,7 +200,7 @@ async function extractPdfWithVision(filePath: string, maxPages = 5): Promise<Ext
         },
         body: JSON.stringify({
           model: VISION_CONFIG.model,
-          max_tokens: 2048,
+          max_tokens: 8192,
           messages: [
             {
               role: 'user',

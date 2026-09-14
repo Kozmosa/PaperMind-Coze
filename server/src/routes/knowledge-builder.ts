@@ -57,7 +57,7 @@ ${course.L2}下已有L3标签：${existingL3s.join(', ') || '(尚无)'}
 输出JSON（不要markdown代码块）：{"topic":"简要话题描述（50字以内）","l3s":["大类标签1"]}`;
     // thinking 型模型的思考块会消耗输出预算：无正文时升档重试（同全局定位的修复）
     let c = '';
-    for (const budget of [4096, 16384]) {
+    for (const budget of [8192, 32768]) {
       const resp = await anthropic.messages.create({
         model: DEFAULT_MODEL,
         max_tokens: budget,
@@ -371,7 +371,7 @@ async function generatePapercore(
   try {
     // thinking 型模型思考块会耗尽输出预算：无正文时升档重试（同全局定位的修复）
     let content = '';
-    for (const budget of [4096, 16384]) {
+    for (const budget of [8192, 32768]) {
       const response = await anthropic.messages.create({
         model: DEFAULT_MODEL,
         max_tokens: budget,
@@ -529,7 +529,7 @@ ${papercore.slice(0, 800)}
   try {
     // thinking 型模型的思考块会消耗输出预算：无正文时升档重试一次，避免分类静默失败
     let c = '';
-    for (const budget of [4096, 16384]) {
+    for (const budget of [8192, 32768]) {
       const resp = await anthropic.messages.create({
         model: DEFAULT_MODEL,
         max_tokens: budget,
@@ -629,7 +629,7 @@ ${papercore.slice(0, 600)}
     try {
       const resp = await anthropic.messages.create({
         model: DEFAULT_MODEL,
-        max_tokens: 4096,
+        max_tokens: 8192,
         temperature: 0.3,
         messages: [{ role: 'user', content: l3Prompt }],
       });
@@ -2300,7 +2300,7 @@ ${l2Summaries}
     try {
       const response = await anthropic.messages.create({
         model: DEFAULT_MODEL,
-        max_tokens: 1024,
+        max_tokens: 8192,
         temperature: 0.1,
         messages: [{ role: 'user', content: prompt }],
       });
@@ -2593,7 +2593,7 @@ ${papercore.slice(0, 600)}
       try {
         const resp2 = await anthropic.messages.create({
           model: DEFAULT_MODEL,
-          max_tokens: 1024,
+          max_tokens: 8192,
           temperature: 0.2,
           messages: [{ role: 'user', content: reassignPrompt }],
         });
@@ -2692,7 +2692,7 @@ ${course.L2}下已有L3标签：${existingL3s.join(', ') || '(尚无)'}
       try {
         const resp = await anthropic.messages.create({
           model: DEFAULT_MODEL,
-          max_tokens: 2048,
+          max_tokens: 8192,
           temperature: 0.3,
           messages: [{ role: 'user', content: coursePrompt }],
         });
@@ -2771,7 +2771,7 @@ ${courseL3s.join('\n')}
       try {
         const resp = await anthropic.messages.create({
           model: DEFAULT_MODEL,
-          max_tokens: 1024,
+          max_tokens: 8192,
           temperature: 0.2,
           messages: [{ role: 'user', content: l3ConsolidatePrompt }],
         });
