@@ -16,6 +16,7 @@ import RNSSE from 'react-native-sse';
 import { Ionicons } from '@expo/vector-icons';
 import { useCSSVariable } from 'uniwind';
 import { noWebResize } from '@/utils';
+import { BACKEND_BASE_URL } from '@/utils/backend';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -74,7 +75,7 @@ export default function AIChatScreen() {
       } catch {}
     }
 
-    const url = `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/ai/chat`;
+    const url = `${BACKEND_BASE_URL}/api/v1/ai/chat`;
 
     const es = new RNSSE(url, {
       method: 'POST',
@@ -138,7 +139,7 @@ export default function AIChatScreen() {
       { role: 'assistant', content: '' },
     ]);
 
-    const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
+    const BASE_URL = BACKEND_BASE_URL;
     const es = new RNSSE(`${BASE_URL}/api/v1/ai/generate-reflection`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

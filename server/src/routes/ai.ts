@@ -3,6 +3,7 @@ import type { Request, Response } from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
 import { anthropic, DEFAULT_MODEL } from '../config/ai.js';
+import { UPLOAD_DIR } from '../config/paths.js';
 import { getSupabaseClient } from '../storage/database/supabase-client.js';
 import { unifiedVectorIndex } from '../utils/unified-vector-index.js';
 import { extractText } from '../utils/extract-text.js';
@@ -1276,7 +1277,7 @@ router.post('/note-helper', async (req: Request, res: Response) => {
  */
 async function findPageForSnippet(material: any, snippet: string): Promise<number | null> {
   try {
-    const uploadsDir = path.join(process.cwd(), 'uploads');
+    const uploadsDir = UPLOAD_DIR;
     const storedPath = material?.file_path || material?.file_url;
     let filePath: string | null = null;
     if (storedPath) {

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { Request, Response } from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
+import { UPLOAD_DIR } from '../config/paths.js';
 import { getSupabaseClient } from '../storage/database/supabase-client.js';
 import { anthropic, DEFAULT_MODEL } from '../config/ai.js';
 import { scheduleIndexRebuild } from '../utils/index-refresh.js';
@@ -841,7 +842,7 @@ async function syncKnowledgeNodeForMaterial(
 // Helper: Read material file content from disk (for uploaded materials)
 async function readMaterialFileFromDisk(material: any): Promise<string> {
   try {
-    const uploadsDir = path.join(process.cwd(), 'uploads');
+    const uploadsDir = UPLOAD_DIR;
     const testDataDir = path.resolve(process.cwd(), '..', 'test_data', '学习资料');
     let filePath: string | null = null;
 
@@ -962,7 +963,12 @@ export async function handleProcessContent(req: Request, res: Response) {
           .eq('id', id)
           .eq('user_id', userId);
         if (table === 'materials')
-          await syncKnowledgeNodeForMaterial(userId, record, [L1, L2, ...l3s].filter(Boolean), coursePapercore);
+          await syncKnowledgeNodeForMaterial(
+            userId,
+            record,
+            [L1, L2, ...l3s].filter(Boolean),
+            coursePapercore,
+          );
         scheduleIndexRebuild();
         return res.json({
           data: {
@@ -1056,7 +1062,12 @@ export async function handleProcessContent(req: Request, res: Response) {
           .eq('id', id)
           .eq('user_id', userId);
         if (table === 'materials')
-          await syncKnowledgeNodeForMaterial(userId, record, [L1, L2, ...l3s].filter(Boolean), coursePapercore);
+          await syncKnowledgeNodeForMaterial(
+            userId,
+            record,
+            [L1, L2, ...l3s].filter(Boolean),
+            coursePapercore,
+          );
         scheduleIndexRebuild();
         return res.json({
           data: {
@@ -1231,7 +1242,7 @@ router.post('/reprocess-material', async (req: Request, res: Response) => {
 
     // 2. Find file on disk
     let filePath: string | null = null;
-    const uploadsDir = path.join(process.cwd(), 'uploads');
+    const uploadsDir = UPLOAD_DIR;
     const testDataDir = path.resolve(process.cwd(), '..', 'test_data', '学习资料');
 
     const storedPath = material.file_path || material.file_url;

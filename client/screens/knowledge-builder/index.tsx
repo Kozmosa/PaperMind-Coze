@@ -28,6 +28,7 @@ import { Feather } from '@expo/vector-icons';
 import { Screen } from '@/components/layout/Screen';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { api } from '@/utils/api';
+import { BACKEND_BASE_URL } from '@/utils/backend';
 import { noWebResize } from '@/utils';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
@@ -142,7 +143,7 @@ export default function KnowledgeBuilderScreen() {
     streamBufferRef.current = '';
 
     const xhr = new XMLHttpRequest();
-    const url = `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091'}/api/v1/ai/knowledge-builder`;
+    const url = `${BACKEND_BASE_URL}/api/v1/ai/knowledge-builder`;
 
     xhr.open('POST', url);
     xhr.setRequestHeader('Content-Type', 'application/json');

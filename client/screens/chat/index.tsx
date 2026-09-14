@@ -16,6 +16,7 @@ import { Feather } from '@expo/vector-icons';
 import { Screen } from '@/components/layout/Screen';
 import MarkdownRenderer from '@/components/markdown/MarkdownRenderer';
 import { api } from '@/utils/api';
+import { BACKEND_BASE_URL } from '@/utils/backend';
 import Toast from 'react-native-toast-message';
 import { noWebResize } from '@/utils';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
@@ -221,8 +222,8 @@ export default function ChatScreen() {
       // 流式请求 - tutor 使用专用端点返回 citations
       const apiEndpoint =
         selectedAgent === 'tutor'
-          ? `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/ai/tutor`
-          : `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/ai/chat`;
+          ? `${BACKEND_BASE_URL}/api/v1/ai/tutor`
+          : `${BACKEND_BASE_URL}/api/v1/ai/chat`;
 
       await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
@@ -1095,7 +1096,11 @@ export default function ChatScreen() {
               onPress={() => {
                 setShowUploadModal(false);
                 if (knowledgeNodes.length === 0) {
-                  Toast.show({ type: 'info', text1: '提示', text2: '暂无知识节点，请先在知识库中创建节点' });
+                  Toast.show({
+                    type: 'info',
+                    text1: '提示',
+                    text2: '暂无知识节点，请先在知识库中创建节点',
+                  });
                   return;
                 }
                 Alert.alert(

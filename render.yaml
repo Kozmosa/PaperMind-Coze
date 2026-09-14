@@ -1,0 +1,53 @@
+# Render Blueprint —— PaperMind
+# 单个 Web Service：Express 后端 + Expo Web 静态产物同进程托管，对外只有一个域名。
+# 部署：https://dashboard.render.com/blueprint/new?repo=https://github.com/Kozmosa/PaperMind-Coze
+services:
+  - type: web
+    name: papermind
+    repo: https://github.com/Kozmosa/PaperMind-Coze
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    # 免费档 15 分钟无流量会休眠，冷启动叠加嵌入模型加载会让评委等很久，故用 starter
+    plan: starter
+    # 新加坡离国内最近
+    region: singapore
+    branch: main
+    autoDeployTrigger: commit
+    healthCheckPath: /api/v1/health
+    # 上传资料与嵌入模型缓存都落在挂载卷上，否则每次重启全丢
+    disk:
+      name: papermind-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: UPLOAD_DIR
+        value: /var/data/uploads
+      - key: HF_CACHE_DIR
+        value: /var/data/huggingface
+      # 该路由会把整个仓库目录（含密钥文件）暴露到公网，生产必须关闭
+      - key: SERVE_PROJECT_FILES
+        value: "false"
+
+      # ---- 以下为密钥，在 Blueprint 创建向导里填写 ----
+      - key: ANTHROPIC_BASE_URL
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: COZE_SUPABASE_URL
+        sync: false
+      - key: COZE_SUPABASE_ANON_KEY
+        sync: false
+      - key: COZE_SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      # 后端通过 /api/v1/config 下发给浏览器（anon key 本就是要公开的值）
+      - key: EXPO_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: EXPO_PUBLIC_SUPABASE_ANON_KEY
+        sync: false

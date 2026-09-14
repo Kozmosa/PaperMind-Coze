@@ -3,6 +3,7 @@ import type { Request, Response } from 'express';
 import multer from 'multer';
 import * as path from 'path';
 import * as fs from 'fs';
+import { UPLOAD_DIR } from '../config/paths.js';
 import { getSupabaseClient } from '../storage/database/supabase-client.js';
 import { extractText } from '../utils/extract-text.js';
 
@@ -18,7 +19,6 @@ function decodeOriginalName(name: string): string {
   return name;
 }
 
-const UPLOAD_DIR = path.join(process.cwd(), 'uploads');
 if (!fs.existsSync(UPLOAD_DIR)) {
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 }

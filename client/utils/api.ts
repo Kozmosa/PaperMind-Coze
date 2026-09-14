@@ -1,7 +1,8 @@
 import { createFormDataFile } from './index';
+import { BACKEND_BASE_URL } from './backend';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
+const BASE_URL = BACKEND_BASE_URL;
 const SESSION_KEY = '@papermind_session';
 
 async function getSessionToken(): Promise<string | null> {
@@ -356,7 +357,8 @@ export const api = {
     }),
 
   // Get combined recent records (study_notes + materials)
-  getRecentRecords: (limit?: number) => request<any[]>(`/control-center/recent-records${limit ? `?limit=${limit}` : ''}`),
+  getRecentRecords: (limit?: number) =>
+    request<any[]>(`/control-center/recent-records${limit ? `?limit=${limit}` : ''}`),
 
   // Note Helper — SSE 流式生成笔记
   generateNoteStream: (

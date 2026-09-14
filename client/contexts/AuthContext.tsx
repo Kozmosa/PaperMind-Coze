@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { BACKEND_BASE_URL } from '@/utils/backend';
 
 interface UserOut {
   id: string;
@@ -25,17 +26,39 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const SESSION_KEY = '@papermind_session';
 
-function getSupabaseConfig() {
-  const config = {
-    url: process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
+type SupabaseConfig = { url: string; anonKey: string };
+
+/**
+ * Supabase 公开配置：优先取构建期注入的 EXPO_PUBLIC_*（本地开发），
+ * 未注入时向后端 /api/v1/config 索取（部署环境），结果缓存复用。
+ */
+async function loadSupabaseConfig(): Promise<SupabaseConfig> {
+  const fromEnv = {
+    url: process.env.EXPO_PUBLIC_SUPABASE_URL || '',
     anonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '',
   };
-  return config;
+  if (fromEnv.url && fromEnv.anonKey) return fromEnv;
+
+  try {
+    const res = await fetch(`${BACKEND_BASE_URL}/api/v1/config`);
+    if (!res.ok) return { url: '', anonKey: '' };
+    const body = await res.json();
+    return { url: body?.supabaseUrl || '', anonKey: body?.supabaseAnonKey || '' };
+  } catch {
+    return { url: '', anonKey: '' };
+  }
 }
 
-function createSupabaseClient(): SupabaseClient | null {
-  const { url, anonKey } = getSupabaseConfig();
-  if (!url || !anonKey || url === 'https://placeholder.supabase.co') {
+let supabaseConfigPromise: Promise<SupabaseConfig> | null = null;
+
+function getSupabaseConfig(): Promise<SupabaseConfig> {
+  if (!supabaseConfigPromise) supabaseConfigPromise = loadSupabaseConfig();
+  return supabaseConfigPromise;
+}
+
+async function createSupabaseClient(): Promise<SupabaseClient | null> {
+  const { url, anonKey } = await getSupabaseConfig();
+  if (!url || !anonKey) {
     return null;
   }
   return createClient(url, anonKey);
@@ -66,7 +89,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     password: string,
   ): Promise<{ success: boolean; error?: string }> => {
     try {
-      const supabase = createSupabaseClient();
+      const supabase = await createSupabaseClient();
       if (!supabase) {
         // Fallback: 使用临时用户
         const tempUser = { id: `temp_${Date.now()}`, email };
@@ -103,7 +126,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     password: string,
   ): Promise<{ success: boolean; error?: string }> => {
     try {
-      const supabase = createSupabaseClient();
+      const supabase = await createSupabaseClient();
       if (!supabase) {
         return { success: false, error: '认证服务未配置' };
       }
@@ -119,7 +142,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const logout = async () => {
     try {
-      const supabase = createSupabaseClient();
+      const supabase = await createSupabaseClient();
       if (supabase) {
         await supabase.auth.signOut();
       }

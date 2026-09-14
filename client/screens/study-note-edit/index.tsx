@@ -19,6 +19,7 @@ import { useCSSVariable } from 'uniwind';
 import { Screen } from '@/components/layout/Screen';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { api } from '@/utils/api';
+import { BACKEND_BASE_URL } from '@/utils/backend';
 import { noWebResize } from '@/utils';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
@@ -291,14 +292,11 @@ export default function StudyNoteEditScreen() {
         const cr = await api.createStudyNote(payload);
         const newId = cr?.data?.id;
         if (newId) {
-          fetch(
-            `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091'}/api/v1/knowledge-builder/process-content`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ type: 'study_note', id: newId }),
-            },
-          ).catch(() => {});
+          fetch(`${BACKEND_BASE_URL}/api/v1/knowledge-builder/process-content`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'study_note', id: newId }),
+          }).catch(() => {});
         }
       }
 
@@ -316,7 +314,7 @@ export default function StudyNoteEditScreen() {
     if (!id || reanalyzing) return;
     setReanalyzing(true);
     try {
-      const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
+      const BASE_URL = BACKEND_BASE_URL;
       const res = await fetch(`${BASE_URL}/api/v1/knowledge-builder/process-content`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

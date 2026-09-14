@@ -1,0 +1,32 @@
+# 依赖与产物（镜像内重新安装 / 重新构建）
+node_modules
+**/node_modules
+dist
+**/dist
+.cache
+**/.cache
+
+# 本地环境与密钥
+.env
+.env.*
+!.env.example
+
+# 版本控制与工具配置
+.git
+.gitignore
+.claude
+.agents
+.codegraph
+.devcontainer
+.cozeproj
+
+# 运行时产物
+logs
+server/uploads
+
+# 体积大且与部署无关的参赛材料
+*.zip
+*.pptx
+*.mp4
+draft_*
+ui-ux-research-report.html

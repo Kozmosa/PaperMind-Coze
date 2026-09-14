@@ -8,6 +8,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { Screen } from '@/components/layout/Screen';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { api } from '@/utils/api';
+import { BACKEND_BASE_URL } from '@/utils/backend';
 import { useAuth } from '@/contexts/AuthContext';
 import Toast from 'react-native-toast-message';
 import { noWebResize } from '@/utils';
@@ -225,7 +226,7 @@ export default function ControlCenterScreen() {
     if (retryingIds.has(key)) return;
     setRetryingIds((prev) => new Set(prev).add(key));
     try {
-      const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
+      const BASE_URL = BACKEND_BASE_URL;
       const res = await fetch(`${BASE_URL}/api/v1/knowledge-builder/process-content`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -323,7 +324,7 @@ export default function ControlCenterScreen() {
       // Trigger AI processing in background (don't block UI)
       const newId = createRes?.data?.id;
       if (newId) {
-        const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
+        const BASE_URL = BACKEND_BASE_URL;
         fetch(`${BASE_URL}/api/v1/knowledge-builder/process-content`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

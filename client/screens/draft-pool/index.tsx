@@ -5,6 +5,7 @@ import { Feather } from '@expo/vector-icons';
 import { Screen } from '@/components/layout/Screen';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { api } from '@/utils/api';
+import { BACKEND_BASE_URL } from '@/utils/backend';
 import * as DocumentPicker from 'expo-document-picker';
 import { useCSSVariable } from 'uniwind';
 
@@ -42,7 +43,7 @@ export default function DraftPoolScreen() {
         name: file.name,
         type: file.mimeType || 'application/octet-stream',
       } as any);
-      const res = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/upload`, {
+      const res = await fetch(`${BACKEND_BASE_URL}/api/v1/upload`, {
         method: 'POST',
         body: formData,
       });

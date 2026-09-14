@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { Request, Response } from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
+import { UPLOAD_DIR } from '../config/paths.js';
 import { getSupabaseClient } from '../storage/database/supabase-client.js';
 import { extractText } from '../utils/extract-text.js';
 
@@ -118,7 +119,7 @@ router.get('/:id/file-content', async (req: Request, res: Response) => {
 
     // 2. 定位文件
     let filePath: string | null = null;
-    const uploadsDir = path.join(process.cwd(), 'uploads');
+    const uploadsDir = UPLOAD_DIR;
     const testDataDir = path.resolve(process.cwd(), '..', 'test_data', '学习资料');
 
     // 尝试 file_path → uploads 目录 (materials table uses file_path not file_url)

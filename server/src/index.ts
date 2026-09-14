@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import * as path from 'path';
+import * as fs from 'fs';
+import { UPLOAD_DIR } from './config/paths.js';
 import { authMiddleware } from './middleware/auth.js';
 
 import knowledgeNodesRouter from './routes/knowledge-nodes.js';
@@ -27,10 +29,13 @@ const port = process.env.PORT || 9091;
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
-app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+app.use('/uploads', express.static(UPLOAD_DIR));
 app.use('/test-data', express.static(path.join(process.cwd(), '..', 'test_data', '学习资料')));
 app.use('/debug', express.static(path.join(process.cwd(), '..', 'debug')));
-app.use('/projects', express.static(path.join(process.cwd(), '..')));
+// /projects 会暴露整个仓库（含 .env），仅本地开发按需开启
+if (process.env.SERVE_PROJECT_FILES === 'true') {
+  app.use('/projects', express.static(path.join(process.cwd(), '..')));
+}
 
 // Apply auth middleware to all API routes
 app.use('/api/v1', authMiddleware);
@@ -39,6 +44,16 @@ app.use('/api/v1', authMiddleware);
 app.get('/api/v1/health', (_req, res) => {
   console.log('Health check success');
   res.status(200).json({ status: 'ok' });
+});
+
+// 前端运行期配置。anon key 本就是设计上要下发到浏览器的公开值（鉴权由 Auth + RLS 保证），
+// 由后端下发可让前端静态产物与构建环境解耦：换部署域名或 Supabase 项目都无需重新构建。
+app.get('/api/v1/config', (_req, res) => {
+  res.status(200).json({
+    supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL || process.env.COZE_SUPABASE_URL || '',
+    supabaseAnonKey:
+      process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || process.env.COZE_SUPABASE_ANON_KEY || '',
+  });
 });
 
 // Routes
@@ -58,6 +73,20 @@ app.use('/api/v1/problem-solving-logs', problemSolvingLogsRouter);
 app.use('/api/v1/knowledge-builder', knowledgeBuilderRouter);
 app.use('/api/v1/control-center', controlCenterRouter);
 app.use('/api/v1/chat-sessions', chatSessionsRouter);
+
+// 前端静态产物（Expo Web export 的输出目录）。
+// 与 API 同进程托管，部署后只有一个域名；本地只跑后端时该目录不存在，自动跳过。
+const clientDistDir =
+  process.env.CLIENT_DIST_DIR || path.join(process.cwd(), '..', 'client', 'dist');
+if (fs.existsSync(path.join(clientDistDir, 'index.html'))) {
+  app.use(express.static(clientDistDir));
+  // SPA 回退：非 API / 上传资源的未知路径交给前端路由处理
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/')) return next();
+    res.sendFile(path.join(clientDistDir, 'index.html'));
+  });
+  console.log(`[static] serving client from ${clientDistDir}`);
+}
 
 app.listen(port, () => {
   console.log(`Server listening at http://localhost:${port}/`);

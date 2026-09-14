@@ -2,11 +2,12 @@
  * Embedding utility — BAAI/bge-small-zh-v1.5 optimized for Chinese text.
  */
 import { pipeline, env } from '@huggingface/transformers';
+import { HF_CACHE_DIR } from '../config/paths.js';
 
 // HuggingFace mirror for China
 env.remoteHost = 'https://hf-mirror.com';
 env.allowRemoteModels = true;
-env.cacheDir = './.cache/huggingface';
+env.cacheDir = HF_CACHE_DIR;
 
 const MODEL_NAME = 'Xenova/bge-small-zh-v1.5';
 
