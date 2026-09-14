@@ -8,8 +8,10 @@ services:
     runtime: docker
     dockerfilePath: ./Dockerfile
     dockerContext: .
-    # 免费档 15 分钟无流量会休眠，冷启动叠加嵌入模型加载会让评委等很久，故用 starter
-    plan: starter
+    # Render 计费分两层：workspace plan（Hobby/Pro/…）与 compute plan（实例规格）。
+    # free 实例 15 分钟无流量即休眠，冷启动叠加嵌入模型加载会让评委等很久，故用最低付费档。
+    # 0.5c-512mb 即旧名 starter；若部署后 OOM，改为 1c-2g（旧名 standard）。
+    plan: 0.5c-512mb
     # 新加坡离国内最近
     region: singapore
     branch: main
