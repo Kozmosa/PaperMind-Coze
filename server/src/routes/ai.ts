@@ -57,7 +57,9 @@ router.post('/chat', async (req: Request, res: Response) => {
         ({ systemPrompt } = await buildTutorPrompt(context, message));
         break;
       case 'reflection_mind':
-        systemPrompt = await buildReflectionPrompt(context);
+        // 测试页/聊天客户端不传 context：注入请求用户，否则数据源全空、
+        // 反思报告无内容（profile 页走 /generate-reflection 专用端点不受影响）
+        systemPrompt = await buildReflectionPrompt({ ...context, userId: (req as any).userId });
         break;
       default:
         systemPrompt = '你是一个智能学习助手，帮助用户解决学习问题。回答简洁专业。';
