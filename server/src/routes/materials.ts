@@ -3,7 +3,7 @@ import type { Request, Response } from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
 import { UPLOAD_DIR } from '../config/paths.js';
-import { getSupabaseClient } from '../storage/database/supabase-client.js';
+import { getSupabaseClient, runWithRetry } from '../storage/database/supabase-client.js';
 import { extractText } from '../utils/extract-text.js';
 
 const router = Router();
@@ -105,13 +105,19 @@ router.get('/:id/file-content', async (req: Request, res: Response) => {
     const userId = (req as any).userId || 'guest';
     const { id } = req.params;
 
-    // 1. 获取 material 记录
-    const { data: material, error: fetchError } = await client
-      .from('materials')
-      .select('*')
-      .eq('id', id)
-      .eq('user_id', userId)
-      .single();
+    // 1. 获取 material 记录（网络瞬时失败重试，避免误报 Material not found）
+    const { data: material, error: fetchError } = await runWithRetry(async () => {
+      const r = await client
+        .from('materials')
+        .select('*')
+        .eq('id', id)
+        .eq('user_id', userId)
+        .single();
+      // supabase-js 网络失败（fetch failed/TLS reset）无 Postgres 错误码——抛给重试层；
+      // PGRST116（行不存在）等真查询错误直接返回，由下方 404 处理
+      if (r.error && !(r.error as any).code) throw r.error;
+      return r;
+    }, 4);
 
     if (fetchError || !material) {
       return res.status(404).json({ error: 'Material not found' });
@@ -156,7 +162,8 @@ router.get('/:id/file-content', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'File not found on disk', name: material.name });
     }
 
-    // 3. 提取文本
+    // 3. 提取文本：优先用上传/分类时已落库的 extracted_text（pipeline 约定），
+    //    缺失时再从磁盘提取（视觉 OCR 结果会缓存并回写）
     const ext = path.extname(filePath).toLowerCase();
     const mimeMap: Record<string, string> = {
       '.pdf': 'application/pdf',
@@ -167,7 +174,24 @@ router.get('/:id/file-content', async (req: Request, res: Response) => {
       '.csv': 'text/plain',
     };
     const mimeType = mimeMap[ext] || 'application/octet-stream';
-    const extracted = await extractText(filePath, mimeType, path.basename(filePath));
+
+    let extracted: { text: string; pageCount?: number } | null = null;
+    const storedText = (material as any).extracted_text;
+    if (storedText && storedText.trim().length >= 5) {
+      extracted = { text: storedText };
+    } else {
+      extracted = await extractText(filePath, mimeType, path.basename(filePath));
+      if (extracted.text && extracted.text.trim().length >= 5) {
+        // 回写落库：老数据首次打开补一次提取，之后直接读库
+        client
+          .from('materials')
+          .update({ extracted_text: extracted.text.slice(0, 200000) })
+          .eq('id', id)
+          .then(({ error }) => {
+            if (error) console.warn('[file-content] 回写提取文本失败:', error.message);
+          });
+      }
+    }
 
     // 4. 分页：按换页符 \f 拆分，否则按双换行分块
     const fullText = extracted.text || '';

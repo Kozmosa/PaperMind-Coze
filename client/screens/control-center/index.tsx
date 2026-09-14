@@ -9,6 +9,7 @@ import { Screen } from '@/components/layout/Screen';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { api } from '@/utils/api';
 import { BACKEND_BASE_URL } from '@/utils/backend';
+import { stripMathDelimiters } from '@/utils/text';
 import { useAuth } from '@/contexts/AuthContext';
 import Toast from 'react-native-toast-message';
 import { noWebResize } from '@/utils';
@@ -718,7 +719,7 @@ export default function ControlCenterScreen() {
                             style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}
                             numberOfLines={1}
                           >
-                            {record.papercore}
+                            {stripMathDelimiters(record.papercore)}
                           </Text>
                         ) : null}
                       </View>
@@ -1076,7 +1077,7 @@ export default function ControlCenterScreen() {
                             style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}
                             numberOfLines={1}
                           >
-                            {record.papercore}
+                            {stripMathDelimiters(record.papercore)}
                           </Text>
                         ) : null}
                         {record.logical_path ? (

@@ -57,11 +57,20 @@ async function main() {
   const checks: Check[] = [];
   const push = (name: string, pass: boolean, detail: string) => checks.push({ name, pass, detail });
 
-  // 1. 控制中心：纪要 12 / 资料 8
+  // 1. 控制中心与资料/纪要接口数量一致（用户持续上传，不写死期望数量）
   try {
     const notes = await getJson(`${API}/study-notes`);
     const mats = await getJson(`${API}/materials`);
-    push('控制中心统计：纪要 12 / 资料 8', (notes.data?.length || 0) === 12 && (mats.data?.length || 0) === 8, `纪要 ${notes.data?.length}/12，资料 ${mats.data?.length}/8`);
+    const recs = await getJson(`${API}/control-center/recent-records?limit=500`);
+    const expNotes = notes.data?.length || 0;
+    const expMats = mats.data?.length || 0;
+    const gotNotes = (recs.data || []).filter((r: any) => r.record_type === 'study_note').length;
+    const gotMats = (recs.data || []).filter((r: any) => r.record_type === 'material').length;
+    push(
+      '控制中心统计与数据表一致',
+      gotNotes === expNotes && gotMats === expMats,
+      `纪要 ${gotNotes}/${expNotes}，资料 ${gotMats}/${expMats}`,
+    );
   } catch (e: any) { push('控制中心统计', false, e.message); }
 
   // 2. 图谱：≥3 个领域圈

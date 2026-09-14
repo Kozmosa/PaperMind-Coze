@@ -5,6 +5,8 @@
  */
 
 import * as fs from 'fs';
+import * as path from 'path';
+import * as crypto from 'crypto';
 import mammoth from 'mammoth';
 import AdmZip from 'adm-zip';
 import { VISION_CONFIG } from '../config/ai.js';
@@ -55,10 +57,89 @@ async function getPdfParser() {
   return PDFParse;
 }
 
+// 提取结果缓存：扫描件每次打开都重跑视觉 OCR（每页一次 LLM 调用，20-30s），
+// 按 文件路径+mtime+size 缓存，所有调用方（上传/查看/页码匹配）共享；
+// 同时落盘 .cache/extract/，服务重启（tsx watch）后仍可命中
+const extractCache = new Map<string, { mtimeMs: number; size: number; result: ExtractedContent }>();
+const EXTRACT_CACHE_MAX = 200;
+const DISK_CACHE_DIR = path.join(process.cwd(), '.cache', 'extract');
+
+// 缓存版本：提取实现升级（如 PDF 改 mupdf 逐页）时 +1，旧缓存自动作废
+const EXTRACT_CACHE_VERSION = 'v4';
+
+function diskCachePath(filePath: string, stat: { mtimeMs: number; size: number }): string {
+  const key = crypto
+    .createHash('sha1')
+    .update(`${EXTRACT_CACHE_VERSION}|${filePath}|${stat.mtimeMs}|${stat.size}`)
+    .digest('hex');
+  return path.join(DISK_CACHE_DIR, `${key}.json`);
+}
+
+function readDiskCache(
+  filePath: string,
+  stat: { mtimeMs: number; size: number },
+): ExtractedContent | null {
+  try {
+    const raw = fs.readFileSync(diskCachePath(filePath, stat), 'utf-8');
+    const j = JSON.parse(raw);
+    if (typeof j.text === 'string') return { text: j.text, pageCount: j.pageCount };
+  } catch {}
+  return null;
+}
+
+function writeDiskCache(
+  filePath: string,
+  stat: { mtimeMs: number; size: number },
+  result: ExtractedContent,
+): void {
+  try {
+    fs.mkdirSync(DISK_CACHE_DIR, { recursive: true });
+    fs.writeFileSync(diskCachePath(filePath, stat), JSON.stringify(result), 'utf-8');
+  } catch {}
+}
+
 /**
- * 提取文本内容
+ * 提取文本内容（带内存 + 磁盘缓存）
  */
 export async function extractText(
+  filePath: string,
+  mimeType: string,
+  fileName: string,
+): Promise<ExtractedContent> {
+  try {
+    let stat: { mtimeMs: number; size: number } | null = null;
+    try {
+      const s = fs.statSync(filePath);
+      stat = { mtimeMs: s.mtimeMs, size: s.size };
+    } catch {
+      stat = null;
+    }
+    if (stat) {
+      const hit = extractCache.get(filePath);
+      if (hit && hit.mtimeMs === stat.mtimeMs && hit.size === stat.size) return hit.result;
+      const disk = readDiskCache(filePath, stat);
+      if (disk) {
+        extractCache.set(filePath, { mtimeMs: stat.mtimeMs, size: stat.size, result: disk });
+        return disk;
+      }
+    }
+    const result = await extractTextUncached(filePath, mimeType, fileName);
+    if (stat) {
+      if (extractCache.size >= EXTRACT_CACHE_MAX) {
+        const firstKey = extractCache.keys().next().value;
+        if (firstKey) extractCache.delete(firstKey);
+      }
+      extractCache.set(filePath, { mtimeMs: stat.mtimeMs, size: stat.size, result });
+      writeDiskCache(filePath, stat, result);
+    }
+    return result;
+  } catch (err) {
+    console.error('[extractText] Error:', err);
+    return { text: '' };
+  }
+}
+
+async function extractTextUncached(
   filePath: string,
   mimeType: string,
   fileName: string,
@@ -149,6 +230,18 @@ function cleanExtractedText(text: string): string {
 
 async function extractPdf(filePath: string): Promise<ExtractedContent> {
   try {
+    // 逐页提取（mupdf）：页间 \f 分隔 + pageCount——引用页数在预处理阶段就有归属。
+    // 同样过可读性/乱码检查：扫描件在 mupdf 下会产出破碎字形，必须放行给视觉兜底
+    const mupdfText = await extractPdfPerPage(filePath);
+    if (
+      mupdfText &&
+      mupdfText.text.trim().length >= 30 &&
+      isReadableText(mupdfText.text) &&
+      !looksLikeBrokenGlyphs(mupdfText.text)
+    ) {
+      return mupdfText;
+    }
+
     const PDFParse = await getPdfParser();
     const dataBuffer = fs.readFileSync(filePath);
     const parser = new PDFParse({ data: dataBuffer });
@@ -173,10 +266,116 @@ async function extractPdf(filePath: string): Promise<ExtractedContent> {
   }
 }
 
+// mupdf 逐页文本提取：页间 \f 分隔（与视觉 OCR、PPTX 的分页约定一致），
+// 供 引用页数记录 / 页码匹配 / 逐页预览 消费
+// 单页可读性：中文课件页要求 CJK 占比达标；纯英文页要求大部分 token 是
+// 纯 ASCII 单词（排除嵌入字体损坏产生的 mojibake，如 "üèØ" 混杂页）
+function pageReadable(pt: string): boolean {
+  const t = pt.trim();
+  if (t.length < 10) return false;
+  const cjk = (t.match(/[一-鿿]/g) || []).length / t.length;
+  if (cjk >= 0.03) return true;
+  const tokens = t.split(/\s+/).filter((x) => /[a-zA-Z]/.test(x));
+  if (tokens.length === 0) return false;
+  const words = tokens.filter((x) => /^[a-zA-Z][a-zA-Z\-'.]{1,}$/.test(x));
+  return words.length / tokens.length >= 0.5;
+}
+
+// 逐页分诊提取：mupdf 读得动的页免费使用；乱码页单页视觉 OCR 替换
+// （OCR 页数上限控成本，超限页置空避免乱码参与检索）
+async function extractPdfPerPage(filePath: string): Promise<ExtractedContent | null> {
+  try {
+    const mupdf = await import('mupdf');
+    const data = fs.readFileSync(filePath);
+    const doc = mupdf.Document.openDocument(data, 'application/pdf');
+    const total = doc.countPages();
+    if (total === 0) return null;
+    const MAX_OCR_PAGES = 20;
+    let ocrUsed = 0;
+    const pages: string[] = [];
+    for (let i = 0; i < total; i++) {
+      const page = doc.loadPage(i);
+      const st = page.toStructuredText();
+      const pt = st.asText ? st.asText() : '';
+      if (pageReadable(pt)) {
+        pages.push(pt);
+      } else if (ocrUsed < MAX_OCR_PAGES) {
+        const ocr = await visionOcrPage(page, i);
+        if (ocr) {
+          pages.push(ocr);
+          ocrUsed++;
+        } else {
+          pages.push('');
+        }
+      } else {
+        pages.push('');
+      }
+    }
+    const joined = pages
+      .map((p) => p.trim())
+      .filter(Boolean)
+      .join('\f');
+    if (joined.length < 30) return null;
+    const text = cleanExtractedText(joined);
+    return { text, pageCount: total };
+  } catch {
+    return null;
+  }
+}
+
+// 单页视觉 OCR：渲染一页为图片交给视觉模型识别（OpenAI 兼容端点）
+async function visionOcrPage(page: any, pageIdx: number): Promise<string> {
+  if (!VISION_CONFIG.apiKey) return '';
+  try {
+    const mupdf = await import('mupdf');
+    const pixmap = page.toPixmap(
+      mupdf.Matrix.scale(1.5, 1.5),
+      mupdf.ColorSpace.DeviceRGB,
+      false,
+      true,
+    );
+    const b64 = Buffer.from(pixmap.asPNG()).toString('base64');
+    const resp = await fetch(VISION_CONFIG.endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${VISION_CONFIG.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: VISION_CONFIG.model,
+        max_tokens: 8192,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'image_url', image_url: { url: `data:image/png;base64,${b64}` } },
+              {
+                type: 'text',
+                text: '请识别这张课件页面的全部文字内容（标题、正文；公式用 LaTeX 表达），按原文顺序输出，不要添加解释或客套话。',
+              },
+            ],
+          },
+        ],
+      }),
+    });
+    const j: any = await resp.json().catch(() => ({}));
+    if (j.error) {
+      console.error(
+        `[visionOcrPage] 第${pageIdx + 1}页 API error:`,
+        JSON.stringify(j.error).slice(0, 150),
+      );
+      return '';
+    }
+    const t = (j.choices?.[0]?.message?.content || '').trim();
+    return t && !t.includes('无法') && !t.includes('Unsupported') ? t : '';
+  } catch (e) {
+    console.error(`[visionOcrPage] 第${pageIdx + 1}页 error:`, (e as any)?.message);
+    return '';
+  }
+}
+
 // 视觉 OCR 兜底（扫描件）：渲染前 N 页为图片交给视觉模型识别，逐页 \f 拼接
-// 走 OpenAI 兼容端点（DeepSeek 的 Anthropic 端点不转发图片块，实测 OpenAI 格式可用）
-async function extractPdfWithVision(filePath: string, maxPages = 5): Promise<ExtractedContent> {
-  if (!VISION_CONFIG.apiKey) return { text: '' };
+async function extractPdfWithVision(filePath: string, maxPages = 15): Promise<ExtractedContent> {
   try {
     const mupdf = await import('mupdf');
     const data = fs.readFileSync(filePath);
@@ -184,44 +383,8 @@ async function extractPdfWithVision(filePath: string, maxPages = 5): Promise<Ext
     const total = Math.min(doc.countPages(), maxPages);
     const texts: string[] = [];
     for (let i = 0; i < total; i++) {
-      const page = doc.loadPage(i);
-      const pixmap = page.toPixmap(
-        mupdf.Matrix.scale(1.5, 1.5),
-        mupdf.ColorSpace.DeviceRGB,
-        false,
-        true,
-      );
-      const b64 = Buffer.from(pixmap.asPNG()).toString('base64');
-      const resp = await fetch(VISION_CONFIG.endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${VISION_CONFIG.apiKey}`,
-        },
-        body: JSON.stringify({
-          model: VISION_CONFIG.model,
-          max_tokens: 8192,
-          messages: [
-            {
-              role: 'user',
-              content: [
-                { type: 'image_url', image_url: { url: `data:image/png;base64,${b64}` } },
-                {
-                  type: 'text',
-                  text: '请识别这张课件页面的全部文字内容（标题、正文；公式用 LaTeX 表达），按原文顺序输出，不要添加解释或客套话。',
-                },
-              ],
-            },
-          ],
-        }),
-      });
-      const j: any = await resp.json().catch(() => ({}));
-      if (j.error) {
-        console.error('[extractPdfWithVision] API error:', JSON.stringify(j.error).slice(0, 150));
-        continue;
-      }
-      const t = (j.choices?.[0]?.message?.content || '').trim();
-      if (t && !t.includes('无法') && !t.includes('Unsupported')) texts.push(t);
+      const t = await visionOcrPage(doc.loadPage(i), i);
+      if (t) texts.push(t);
     }
     return texts.length > 0 ? { text: texts.join('\f'), pageCount: texts.length } : { text: '' };
   } catch (e) {

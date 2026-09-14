@@ -31,7 +31,15 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use('/uploads', express.static(UPLOAD_DIR));
 app.use('/test-data', express.static(path.join(process.cwd(), '..', 'test_data', '学习资料')));
-app.use('/debug', express.static(path.join(process.cwd(), '..', 'debug')));
+// debug 测试页迭代频繁，禁缓存避免浏览器跑旧页面
+app.use(
+  '/debug',
+  express.static(path.join(process.cwd(), '..', 'debug'), {
+    etag: false,
+    maxAge: 0,
+    setHeaders: (res) => res.setHeader('Cache-Control', 'no-cache'),
+  }),
+);
 // /projects 会暴露整个仓库（含 .env），仅本地开发按需开启
 if (process.env.SERVE_PROJECT_FILES === 'true') {
   app.use('/projects', express.static(path.join(process.cwd(), '..')));

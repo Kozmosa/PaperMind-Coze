@@ -6,6 +6,25 @@ interface MarkdownRendererProps {
   maxWidth?: number;
 }
 
+// Obsidian 风格扩展样式（web 路径注入用，与 native 模板 <style> 保持同步）
+const OBSIDIAN_CSS = `
+mark{background:#FFF3B8;border-radius:3px;padding:0 2px;color:inherit}
+del{color:#9CA3AF}
+.wiki-link{color:#8B5CF6;text-decoration:none;border-bottom:1px dashed #C4B5FD;cursor:pointer}
+.callout{border-radius:8px;padding:10px 12px;margin-bottom:6px;background:#F3F4F6;border-left:4px solid #9CA3AF}
+.callout-title{font-weight:600;margin-bottom:4px;font-size:13px;color:#374151}
+.callout-note{background:#EFF6FF;border-left-color:#3B82F6}
+.callout-note .callout-title{color:#1D4ED8}
+.callout-tip,.callout-success{background:#ECFDF5;border-left-color:#10B981}
+.callout-tip .callout-title,.callout-success .callout-title{color:#047857}
+.callout-info{background:#F0F9FF;border-left-color:#0EA5E9}
+.callout-info .callout-title{color:#0369A1}
+.callout-warning{background:#FFFBEB;border-left-color:#F59E0B}
+.callout-warning .callout-title{color:#B45309}
+.callout-danger,.callout-error{background:#FEF2F2;border-left-color:#EF4444}
+.callout-danger .callout-title,.callout-error .callout-title{color:#B91C1C}
+`;
+
 // KaTeX with throwOnError:false never throws — it renders failing formulas as red
 // .katex-error source markup. Sanitize common LLM output issues first, then detect
 // katex-error and degrade to neutral plain-text source instead of red error HTML.
@@ -15,8 +34,10 @@ function sanitizeLatex(formula: string): string {
       .trim()
       // markdown artifacts (blockquote/heading markers) leaking into math blocks
       .replace(/^[ \t]*[>#]+[ \t]*/gm, '')
-      // KaTeX math mode can't handle CJK directly; wrap non-ASCII runs in \text{}
-      .replace(/([^\t\n\x20-\x7e]+)/g, '\\text{$1}')
+      // KaTeX math mode can't handle CJK directly; wrap CJK runs in \text{}。
+      // 只包 CJK：希腊字母/数学符号（μ Σ π ≈ ≤ ²）KaTeX 原生支持，
+      // 全量非 ASCII 包 \text{} 反而因 Main-Regular 缺字形度量而失败（x̄ 组合符案例）
+      .replace(/([⺀-鿿豈-﫿＀-￯]+)/g, '\\text{$1}')
   );
 }
 
@@ -29,6 +50,27 @@ function mathFallback(source: string, display: boolean): string {
   return display
     ? `<pre class="math-fallback" style="background:#F3F4F6;border-radius:8px;padding:10px 12px;margin:6px 0;overflow-x:auto;white-space:pre-wrap;word-break:break-word;font-family:monospace;font-size:13px;line-height:1.5;color:#374151">${esc}</pre>`
     : `<code class="math-fallback-inline" style="background:#F3F4F6;border-radius:4px;padding:1px 5px;font-family:monospace;font-size:0.95em;color:#374151">${esc}</code>`;
+}
+
+// Obsidian 风格语法预处理（==高亮==、[[双链]]、> [!callout]）——
+// 必须在 markdown 解析前运行；代码/公式已由占位符保护，不会误伤内部内容。
+// ~~删除线~~ 与 - [ ] 任务列表由 marked GFM 原生支持。
+function obsidianPreprocess(text: string): string {
+  let t = text;
+  // ==高亮==（Obsidian highlight）
+  t = t.replace(/==([^=\n]+)==/g, '<mark>$1</mark>');
+  // [[双链]] 渲染为内部链接样式
+  t = t.replace(/\[\[([^\[\]\n]+)\]\]/g, '<a class="wiki-link">$1</a>');
+  // > [!note] 标注块：标题行 + 后续 "> " 行收编为 callout 容器
+  t = t.replace(/^> \[!(\w+)\]([^\n]*)\n((?:> [^\n]*\n?)*)/gm, (_m, type: string, title: string, body: string) => {
+    const bodyHtml = body
+      .split('\n')
+      .filter((l) => l.trim())
+      .map((l) => `<div>${l.replace(/^>\s?/, '')}</div>`)
+      .join('');
+    return `<div class="callout callout-${type.toLowerCase()}"><div class="callout-title">${(title || type).trim()}</div>${bodyHtml}</div>\n\n`;
+  });
+  return t;
 }
 
 function renderMath(katex: any, raw: string, display: boolean): string {
@@ -132,6 +174,14 @@ function WebMarkdown({ content }: { content: string }) {
       document.head.appendChild(link);
     }
 
+    // Obsidian 风格扩展样式（web 路径无模板 <style>，注入一次）
+    if (!document.getElementById('obsidian-md-css')) {
+      const style = document.createElement('style');
+      style.id = 'obsidian-md-css';
+      style.textContent = OBSIDIAN_CSS;
+      document.head.appendChild(style);
+    }
+
     // Load KaTeX and marked scripts
     const loadScript = (src: string): Promise<void> =>
       new Promise((resolve) => {
@@ -208,6 +258,9 @@ function WebMarkdown({ content }: { content: string }) {
       for (const p of codePlaceholders) {
         result = result.split(p.ph).join(p.md);
       }
+
+      // Obsidian 语法预处理（高亮/双链/callout）
+      result = obsidianPreprocess(result);
 
       // Markdown
       let html = marked.parse(result, { breaks: true, gfm: true });
@@ -320,6 +373,22 @@ export default function MarkdownRenderer({ content, maxWidth }: MarkdownRenderer
     .katex-display{margin:6px 0;overflow-x:auto;overflow-y:hidden;text-align:center}
     .katex{font-size:1.05em}
     .collapse-heading:hover{color:#6C63FF}
+    /* Obsidian 风格扩展 */
+    mark{background:#FFF3B8;border-radius:3px;padding:0 2px;color:inherit}
+    del{color:#9CA3AF}
+    .wiki-link{color:#8B5CF6;text-decoration:none;border-bottom:1px dashed #C4B5FD;cursor:pointer}
+    .callout{border-radius:8px;padding:10px 12px;margin-bottom:6px;background:#F3F4F6;border-left:4px solid #9CA3AF}
+    .callout-title{font-weight:600;margin-bottom:4px;font-size:13px;color:#374151}
+    .callout-note{background:#EFF6FF;border-left-color:#3B82F6}
+    .callout-note .callout-title{color:#1D4ED8}
+    .callout-tip,.callout-success{background:#ECFDF5;border-left-color:#10B981}
+    .callout-tip .callout-title,.callout-success .callout-title{color:#047857}
+    .callout-info{background:#F0F9FF;border-left-color:#0EA5E9}
+    .callout-info .callout-title{color:#0369A1}
+    .callout-warning{background:#FFFBEB;border-left-color:#F59E0B}
+    .callout-warning .callout-title{color:#B45309}
+    .callout-danger,.callout-error{background:#FEF2F2;border-left-color:#EF4444}
+    .callout-danger .callout-title,.callout-error .callout-title{color:#B91C1C}
   </style>
 </head>
 <body>
@@ -339,13 +408,14 @@ export default function MarkdownRenderer({ content, maxWidth }: MarkdownRenderer
       .replace(/([\\u2E80-\\u9FFF\\uF900-\\uFAFF\\uFF00-\\uFFEF]+)/g, '\\\\text{$1}');
   }
   function mathFallback(src, display){
-    var esc = escapeHtml(src.trim());
+    var esc = escapeHtml(unescapeEntities(src.trim()));
     return display
       ? '<pre class="math-fallback" style="background:#F3F4F6;border-radius:8px;padding:10px 12px;margin:6px 0;overflow-x:auto;white-space:pre-wrap;word-break:break-word;font-family:monospace;font-size:13px;line-height:1.5;color:#374151">' + esc + '</pre>'
       : '<code class="math-fallback-inline" style="background:#F3F4F6;border-radius:4px;padding:1px 5px;font-family:monospace;font-size:0.95em;color:#374151">' + esc + '</code>';
   }
+  function unescapeEntities(s){ return s.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#039;/g,"'"); }
   function renderMath(raw, display){
-    var formula = sanitizeLatex(raw);
+    var formula = sanitizeLatex(unescapeEntities(raw));
     if (!formula) return escapeHtml(raw);
     var html = '';
     try {
@@ -353,6 +423,19 @@ export default function MarkdownRenderer({ content, maxWidth }: MarkdownRenderer
     } catch(e) { html = ''; }
     if (!html || html.indexOf('katex-error') !== -1) return mathFallback(raw, display);
     return html;
+  }
+  function obsidianPreprocess(text){
+    var t = text;
+    // ==高亮==（Obsidian highlight）
+    t = t.replace(/==([^=\\n]+)==/g, '<mark>$1</mark>');
+    // [[双链]] 渲染为内部链接样式
+    t = t.replace(/\\[\\[([^\\[\\]\\n]+)\\]\\]/g, '<a class="wiki-link">$1</a>');
+    // > [!note] 标注块：标题行 + 后续 "> " 行收编为 callout 容器
+    t = t.replace(/^> \\[!(\\w+)\\]([^\\n]*)\\n((?:> [^\\n]*\\n?)*)/gm, function(_, type, title, body){
+      var lines = body.split('\\n').filter(function(l){return l.trim();}).map(function(l){return '<div>' + l.replace(/^>\\s?/, '') + '</div>';});
+      return '<div class="callout callout-' + type.toLowerCase() + '"><div class="callout-title">' + (title.trim() || type) + '</div>' + lines.join('') + '</div>\\n\\n';
+    });
+    return t;
   }
 
   // Protect code so $ / \\[ inside it is not mistaken for math delimiters
@@ -372,6 +455,9 @@ export default function MarkdownRenderer({ content, maxWidth }: MarkdownRenderer
   for (var ci = 0; ci < codePlaceholders.length; ci++) {
     result = result.split(codePlaceholders[ci].ph).join(codePlaceholders[ci].md);
   }
+
+  // Obsidian 语法预处理（高亮/双链/callout）
+  result = obsidianPreprocess(result);
 
   result = marked.parse(result, {breaks:true,gfm:true});
 

@@ -2,10 +2,11 @@ import { Router } from 'express';
 import type { Request, Response } from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
-import { anthropic, DEFAULT_MODEL } from '../config/ai.js';
+import { anthropic, DEFAULT_MODEL, NOTE_MODEL } from '../config/ai.js';
 import { UPLOAD_DIR } from '../config/paths.js';
 import { getSupabaseClient } from '../storage/database/supabase-client.js';
 import { unifiedVectorIndex } from '../utils/unified-vector-index.js';
+import { locatePassage } from '../utils/passage-locator.js';
 import { extractText } from '../utils/extract-text.js';
 import {
   extractNotePreferences,
@@ -57,7 +58,9 @@ router.post('/chat', async (req: Request, res: Response) => {
         ({ systemPrompt } = await buildTutorPrompt(context, message));
         break;
       case 'reflection_mind':
-        systemPrompt = await buildReflectionPrompt(context);
+        // 测试页/聊天客户端不传 context：注入请求用户，否则数据源全空、
+        // 反思报告无内容（profile 页走 /generate-reflection 专用端点不受影响）
+        systemPrompt = await buildReflectionPrompt({ ...context, userId: (req as any).userId });
         break;
       default:
         systemPrompt = '你是一个智能学习助手，帮助用户解决学习问题。回答简洁专业。';
@@ -65,7 +68,8 @@ router.post('/chat', async (req: Request, res: Response) => {
 
     const stream = anthropic.messages.stream({
       model: DEFAULT_MODEL,
-      max_tokens: 8192,
+      // 思考型模型先出 thinking blocks，预算过低会耗尽 max_tokens 导致正文为空（流式无法重试，直接给足）
+      max_tokens: 16384,
       system: systemPrompt,
       messages: [{ role: 'user', content: message }],
     });
@@ -136,7 +140,8 @@ router.post('/tutor', async (req: Request, res: Response) => {
 
     const stream = anthropic.messages.stream({
       model: DEFAULT_MODEL,
-      max_tokens: 8192,
+      // 思考型模型先出 thinking blocks，预算过低会耗尽 max_tokens 导致正文为空（流式无法重试，直接给足）
+      max_tokens: 16384,
       system: systemPrompt,
       messages,
     });
@@ -153,7 +158,7 @@ router.post('/tutor', async (req: Request, res: Response) => {
     // 打通架构规格 1.4 优先级 4（此前 allFileContents 从未传到这里，是死路径）
     const citations = await extractCitations(
       fullContent,
-      { ...context, fileContents: allFileContents },
+      { ...context, message, fileContents: allFileContents },
       searchResults,
     );
 
@@ -204,6 +209,63 @@ function cleanCitationSnippet(text?: string | null): string | undefined {
   return cleaned || undefined;
 }
 
+// file_content 命中映射回源材料：检索可用分页原文辅助命中（检索模式不变），
+// 但引用只返回原材料——MD/DOCX 显示相应文字（snippet=该页文本），
+// PPT/PDF/扫描件显示对应页（pageNumber 保留）；无源材料可映射时
+// 保留 file_content（用户上传文件未建材料等场景）。
+// 在所有引用来源（检索结果/上下文原文/上传草稿）收集完毕后统一执行。
+async function mapFileContentsToMaterials(citations: Citation[]): Promise<void> {
+  if (!citations.some((c) => c.type === 'file_content')) return;
+  try {
+    const fcCits = citations.filter((c) => c.type === 'file_content' && c.draftId);
+    const { data: drafts } = await client
+      .from('draft_pool')
+      .select('id, file_url')
+      .in(
+        'id',
+        fcCits.map((c) => c.draftId),
+      );
+    const urls = (drafts || []).map((d: any) => d.file_url).filter(Boolean);
+    const { data: mats } = urls.length
+      ? await client
+          .from('materials')
+          .select('id, name, papercore, tags, file_path, file_type, extracted_text')
+          .in('file_path', urls)
+          .limit(50)
+      : { data: null };
+    const urlToMat = new Map((mats || []).map((m: any) => [m.file_path, m]));
+    const seenMaterials = new Set(
+      citations.filter((c) => c.type === 'material').map((c) => c.sourceId),
+    );
+    for (const c of citations) {
+      if (c.type !== 'file_content' || !c.draftId) continue;
+      const d = (drafts || []).find((x: any) => x.id === c.draftId);
+      const m = d ? urlToMat.get(d.file_url) : null;
+      if (!m) continue;
+      if (seenMaterials.has(m.id)) {
+        (c as any)._drop = true;
+        continue;
+      }
+      c.type = 'material';
+      c.sourceId = m.id;
+      c.title = m.name || c.title;
+      c.papercore = m.papercore || '';
+      c.tags = m.tags || [];
+      // MD/TXT 无页码概念：映射后清掉 pageNumber（与纪要一致只给文字）。
+      // 数据驱动判断：提取文本含 \f 分页符 = 有多页概念（PPT/PDF/扫描件）；
+      // 种子数据 file_type 可能错标 text/plain，不可依赖
+      const hasPages = String(m.extracted_text || '').includes('\f');
+      if (!hasPages) c.pageNumber = null;
+      seenMaterials.add(m.id);
+    }
+    for (let i = citations.length - 1; i >= 0; i--) {
+      if ((citations[i] as any)._drop) citations.splice(i, 1);
+    }
+  } catch (e: any) {
+    console.warn('[extractCitations] file_content 映射回源材料失败:', e?.message);
+  }
+}
+
 async function extractCitations(
   answer: string,
   context?: any,
@@ -244,6 +306,43 @@ async function extractCitations(
         draftId: r.draftId,
       };
       citations.push(c);
+    }
+  }
+
+  // Stage 2 文段定位：对命中的资料全文做文段级检索（\f 分页 + 500 字分块，
+  // 惰性嵌入缓存），返回精确页码 + 相关文段文字；MD 等单页文件同样受益
+  if (context?.message && citations.some((c) => c.type === 'material' && c.sourceId)) {
+    try {
+      const matCits = citations.filter((c) => c.type === 'material' && c.sourceId);
+      const { data: mats } = await client
+        .from('materials')
+        .select('id, extracted_text, name, file_type')
+        .in(
+          'id',
+          matCits.map((c) => c.sourceId),
+        )
+        .limit(50);
+      const q = String(context.message || '').slice(0, 500);
+      // 并行定位（用户方案：被命中文件的原文并行检索）
+      await Promise.all(
+        matCits.map(async (c) => {
+          const m = (mats || []).find((x: any) => x.id === c.sourceId);
+          if (!m || !m.extracted_text) return;
+          // MD/TXT 没有页码概念：与纪要一致只返回相应文字，不携带 pageNumber。
+          // 数据驱动判断：提取文本含 \f 分页符 = 有多页概念（PPT/PDF/扫描件）；
+          // 种子数据 file_type 可能错标 text/plain，不可依赖
+          const hasPages = String(m.extracted_text).includes('\f');
+          const hit = await locatePassage(String(m.id), String(m.extracted_text), q);
+          if (hit) {
+            c.pageNumber = hasPages ? hit.pageNumber : null;
+            // 保留换行原样：弹窗按 markdown 渲染需要段落结构；
+            // cleanCitationSnippet 会把 \n 压成空格，整段塌成一个巨型 h1
+            c.snippet = hit.text.slice(0, 300);
+          }
+        }),
+      );
+    } catch (e: any) {
+      console.warn('[extractCitations] 文段定位失败:', e?.message);
     }
   }
 
@@ -336,7 +435,39 @@ async function extractCitations(
     }
   }
 
-  return citations;
+  await mapFileContentsToMaterials(citations);
+
+  // 引用收敛到「回答真正用到的来源」：prompt 要求 AI 用 【来源：XXX】 标注，
+  // 解析标记并只保留被提及的来源（否则 top-10 全量返回，混入大量无关引用卡）。
+  // 无标记时兜底取前 5 条（按检索分数序）。
+  const mentions = [...answer.matchAll(/【来源[:：]\s*([^】\n]+)】/g)].map((m) => m[1].trim());
+  if (mentions.length > 0) {
+    const images = citations.filter((c) => c.type === 'image');
+    const matched = citations.filter((c) => {
+      if (c.type === 'image') return false;
+      const name = String(c.title || c.fileName || '').replace(/\s+/g, '');
+      return mentions.some((mm) => {
+        const m2 = mm.replace(/\s+/g, '');
+        return name.includes(m2) || m2.includes(name);
+      });
+    });
+    if (matched.length > 0) {
+      const deduped = [...images, ...matched];
+      const seen = new Set<string>();
+      const out: Citation[] = [];
+      for (const c of deduped) {
+        const key = `${c.type}_${c.sourceId}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push(c);
+      }
+      return out;
+    }
+  }
+
+  // 无【来源】标记：回答未实际使用知识库来源 → 不返回引用卡
+  // （兜底 top-N 会重新引入噪声：一阶极点留数算法问题曾混入数值积分/绪论）
+  return citations.filter((c) => c.type === 'image');
 }
 
 /**
@@ -922,7 +1053,8 @@ ${knowledgeContext}${fileContentsContext}
 2. 如果问题涉及知识库中的内容，引用对应来源名称给出详细解答
 3. 如果问题不在知识库范围内，用你的常识回答，并询问用户是否需要将解答补充进知识库
 4. 提供具体示例
-5. 引用知识库时标注来源名称，格式：【来源：{名称}】
+5. 【强制】回答中每实际使用一个知识库来源（资料/纪要），必须紧跟标注【来源：{名称}】；
+   标注的名称必须与提供的来源名称完全一致，不要用简称；没有实际使用的来源不要标注
 6. PDF/文件来源请明确引用页码，格式：【来源：{文件名}，第N页】
 7. 如需高亮关键原文位置，用「原文...」包裹引用内容
 8. 给出后续学习建议
@@ -1004,7 +1136,9 @@ async function buildReflectionPrompt(context?: any, period?: string): Promise<st
     // 问答日志（Tutor 对话记录，按时间过滤）
     let qaLogsQuery = client
       .from('problem_solving_logs')
-      .select('question, answer, created_at')
+      .select(
+        'question, answer, created_at, confusions, mastered, question_patterns, open_questions, knowledge_links, depth_score',
+      )
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(30);
@@ -1150,7 +1284,8 @@ router.post('/generate-reflection', async (req: Request, res: Response) => {
 
     const stream = anthropic.messages.stream({
       model: DEFAULT_MODEL,
-      max_tokens: 8192,
+      // 思考型模型先出 thinking blocks，预算过低会耗尽 max_tokens 导致正文为空（流式无法重试，直接给足）
+      max_tokens: 16384,
       system: systemPrompt,
       messages: [
         {
@@ -1250,8 +1385,9 @@ router.post('/note-helper', async (req: Request, res: Response) => {
     let fullContent = '';
 
     const stream = anthropic.messages.stream({
-      model: DEFAULT_MODEL,
-      max_tokens: 8192,
+      model: NOTE_MODEL,
+      // 思考型模型先出 thinking blocks，预算过低会耗尽 max_tokens 导致正文为空（流式无法重试，直接给足）
+      max_tokens: 16384,
       system: systemPrompt,
       messages: [{ role: 'user', content: '请为这个知识节点生成一份结构化的学习笔记。' }],
     });
@@ -1259,7 +1395,8 @@ router.post('/note-helper', async (req: Request, res: Response) => {
     for await (const event of stream) {
       if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
         fullContent += event.delta.text;
-        res.write(`data: ${JSON.stringify({ content: fullContent })}\n\n`);
+        // 只发增量：此前每个 delta 重发全文，O(n²) 流量导致客户端卡顿
+        res.write(`data: ${JSON.stringify({ content: event.delta.text })}\n\n`);
       }
     }
 
@@ -1285,7 +1422,12 @@ async function findPageForSnippet(material: any, snippet: string): Promise<numbe
       if (fs.existsSync(candidate)) filePath = candidate;
     }
     if (!filePath) return null;
-    const extracted = await extractText(filePath, material?.file_type || '', material?.name || '');
+    // 优先用入库的提取文本（上传/分类时已产生），缺失才重新提取
+    const storedText = material?.extracted_text;
+    const extracted: { text: string; pageCount?: number } =
+      storedText && storedText.trim().length >= 5
+        ? { text: storedText }
+        : await extractText(filePath, material?.file_type || '', material?.name || '');
     const text = extracted.text || '';
     if (!text) return null;
     const pages = text.split(/\f+|\n\n+/).filter((p) => p.trim().length > 0);
@@ -1447,7 +1589,8 @@ ${sourcesText}
 请直接生成笔记内容。`;
 
     const stream = anthropic.messages.stream({
-      model: DEFAULT_MODEL,
+      model: NOTE_MODEL,
+      // 思考型模型先出 thinking blocks，预算过低会耗尽 max_tokens 导致正文为空（流式无法重试，直接给足）
       max_tokens: 16384,
       system: systemPrompt,
       messages: [{ role: 'user', content: '请根据以上所有来源资料，生成一份综合学习笔记。' }],
@@ -1621,7 +1764,8 @@ ${sourcesContext}
 请直接输出修正后的完整笔记，包含所有标题、内容和引用标记。`;
 
     const stream = anthropic.messages.stream({
-      model: DEFAULT_MODEL,
+      model: NOTE_MODEL,
+      // 思考型模型先出 thinking blocks，预算过低会耗尽 max_tokens 导致正文为空（流式无法重试，直接给足）
       max_tokens: 16384,
       system: systemPrompt,
       messages: [{ role: 'user', content: `当前笔记：\n\n${currentNote}\n\n请按修正指令修改。` }],

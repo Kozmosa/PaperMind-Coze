@@ -919,6 +919,10 @@ export async function handleProcessContent(req: Request, res: Response) {
 
     if (file_content && file_content.trim().length >= 5) {
       text = stripTOC(file_content);
+    } else if (type === 'material' && (record as any).extracted_text && ((record as any).extracted_text as string).trim().length >= 5) {
+      // 入库的提取文本（上传同步提取 / 视觉分析回写）优先：不重复读盘
+      text = stripTOC((record as any).extracted_text);
+      console.log(`[process-content] 使用入库提取文本（${text.length} 字）for material ${id}`);
     } else if (type === 'material') {
       // For materials without file_content, always try reading from disk first
       // (DB record only has filename, not useful for AI)
@@ -926,6 +930,14 @@ export async function handleProcessContent(req: Request, res: Response) {
       if (diskText && diskText.trim().length >= 5) {
         text = stripTOC(diskText);
         console.log(`[process-content] Read ${text.length} chars from disk for material ${id}`);
+        // 提取文本随分类落库：打开资料时直接读取（不再重跑提取/视觉分析，issue 跟进）
+        supabase
+          .from(table)
+          .update({ extracted_text: diskText.slice(0, 200000) })
+          .eq('id', id)
+          .then(({ error }) => {
+            if (error) console.warn('[process-content] 持久化提取文本失败:', error.message);
+          });
       } else {
         text = dbExtractedText;
       }
@@ -1653,7 +1665,7 @@ router.get('/graph-data', async (req: Request, res: Response) => {
       // knowledge_nodes 也参与图谱聚合（issue #7 Task 5）
       supabase
         .from('knowledge_nodes')
-        .select('id, short_name, tags, papercore, created_at')
+        .select('id, short_name, tags, papercore, created_at, original_file')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(100),
@@ -1673,11 +1685,20 @@ router.get('/graph-data', async (req: Request, res: Response) => {
       type: 'material' as const,
       title: m.name || '未命名资料',
     }));
-    const knodes: any[] = (nodesRes.data || []).map((n: any) => ({
-      ...n,
-      type: 'node' as const,
-      title: n.short_name || '知识节点',
-    }));
+    // 影子节点：材料分类时自动同步生成的知识节点（syncKnowledgeNodeForMaterial），
+    // 与文件同名同 tags——文件已直接参与聚合，影子节点是重复的第二份，
+    // 跳过使 节点计数=弹窗列表=实际文件数（统计学 4 条只有 2 文件案例的根治）
+    const materialNames = new Set((materialsRes.data || []).map((m: any) => m.name));
+    const knodes: any[] = (nodesRes.data || [])
+      .filter((n: any) => {
+        const orig = (n as any).original_file || n.original_material;
+        return !(orig && materialNames.has(orig));
+      })
+      .map((n: any) => ({
+        ...n,
+        type: 'node' as const,
+        title: n.short_name || '知识节点',
+      }));
     const allRecords = [...notes, ...materials, ...knodes];
 
     // ====== Build Tag nodes ======
@@ -2089,7 +2110,7 @@ router.get('/tag-documents', async (req: Request, res: Response) => {
     const supabase = getSupabaseClient();
 
     // tag is the display name (not the full ID). Match against tags arrays
-    const [notesRes, materialsRes] = await Promise.all([
+    const [notesRes, materialsRes, nodesRes] = await Promise.all([
       supabase
         .from('study_notes')
         .select('id, title, tags, papercore, logical_path, created_at')
@@ -2102,6 +2123,15 @@ router.get('/tag-documents', async (req: Request, res: Response) => {
         .select('id, name, tags, papercore, logical_path, created_at')
         .eq('user_id', userId)
         .eq('ai_processed', true)
+        .order('created_at', { ascending: false })
+        .limit(200),
+      // 知识节点也参与图谱聚合（graph-data 同口径）：弹窗必须能列出，
+      // 否则「共 N 条关联记录」与列表条数对不上（统计学 4 条只有 2 份文件案例）；
+      // 影子节点（original_file 与材料同名）跳过——文件条目已代表
+      supabase
+        .from('knowledge_nodes')
+        .select('id, short_name, tags, papercore, created_at, original_file')
+        .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(200),
     ]);
@@ -2135,7 +2165,23 @@ router.get('/tag-documents', async (req: Request, res: Response) => {
         created_at: m.created_at || '',
       }));
 
-    const documents = [...matchedNotes, ...matchedMaterials].sort(
+    const matchedNodes = (nodesRes.data || [])
+      .filter((n: any) => {
+        const orig = (n as any).original_file || n.original_material;
+        const isShadow = orig && (materialsRes.data || []).some((m: any) => m.name === orig);
+        return !isShadow && matchTag(n.tags);
+      })
+      .map((n: any) => ({
+        id: n.id,
+        title: n.short_name || `知识节点 ${n.id}`,
+        type: 'knowledge_node' as const,
+        papercore: n.papercore || '',
+        tags: n.tags || [],
+        logical_path: '',
+        created_at: n.created_at || '',
+      }));
+
+    const documents = [...matchedNotes, ...matchedMaterials, ...matchedNodes].sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
     );
 

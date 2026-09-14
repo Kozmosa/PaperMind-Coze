@@ -42,7 +42,6 @@ interface IndexRecord {
 // ── Constants ──────────────────────────────────────────────────────
 
 const TAG_BOOST_FACTOR = 0.3; // max score boost from tag matching
-const TAG_BOOST_PER_MATCH = 0.1; // per matched tag boost
 
 // ── Index Class ────────────────────────────────────────────────────
 
@@ -77,33 +76,10 @@ class UnifiedVectorIndex {
         const client = getSupabaseClient();
         const records: IndexRecord[] = [];
 
-        // ── 1. Load knowledge_nodes ───────────────────────────────
-        console.log('[UnifiedVectorIndex] Loading knowledge_nodes...');
-        const { data: kNodes, error: knErr } = await client
-          .from('knowledge_nodes')
-          .select('id, papercore, tags, short_name, attached_draft_ids')
-          .order('created_at', { ascending: false });
-
-        if (knErr) {
-          console.error('[UnifiedVectorIndex] knowledge_nodes fetch error:', knErr);
-        } else if (kNodes) {
-          for (const row of kNodes) {
-            const papercore = (row as any).papercore || '';
-            if (papercore.trim()) {
-              records.push({
-                sourceType: 'knowledge_node',
-                sourceId: (row as any).id,
-                title: (row as any).short_name || `节点${(row as any).id}`,
-                papercore,
-                tags: (row as any).tags || [],
-                vec: [], // placeholder, filled below
-              });
-            }
-          }
-          console.log(
-            `[UnifiedVectorIndex]   → ${records.filter((r) => r.sourceType === 'knowledge_node').length} knowledge_nodes`,
-          );
-        }
+        // ── 1. knowledge_nodes 已退出检索（用户设计演进：只剩 文件+L1/L2/L3）──
+        // 分类管线会为每份材料同步一条同名影子节点，检索命中会产生与资料
+        // 重复的「知识节点」引用卡；图谱显示层已排除，检索层同样跳过。
+        // （库中历史影子节点保留，反思助手仍读节点活动，如需彻底清退另议）
 
         // ── 2. Load study_notes (ai_processed=true, papercore non-empty) ─
         console.log('[UnifiedVectorIndex] Loading study_notes...');
@@ -165,64 +141,22 @@ class UnifiedVectorIndex {
           );
         }
 
-        // ── 4. Load file_contents (attached to drafts / uploaded files) ─
-        console.log('[UnifiedVectorIndex] Loading file_contents...');
-        const { data: fileContents, error: fcErr } = await client
-          .from('file_contents')
-          .select('id, draft_id, extracted_text, page_number')
-          .not('extracted_text', 'is', null)
-          .order('created_at', { ascending: false })
-          .limit(500); // cap for performance
+                // ── 4. file_contents 退出统一索引 ──
+        // 两阶段检索：Stage 1 只做文档层（tags+papercore），
+        // Stage 2 由 passage-locator 对命中文件的全文做文段级检索
 
-        if (fcErr) {
-          console.error('[UnifiedVectorIndex] file_contents fetch error:', fcErr);
-        } else if (fileContents) {
-          // Collect unique draft_ids to look up file names
-          const draftIds = [...new Set(fileContents.map((fc: any) => fc.draft_id).filter(Boolean))];
-          const draftMap: Record<number, string> = {};
-          if (draftIds.length > 0) {
-            const { data: drafts } = await client
-              .from('draft_pool')
-              .select('id, file_name')
-              .in('id', draftIds);
-            (drafts || []).forEach((d: any) => {
-              draftMap[d.id] = d.file_name || '';
-            });
-          }
-
-          for (const row of fileContents) {
-            const text = ((row as any).extracted_text || '').trim();
-            if (text.length < 20) continue; // skip tiny fragments
-            // Use first 300 chars as "papercore" for embedding
-            const snippet = text.substring(0, 300);
-            const fileName = draftMap[(row as any).draft_id] || '';
-            records.push({
-              sourceType: 'file_content',
-              sourceId: (row as any).id,
-              title: fileName ? `${fileName} P${(row as any).page_number || '?'}` : `文件片段`,
-              papercore: snippet,
-              tags: [], // file_contents have no tags of their own
-              pageNumber: (row as any).page_number || undefined,
-              draftId: (row as any).draft_id,
-              fileName: fileName || undefined,
-              vec: [], // placeholder
-            });
-          }
-          console.log(
-            `[UnifiedVectorIndex]   → ${records.filter((r) => r.sourceType === 'file_content').length} file_contents`,
-          );
-        }
-
-        if (records.length === 0) {
+if (records.length === 0) {
           console.log('[UnifiedVectorIndex] No records found, index empty.');
           this.records = [];
           this.ready = true;
           return;
         }
 
-        // ── 5. Embed all papercores ──────────────────────────────
+        // ── 5. Embed docs: papercore + L1/L2/L3 标签名 ───────────
         console.log(`[UnifiedVectorIndex] Embedding ${records.length} records...`);
-        const texts = records.map((r) => r.papercore);
+        // 文档层嵌入 = 摘要 + 全部标签名（分类信号直接参与语义匹配）；
+        // 正文不再进文档层——文段级检索由 passage-locator（Stage 2）负责
+        const texts = records.map((r: any) => `${r.papercore}\n${(r.tags || []).join(' ')}`);
         const vectors = await embedBatch(texts);
 
         for (let i = 0; i < records.length; i++) {
@@ -307,10 +241,17 @@ class UnifiedVectorIndex {
             const recordTags = item.record.tags;
             if (recordTags.length === 0) continue;
 
-            const overlapCount = recordTags.filter((t) => queryTags.has(t)).length;
-            if (overlapCount > 0) {
-              const boost = Math.min(overlapCount * TAG_BOOST_PER_MATCH, TAG_BOOST_FACTOR);
-              item.score = item.rawScore * (1 + boost);
+            // 层级加权：L1 学科（数学/计算机科学）几乎覆盖全部资料，
+            // 平权 +10% 等于无差别加分把无关资料抬过阈值——L3 匹配权重最高
+            let boost = 0;
+            recordTags.forEach((t, idx) => {
+              if (!queryTags.has(t)) return;
+              if (idx === 0) boost += 0.02; // L1：学科，弱信号
+              else if (idx === 1) boost += 0.05; // L2：领域，中信号
+              else boost += 0.1; // L3：章节/概念，强信号
+            });
+            if (boost > 0) {
+              item.score = item.rawScore * (1 + Math.min(boost, TAG_BOOST_FACTOR));
               boostedCount++;
             }
           }
