@@ -7,8 +7,8 @@ WORKDIR /app
 # pnpm 版本取自 package.json 的 packageManager 字段
 RUN corepack enable
 
-# 依赖清单与补丁先拷贝，让依赖安装层可独立缓存
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+# 依赖清单 / .npmrc / 补丁先拷贝，让依赖安装层可独立缓存
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY patches ./patches
 COPY client/package.json ./client/package.json
 COPY server/package.json ./server/package.json
