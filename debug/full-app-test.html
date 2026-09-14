@@ -2003,10 +2003,11 @@ async function markUnderstood(btn){
   if(!_currentTranscript.length){appToast('会话内容为空','error');return;}
   if(btn){btn.disabled=true;btn.textContent='🧠 总结中...';}
   try{
+    // 思考模型总结需 30-90s：超时放宽到 120s（safeFetch 默认 8s 会误报总结失败）
     const res=await safeFetch(API+'/problem-solving-logs/summarize',{
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({chat_session_id:_chatSessionId,messages:_currentTranscript}),
-    });
+    },120000);
     if(!res.ok)throw new Error('HTTP '+res.status);
     const j=await res.json();
     if(btn){btn.textContent=j.data&&j.overwritten?'✅ 已覆盖更新本会话总结':'✅ 已生成本会话总结';}
