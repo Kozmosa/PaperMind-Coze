@@ -3,7 +3,7 @@
  *
  * In-memory singleton index that embeds papercores from ALL content sources
  * (knowledge_nodes, study_notes, materials + file_contents) using
- * BGE-small-zh-v1.5 and provides semantic search with tag-based re-ranking.
+ * BGE-M3 (via Embedding API) and provides semantic search with tag-based re-ranking.
  *
  * Replaces the old KnowledgeVectorIndex which only indexed knowledge_nodes.
  */

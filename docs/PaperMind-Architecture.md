@@ -8,7 +8,7 @@
 
 1. **TagVectorStore.buildFromDatabase()** — 从 `knowledge_nodes`、`study_notes`、`materials` 三张表的 `tags` 字段提取所有去重标签
    - 按位置推断层级：index 0 → L1（学科），index 1 → L2（领域），index 2+ → L3（章节/概念）
-   - 使用 `Xenova/bge-small-zh-v1.5` 模型对每个标签名做嵌入，存入内存向量库
+   - 调用 Embedding API（`BAAI/bge-m3`，1024 维）对每个标签名做嵌入，存入内存向量库
 
 2. **UnifiedVectorIndex.buildIndex()** — 跨 4 表构建统一向量索引
 
@@ -33,7 +33,7 @@
 │ Layer 2: UnifiedVectorIndex.search(query, topK=10)    │
 │                                                        │
 │   Step 1 — 向量检索                                     │
-│     query 经 BGE-small-zh-v1.5 嵌入 (512维)             │
+│     query 经 BGE-M3 嵌入 (1024维)                       │
 │     → 与所有索引记录的 papercore 向量做余弦相似度        │
 │                                                        │
 │   Step 2 — 标签加成 (Tag Boosting)                       │
@@ -160,8 +160,8 @@ System Prompt：你是学习反思助手。分析用户{N}天的学习行为，�
 | **学习闭环** | 问答即终点                                 | **问答 → 「我明白了」→ problem_solving_logs → 反思报告**，完整学习循环               |
 | **反思总结** | 无                                         | **多数据源反思引擎**：融合问题日志 + 问答记录 + 往期反思 + 节点活动                  |
 | **图片理解** | 分开处理                                   | **图片 + 知识库联合推理**：上传图片同时向量检索相关知识                              |
-| **运行模式** | 云端 API                                   | **本地嵌入**（BGE ONNX）+ **云端 LLM**（Anthropic 兼容网关）                         |
-| **嵌入模型** | 通用英文模型                               | **BGE-small-zh-v1.5**，中文优化，本地运行无网络依赖                                  |
+| **运行模式** | 云端 API                                   | **云端嵌入**（BGE-M3 API）+ **云端 LLM**（Anthropic 兼容网关）                       |
+| **嵌入模型** | 通用英文模型                               | **BGE-M3**，中文优化，1024 维；经 API 调用，服务端不做本地推理                       |
 | **标签匹配** | 无或简单文本匹配                           | **语义 + 字面双通道标签匹配**，低阈值余弦 + 子串直击                                 |
 
 ### 核心差异化
@@ -176,12 +176,12 @@ PaperMind 不是一个通用问答机器人，而是一个**以知识图谱为�
 
 ## 四、技术栈
 
-| 层       | 技术                                                                  |
-| -------- | --------------------------------------------------------------------- |
-| 客户端   | Expo (React Native) + Expo Router + KaTeX                             |
-| 服务端   | Express.js + TypeScript                                               |
-| 数据库   | Supabase (PostgreSQL) + Drizzle ORM                                   |
-| AI 网关  | Anthropic 兼容 API（`kimi-for-coding` 模型）                          |
-| 嵌入模型 | `Xenova/bge-small-zh-v1.5`（HuggingFace Transformers + ONNX Runtime） |
-| 向量维度 | 512                                                                   |
-| 包管理   | pnpm workspace monorepo                                               |
+| 层       | 技术                                                |
+| -------- | --------------------------------------------------- |
+| 客户端   | Expo (React Native) + Expo Router + KaTeX           |
+| 服务端   | Express.js + TypeScript                             |
+| 数据库   | Supabase (PostgreSQL) + Drizzle ORM                 |
+| AI 网关  | Anthropic 兼容 API（模型由 `ANTHROPIC_MODEL` 配置） |
+| 嵌入模型 | `BAAI/bge-m3`（Embedding API，OpenAI 兼容协议）     |
+| 向量维度 | 1024                                                |
+| 包管理   | pnpm workspace monorepo                             |
