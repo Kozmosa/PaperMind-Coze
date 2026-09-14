@@ -40,6 +40,13 @@ services:
         value: BAAI/bge-m3
       - key: EMBEDDING_API_KEY
         sync: false
+
+      # 扫描件 PDF 的 OCR 兜底（不走 Anthropic 兼容端点，需 OpenAI 兼容端点）。
+      # 不配会回退到 api.deepseek.com + ANTHROPIC_API_KEY，鉴权不过而静默失败。
+      - key: VISION_BASE_URL
+        value: https://open.bigmodel.cn/api/paas/v4
+      - key: VISION_MODEL
+        value: glm-4v-flash
       - key: COZE_SUPABASE_URL
         sync: false
       - key: COZE_SUPABASE_ANON_KEY

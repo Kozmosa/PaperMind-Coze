@@ -48,17 +48,31 @@ export const AVAILABLE_MODELS = [DEFAULT_MODEL];
 export type AvailableModel = (typeof AVAILABLE_MODELS)[number];
 
 // ==========================================
-// 视觉预处理配置（扫描件 OCR 兜底，issue 跟进）
-// DeepSeek 的 Anthropic 兼容端点不转发图片块，视觉必须走
-// OpenAI 兼容端点 /v1/chat/completions（实测 deepseek-v4-flash-vision-exp 可用）
+// 视觉预处理配置（扫描件 OCR 兜底）
+// AI 网关的 Anthropic 兼容端点不转发图片块，视觉必须走 OpenAI 兼容端点。
 // ==========================================
 const VISION_API_KEY = process.env.VISION_API_KEY || process.env.ANTHROPIC_API_KEY;
 const VISION_BASE_URL = process.env.VISION_BASE_URL || 'https://api.deepseek.com';
 const VISION_MODEL = process.env.VISION_MODEL || 'deepseek-v4-flash-vision-exp';
 
+/**
+ * 拼出视觉 OCR 的完整端点。
+ *
+ * OpenAI 习惯是 base 不带版本号，端点补 `/v1/chat/completions`；
+ * 但有些网关把版本号放在前缀里（如智谱 `https://open.bigmodel.cn/api/paas/v4`），
+ * 再补 `/v1` 会得到 `/v4/v1/chat/completions` 而 404，此时只补 `/chat/completions`。
+ */
+function buildVisionEndpoint(baseUrl: string): string {
+  const base = baseUrl.replace(/\/+$/, '');
+  if (/\/chat\/completions$/.test(base)) return base;
+  if (/\/v\d+[a-z0-9.\-]*$/i.test(base)) return `${base}/chat/completions`;
+  return `${base}/v1/chat/completions`;
+}
+
 export const VISION_CONFIG = {
   apiKey: VISION_API_KEY,
   baseUrl: VISION_BASE_URL,
   model: VISION_MODEL,
+  endpoint: buildVisionEndpoint(VISION_BASE_URL),
 };
 export const VISION_MODEL_NAME = VISION_MODEL;

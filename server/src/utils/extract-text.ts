@@ -192,7 +192,7 @@ async function extractPdfWithVision(filePath: string, maxPages = 5): Promise<Ext
         true,
       );
       const b64 = Buffer.from(pixmap.asPNG()).toString('base64');
-      const resp = await fetch(`${VISION_CONFIG.baseUrl}/v1/chat/completions`, {
+      const resp = await fetch(VISION_CONFIG.endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
