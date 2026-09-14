@@ -7,14 +7,12 @@ WORKDIR /app
 # pnpm 版本取自 package.json 的 packageManager 字段
 RUN corepack enable
 
-# 依赖清单 / .npmrc / 补丁先拷贝，让依赖安装层可独立缓存
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
-COPY patches ./patches
-COPY client/package.json ./client/package.json
-COPY server/package.json ./server/package.json
-RUN pnpm install --frozen-lockfile
-
+# 先拷全源码再装依赖：client 的 postinstall 会跑 scripts/install-missing-deps.js
+# （内部用 depcheck 扫源码补依赖），源码不在场时该步骤会失败。
+# 牺牲依赖层缓存换来与本地安装完全一致的行为。
 COPY . .
+
+RUN pnpm install --frozen-lockfile
 
 # 前端静态产物。这里刻意留空：客户端会回退到当前页面 origin，
 # 与 API 同源，将来换域名 / 挂自定义域名都不需要重新构建。
