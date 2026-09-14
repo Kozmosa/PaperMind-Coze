@@ -8,27 +8,20 @@ services:
     runtime: docker
     dockerfilePath: ./Dockerfile
     dockerContext: .
-    # Render 计费分两层：workspace plan（Hobby/Pro/…）与 compute plan（实例规格）。
-    # free 实例 15 分钟无流量即休眠，冷启动叠加嵌入模型加载会让评委等很久，故用最低付费档。
-    # 0.5c-512mb 即旧名 starter；若部署后 OOM，改为 1c-2g（旧名 standard）。
-    plan: 0.5c-512mb
+    # 免费实例：15 分钟无流量即休眠，冷启动要重新下载嵌入模型并重建向量索引，
+    # 首次访问会明显变慢。建议配一个外部保活探针定时打 /api/v1/health（见 README）。
+    # 需常驻时改为 0.5c-512mb（旧名 starter）。
+    plan: free
     # 新加坡离国内最近
     region: singapore
     branch: main
     autoDeployTrigger: commit
     healthCheckPath: /api/v1/health
-    # 上传资料与嵌入模型缓存都落在挂载卷上，否则每次重启全丢
-    disk:
-      name: papermind-data
-      mountPath: /var/data
-      sizeGB: 1
+    # 免费实例不支持持久磁盘，上传资料与嵌入模型缓存都只存在于容器内，
+    # 实例重启/重新部署后会丢失（数据库里的记录仍在，但文件预览会失效）。
     envVars:
       - key: NODE_ENV
         value: production
-      - key: UPLOAD_DIR
-        value: /var/data/uploads
-      - key: HF_CACHE_DIR
-        value: /var/data/huggingface
       # 该路由会把整个仓库目录（含密钥文件）暴露到公网，生产必须关闭
       - key: SERVE_PROJECT_FILES
         value: "false"
