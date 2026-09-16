@@ -47,8 +47,8 @@ const QUICK_ACTIONS = [
 const COLORS = {
   primary: '#6C63FF',
   text: '#2D3436',
-  textSecondary: '#636E72',
-  textMuted: '#B2BEC3',
+  textSecondary: '#4B5563',
+  textMuted: '#8E8E93',
 };
 
 export default function NoteHelperFullscreenScreen() {
@@ -401,7 +401,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 15,
-    color: '#B2BEC3',
+    color: '#8E8E93',
     marginTop: 12,
   },
   bottomBar: {
@@ -429,7 +429,7 @@ const styles = StyleSheet.create({
     color: '#6C63FF',
   },
   quickBtnTextDisabled: {
-    color: '#B2BEC3',
+    color: '#8E8E93',
   },
   refineInputContainer: {
     flexDirection: 'row',

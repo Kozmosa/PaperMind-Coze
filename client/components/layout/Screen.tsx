@@ -4,7 +4,7 @@ import {
   StyleSheet,
   ScrollView,
   View,
-  TouchableWithoutFeedback,
+  Pressable,
   Keyboard,
   ViewStyle,
   FlatList,
@@ -298,9 +298,13 @@ const RawScreen = ({
           {wrapScrollableWithKeyboardAvoid(children)}
         </View>
       ) : (
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss} disabled={Platform.OS === 'web'}>
-          <View style={[styles.innerContainer, style]}>{children}</View>
-        </TouchableWithoutFeedback>
+        <Pressable
+          style={[styles.innerContainer, style]}
+          onPress={Keyboard.dismiss}
+          disabled={Platform.OS === 'web'}
+        >
+          {children}
+        </Pressable>
       )}
     </View>
   );

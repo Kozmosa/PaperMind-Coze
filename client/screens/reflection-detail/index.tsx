@@ -53,12 +53,14 @@ function formatStatsForChart(daily: Record<string, number>, period: string): Dai
 export default function ReflectionDetailScreen() {
   const { id } = useSafeSearchParams<{ id: number }>();
   const router = useSafeRouter();
-  const [backgroundSecondary, border] = useCSSVariable([
+  const [backgroundSecondary, border, surfaceVar] = useCSSVariable([
     '--color-background-secondary',
     '--color-border',
+    '--color-surface',
   ]) as string[];
   const bgSecondary = backgroundSecondary || '#E7E7EC';
   const borderColor = border || '#E3DED9';
+  const surface = surfaceVar || '#FFFFFF';
   const [reflection, setReflection] = useState<Reflection | null>(null);
   const [dailyCounts, setDailyCounts] = useState<DailyCount[]>([]);
 
@@ -90,7 +92,7 @@ export default function ReflectionDetailScreen() {
     return (
       <Screen statusBarStyle="dark" safeAreaEdges={['left', 'right', 'bottom']}>
         <View className="flex-1 items-center justify-center">
-          <Text style={{ color: '#B2BEC3' }}>加载中...</Text>
+          <Text style={{ color: '#8E8E93' }}>加载中...</Text>
         </View>
       </Screen>
     );
@@ -147,11 +149,11 @@ export default function ReflectionDetailScreen() {
   };
 
   const chartConfig = {
-    backgroundColor: '#FFFFFF',
-    backgroundGradientFrom: '#FFFFFF',
-    backgroundGradientTo: '#FFFFFF',
+    backgroundColor: surface,
+    backgroundGradientFrom: surface,
+    backgroundGradientTo: surface,
     color: (opacity = 1) => `rgba(108, 99, 255, ${opacity})`,
-    labelColor: (opacity = 1) => `rgba(99, 110, 114, ${opacity})`,
+    labelColor: (opacity = 1) => `rgba(75, 85, 99, ${opacity})`,
     strokeWidth: 2,
     decimalCount: 0,
     propsForBackgroundLines: {
@@ -177,9 +179,9 @@ export default function ReflectionDetailScreen() {
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 24, fontWeight: '800', color: '#2D3436' }}>学习反思报告</Text>
-            <Text style={{ fontSize: 13, color: '#636E72', marginTop: 2 }}>
+            <Text style={{ fontSize: 13, color: '#4B5563', marginTop: 2 }}>
               {periodLabel(reflection.period)} ·{' '}
-              {new Date(reflection.created_at).toLocaleDateString()}
+              {new Date(reflection.created_at).toLocaleDateString('zh-CN')}
             </Text>
           </View>
         </View>
@@ -192,10 +194,7 @@ export default function ReflectionDetailScreen() {
               borderRadius: 24,
               padding: 20,
               marginBottom: 16,
-              shadowColor: '#D1D9E6',
-              shadowOffset: { width: 4, height: 4 },
-              shadowOpacity: 0.6,
-              shadowRadius: 6,
+              boxShadow: '4px 4px 6px rgba(209, 217, 230, 0.6)',
               elevation: 4,
             }}
           >
@@ -233,10 +232,7 @@ export default function ReflectionDetailScreen() {
             borderRadius: 24,
             padding: 20,
             marginBottom: 16,
-            shadowColor: '#D1D9E6',
-            shadowOffset: { width: 4, height: 4 },
-            shadowOpacity: 0.6,
-            shadowRadius: 6,
+            boxShadow: '4px 4px 6px rgba(209, 217, 230, 0.6)',
             elevation: 4,
           }}
         >
@@ -263,7 +259,7 @@ export default function ReflectionDetailScreen() {
             <View
               style={{
                 flex: 1,
-                backgroundColor: '#FFFFFF',
+                backgroundColor: surface,
                 borderRadius: 12,
                 padding: 12,
                 alignItems: 'center',
@@ -273,12 +269,12 @@ export default function ReflectionDetailScreen() {
               <Text style={{ fontSize: 22, fontWeight: '800', color: '#6C63FF' }}>
                 {totalQaCount}
               </Text>
-              <Text style={{ fontSize: 11, color: '#636E72', marginTop: 2 }}>提问总数</Text>
+              <Text style={{ fontSize: 11, color: '#4B5563', marginTop: 2 }}>提问总数</Text>
             </View>
             <View
               style={{
                 flex: 1,
-                backgroundColor: '#FFFFFF',
+                backgroundColor: surface,
                 borderRadius: 12,
                 padding: 12,
                 alignItems: 'center',
@@ -288,7 +284,7 @@ export default function ReflectionDetailScreen() {
               <Text style={{ fontSize: 22, fontWeight: '800', color: '#00B894' }}>
                 {activeDays}
               </Text>
-              <Text style={{ fontSize: 11, color: '#636E72', marginTop: 2 }}>活跃天数</Text>
+              <Text style={{ fontSize: 11, color: '#4B5563', marginTop: 2 }}>活跃天数</Text>
             </View>
           </View>
 
@@ -315,14 +311,14 @@ export default function ReflectionDetailScreen() {
           ) : (
             <View
               style={{
-                backgroundColor: '#FFFFFF',
+                backgroundColor: surface,
                 borderRadius: 12,
                 padding: 24,
                 alignItems: 'center',
               }}
             >
               <Feather name="bar-chart-2" size={32} color="#D1D9E6" />
-              <Text style={{ color: '#B2BEC3', marginTop: 8, fontSize: 13 }}>
+              <Text style={{ color: '#8E8E93', marginTop: 8, fontSize: 13 }}>
                 该时间段内暂无问答活动数据
               </Text>
             </View>
@@ -330,8 +326,15 @@ export default function ReflectionDetailScreen() {
         </View>
 
         <View style={{ alignItems: 'center', paddingVertical: 12 }}>
-          <Text style={{ fontSize: 12, color: '#B2BEC3' }}>
-            系统生成于 {new Date(reflection.created_at).toLocaleString()}
+          <Text style={{ fontSize: 12, color: '#8E8E93' }}>
+            系统生成于{' '}
+            {new Date(reflection.created_at).toLocaleString('zh-CN', {
+              year: 'numeric',
+              month: 'numeric',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
           </Text>
         </View>
       </ScrollView>

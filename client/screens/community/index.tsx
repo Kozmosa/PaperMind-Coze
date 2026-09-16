@@ -124,7 +124,7 @@ export default function CommunityScreen() {
         {/* Fixed Header */}
         <View style={{ paddingTop: insets.top + 16, paddingHorizontal: 20, paddingBottom: 4 }}>
           <Text style={{ fontSize: 28, fontWeight: '800', color: '#2D3436' }}>省流墙</Text>
-          <Text style={{ fontSize: 14, color: '#636E72', marginTop: 4 }}>分享知识，连接思维</Text>
+          <Text style={{ fontSize: 14, color: '#4B5563', marginTop: 4 }}>分享知识，连接思维</Text>
 
           {/* Tab Bar */}
           <View
@@ -150,10 +150,8 @@ export default function CommunityScreen() {
                   flexDirection: 'row',
                   justifyContent: 'center',
                   gap: 6,
-                  shadowColor: activeTab === tab.key ? '#D1D9E6' : 'transparent',
-                  shadowOffset: { width: 2, height: 2 },
-                  shadowOpacity: 0.4,
-                  shadowRadius: 4,
+                  boxShadow:
+                    activeTab === tab.key ? '2px 2px 4px rgba(209, 217, 230, 0.4)' : undefined,
                   elevation: activeTab === tab.key ? 2 : 0,
                 }}
                 onPress={() => setActiveTab(tab.key as any)}
@@ -161,13 +159,13 @@ export default function CommunityScreen() {
                 <Feather
                   name={tab.icon}
                   size={14}
-                  color={activeTab === tab.key ? '#6C63FF' : '#B2BEC3'}
+                  color={activeTab === tab.key ? '#6C63FF' : '#8E8E93'}
                 />
                 <Text
                   style={{
                     fontSize: 13,
                     fontWeight: '600',
-                    color: activeTab === tab.key ? '#6C63FF' : '#636E72',
+                    color: activeTab === tab.key ? '#6C63FF' : '#4B5563',
                   }}
                 >
                   {tab.label}
@@ -214,8 +212,8 @@ export default function CommunityScreen() {
 
               {forums.length === 0 && (
                 <View style={{ alignItems: 'center', paddingVertical: 40 }}>
-                  <Feather name="message-square" size={48} color="#B2BEC3" />
-                  <Text style={{ fontSize: 14, color: '#636E72', marginTop: 12 }}>还没有论坛</Text>
+                  <Feather name="message-square" size={48} color="#8E8E93" />
+                  <Text style={{ fontSize: 14, color: '#4B5563', marginTop: 12 }}>还没有论坛</Text>
                 </View>
               )}
 
@@ -227,10 +225,7 @@ export default function CommunityScreen() {
                     borderRadius: 20,
                     padding: 16,
                     marginBottom: 12,
-                    shadowColor: '#D1D9E6',
-                    shadowOffset: { width: 4, height: 4 },
-                    shadowOpacity: 0.6,
-                    shadowRadius: 6,
+                    boxShadow: '4px 4px 6px rgba(209, 217, 230, 0.6)',
                     elevation: 4,
                   }}
                   onPress={() => router.push('/forum-detail', { id: forum.id, name: forum.name })}
@@ -252,7 +247,7 @@ export default function CommunityScreen() {
                       <Text style={{ fontSize: 16, fontWeight: '700', color: '#2D3436' }}>
                         {forum.name}
                       </Text>
-                      <Text style={{ fontSize: 12, color: '#636E72', marginTop: 2 }}>
+                      <Text style={{ fontSize: 12, color: '#4B5563', marginTop: 2 }}>
                         {forum.type === 'school'
                           ? '学校论坛'
                           : forum.type === 'college'
@@ -260,7 +255,7 @@ export default function CommunityScreen() {
                             : '班级论坛'}
                       </Text>
                     </View>
-                    <Feather name="chevron-right" size={18} color="#B2BEC3" />
+                    <Feather name="chevron-right" size={18} color="#8E8E93" />
                   </View>
                 </TouchableOpacity>
               ))}
@@ -273,11 +268,11 @@ export default function CommunityScreen() {
             >
               {stickynotes.length === 0 && (
                 <View style={{ alignItems: 'center', paddingVertical: 40 }}>
-                  <Feather name="inbox" size={48} color="#B2BEC3" />
-                  <Text style={{ fontSize: 14, color: '#636E72', marginTop: 12 }}>
+                  <Feather name="inbox" size={48} color="#8E8E93" />
+                  <Text style={{ fontSize: 14, color: '#4B5563', marginTop: 12 }}>
                     {activeTab === 'friends' ? '好友区暂无内容' : '社区暂无内容'}
                   </Text>
-                  <Text style={{ fontSize: 12, color: '#B2BEC3', marginTop: 4 }}>
+                  <Text style={{ fontSize: 12, color: '#8E8E93', marginTop: 4 }}>
                     点击下方按钮发布第一条便利贴
                   </Text>
                 </View>
@@ -291,10 +286,7 @@ export default function CommunityScreen() {
                     borderRadius: 20,
                     padding: 16,
                     marginBottom: 12,
-                    shadowColor: '#D1D9E6',
-                    shadowOffset: { width: 4, height: 4 },
-                    shadowOpacity: 0.6,
-                    shadowRadius: 6,
+                    boxShadow: '4px 4px 6px rgba(209, 217, 230, 0.6)',
                     elevation: 4,
                   }}
                   onLongPress={() => handleDeleteStickynote(note.id)}
@@ -323,8 +315,8 @@ export default function CommunityScreen() {
                     >
                       {note.author_name}
                     </Text>
-                    <Text style={{ fontSize: 11, color: '#B2BEC3' }}>
-                      {new Date(note.created_at).toLocaleDateString()}
+                    <Text style={{ fontSize: 11, color: '#8E8E93' }}>
+                      {new Date(note.created_at).toLocaleDateString('zh-CN')}
                     </Text>
                   </View>
                   <MarkdownRenderer content={note.papercore} maxWidth={310} />
@@ -340,8 +332,8 @@ export default function CommunityScreen() {
                       }}
                     >
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <Feather name="link" size={12} color="#636E72" />
-                        <Text style={{ fontSize: 12, color: '#636E72' }}>
+                        <Feather name="link" size={12} color="#4B5563" />
+                        <Text style={{ fontSize: 12, color: '#4B5563' }}>
                           {note.original_material}
                         </Text>
                       </View>
@@ -387,10 +379,7 @@ export default function CommunityScreen() {
                 borderRadius: 28,
                 justifyContent: 'center',
                 alignItems: 'center',
-                shadowColor: '#6C63FF',
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.35,
-                shadowRadius: 8,
+                boxShadow: '0px 4px 8px rgba(108, 99, 255, 0.35)',
                 elevation: 6,
               }}
             >
@@ -413,10 +402,7 @@ export default function CommunityScreen() {
                   borderTopRightRadius: 28,
                   padding: 24,
                   paddingBottom: Platform.OS === 'ios' ? 40 : 24,
-                  shadowColor: '#D1D9E6',
-                  shadowOffset: { width: 0, height: -4 },
-                  shadowOpacity: 0.5,
-                  shadowRadius: 8,
+                  boxShadow: '0px -4px 8px rgba(209, 217, 230, 0.5)',
                   elevation: 10,
                 }}
               >
@@ -432,7 +418,7 @@ export default function CommunityScreen() {
                     发布便利贴
                   </Text>
                   <TouchableOpacity onPress={() => setPostModal(false)}>
-                    <Feather name="x" size={22} color="#B2BEC3" />
+                    <Feather name="x" size={22} color="#8E8E93" />
                   </TouchableOpacity>
                 </View>
 
@@ -449,7 +435,7 @@ export default function CommunityScreen() {
                   <TextInput
                     style={{ fontSize: 15, color: '#2D3436', minHeight: 80, ...noWebResize }}
                     placeholder="写下你的知识分享..."
-                    placeholderTextColor="#B2BEC3"
+                    placeholderTextColor="#8E8E93"
                     multiline
                     value={newPapercore}
                     onChangeText={setNewPapercore}
@@ -469,7 +455,7 @@ export default function CommunityScreen() {
                   <TextInput
                     style={{ fontSize: 15, color: '#2D3436' }}
                     placeholder="附加原始资料（可选）"
-                    placeholderTextColor="#B2BEC3"
+                    placeholderTextColor="#8E8E93"
                     value={newMaterial}
                     onChangeText={setNewMaterial}
                   />
@@ -521,7 +507,7 @@ export default function CommunityScreen() {
                     新建论坛
                   </Text>
                   <TouchableOpacity onPress={() => setForumModal(false)}>
-                    <Feather name="x" size={22} color="#B2BEC3" />
+                    <Feather name="x" size={22} color="#8E8E93" />
                   </TouchableOpacity>
                 </View>
 
@@ -538,7 +524,7 @@ export default function CommunityScreen() {
                   <TextInput
                     style={{ fontSize: 15, color: '#2D3436' }}
                     placeholder="论坛名称"
-                    placeholderTextColor="#B2BEC3"
+                    placeholderTextColor="#8E8E93"
                     value={forumName}
                     onChangeText={setForumName}
                   />
@@ -563,7 +549,7 @@ export default function CommunityScreen() {
                         style={{
                           fontSize: 13,
                           fontWeight: '600',
-                          color: forumType === type ? '#FFF' : '#636E72',
+                          color: forumType === type ? '#FFF' : '#4B5563',
                         }}
                       >
                         {type === 'school' ? '学校' : type === 'college' ? '学院' : '班级'}

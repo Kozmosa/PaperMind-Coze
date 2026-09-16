@@ -69,8 +69,9 @@ function PDFViewer({ url, pageNumber }: { url: string; pageNumber?: number | nul
 }
 
 export default function ReferenceCard({ citation, visible, onClose }: ReferenceCardProps) {
-  const [border] = useCSSVariable(['--color-border']) as string[];
+  const [border, surfaceVar] = useCSSVariable(['--color-border', '--color-surface']) as string[];
   const borderColor = border || '#E3DED9';
+  const surface = surfaceVar || '#FFFFFF';
   const [content, setContent] = useState('');
   const [viewUrl, setViewUrl] = useState('');
   const [fileType, setFileType] = useState('');
@@ -190,14 +191,8 @@ export default function ReferenceCard({ citation, visible, onClose }: ReferenceC
             ? 'file-text'
             : 'file-text';
 
-  const sourceColor =
-    citation.sourceType === 'knowledge_node'
-      ? '#6C63FF'
-      : citation.sourceType === 'study_note'
-        ? '#00B894'
-        : citation.sourceType === 'material'
-          ? '#FF9F43'
-          : '#636E72';
+  // 类型区分只保留图标 + 小号文字标签，统一紫色单色（issue #2 P1-1）
+  const sourceColor = '#6C63FF';
 
   const sourceLabel =
     citation.sourceType === 'knowledge_node'
@@ -214,7 +209,14 @@ export default function ReferenceCard({ citation, visible, onClose }: ReferenceC
   return (
     <View style={styles.overlay}>
       <TouchableOpacity style={styles.backdrop} onPress={onClose} activeOpacity={1} />
-      <Animated.View style={[styles.card, isMaterialPDF && styles.cardWide, animatedStyle]}>
+      <Animated.View
+        style={[
+          styles.card,
+          isMaterialPDF && styles.cardWide,
+          animatedStyle,
+          { backgroundColor: surface },
+        ]}
+      >
         {/* Header */}
         <View style={[styles.header, { borderBottomColor: borderColor }]}>
           <View style={styles.headerLeft}>
@@ -251,7 +253,7 @@ export default function ReferenceCard({ citation, visible, onClose }: ReferenceC
             ) : null}
           </View>
           <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-            <Feather name="x" size={18} color="#636E72" />
+            <Feather name="x" size={18} color="#4B5563" />
           </TouchableOpacity>
         </View>
 
@@ -333,10 +335,7 @@ const styles = StyleSheet.create({
     maxHeight: '65%',
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
+    boxShadow: '0px 8px 16px rgba(0, 0, 0, 0.2)',
     elevation: 20,
     overflow: 'hidden',
   },
@@ -369,22 +368,20 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   highlightBox: {
-    backgroundColor: '#FFF9C4',
-    borderLeftWidth: 3,
-    borderLeftColor: '#F9A825',
-    borderRadius: 6,
+    backgroundColor: 'rgba(108,99,255,0.06)',
+    borderRadius: 10,
     padding: 10,
     marginBottom: 12,
   },
   highlightLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#F57F17',
+    color: '#6C63FF',
     marginBottom: 4,
   },
   highlightContent: {
     fontSize: 13,
-    color: '#3E2723',
+    color: '#2D3436',
     lineHeight: 19,
   },
   pdfContainer: {

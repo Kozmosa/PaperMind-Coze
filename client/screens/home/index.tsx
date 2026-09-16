@@ -67,7 +67,7 @@ export default function HomeScreen() {
         {/* Header */}
         <View style={{ paddingTop: 16, marginBottom: 24 }}>
           <Text style={{ fontSize: 28, fontWeight: '800', color: '#2D3436' }}>Papermind</Text>
-          <Text style={{ fontSize: 14, color: '#636E72', marginTop: 4 }}>你的第二大脑书房</Text>
+          <Text style={{ fontSize: 14, color: '#4B5563', marginTop: 4 }}>你的第二大脑书房</Text>
         </View>
 
         {/* Stats Row */}
@@ -84,10 +84,7 @@ export default function HomeScreen() {
                 backgroundColor: bgSecondary,
                 borderRadius: 20,
                 padding: 16,
-                shadowColor: '#D1D9E6',
-                shadowOffset: { width: 4, height: 4 },
-                shadowOpacity: 0.6,
-                shadowRadius: 6,
+                boxShadow: '4px 4px 6px rgba(209, 217, 230, 0.6)',
                 elevation: 4,
               }}
             >
@@ -107,7 +104,7 @@ export default function HomeScreen() {
               <Text style={{ fontSize: 24, fontWeight: '800', color: '#2D3436' }}>
                 {item.value}
               </Text>
-              <Text style={{ fontSize: 12, color: '#636E72', marginTop: 4 }}>{item.label}</Text>
+              <Text style={{ fontSize: 12, color: '#4B5563', marginTop: 4 }}>{item.label}</Text>
             </View>
           ))}
         </View>
@@ -119,10 +116,7 @@ export default function HomeScreen() {
             borderRadius: 24,
             padding: 20,
             marginBottom: 24,
-            shadowColor: '#D1D9E6',
-            shadowOffset: { width: 4, height: 4 },
-            shadowOpacity: 0.6,
-            shadowRadius: 6,
+            boxShadow: '4px 4px 6px rgba(209, 217, 230, 0.6)',
             elevation: 4,
           }}
         >
@@ -218,10 +212,7 @@ export default function HomeScreen() {
               borderRadius: 20,
               padding: 16,
               marginBottom: 24,
-              shadowColor: '#D1D9E6',
-              shadowOffset: { width: 4, height: 4 },
-              shadowOpacity: 0.6,
-              shadowRadius: 6,
+              boxShadow: '4px 4px 6px rgba(209, 217, 230, 0.6)',
               elevation: 4,
               borderLeftWidth: 4,
               borderLeftColor: '#FF6B9D',
@@ -248,7 +239,7 @@ export default function HomeScreen() {
             {draftPoolItems.map((draft) => (
               <Text
                 key={draft.id}
-                style={{ fontSize: 13, color: '#636E72', marginTop: 8, paddingLeft: 30 }}
+                style={{ fontSize: 13, color: '#4B5563', marginTop: 8, paddingLeft: 30 }}
                 numberOfLines={1}
               >
                 {draft.content}
@@ -263,10 +254,7 @@ export default function HomeScreen() {
             backgroundColor: bgSecondary,
             borderRadius: 24,
             padding: 20,
-            shadowColor: '#D1D9E6',
-            shadowOffset: { width: 4, height: 4 },
-            shadowOpacity: 0.6,
-            shadowRadius: 6,
+            boxShadow: '4px 4px 6px rgba(209, 217, 230, 0.6)',
             elevation: 4,
           }}
         >
@@ -286,8 +274,8 @@ export default function HomeScreen() {
 
           {nodes.length === 0 && (
             <View style={{ alignItems: 'center', paddingVertical: 24 }}>
-              <Feather name="book" size={40} color="#B2BEC3" />
-              <Text style={{ fontSize: 14, color: '#636E72', marginTop: 12 }}>
+              <Feather name="book" size={40} color="#8E8E93" />
+              <Text style={{ fontSize: 14, color: '#4B5563', marginTop: 12 }}>
                 还没有知识节点，快去创建吧！
               </Text>
               <TouchableOpacity
@@ -338,11 +326,11 @@ export default function HomeScreen() {
                 >
                   {node.papercore}
                 </Text>
-                <Text style={{ fontSize: 12, color: '#636E72', marginTop: 2 }}>
-                  {new Date(node.created_at).toLocaleDateString()}
+                <Text style={{ fontSize: 12, color: '#4B5563', marginTop: 2 }}>
+                  {new Date(node.created_at).toLocaleDateString('zh-CN')}
                 </Text>
               </View>
-              <Feather name="chevron-right" size={18} color="#B2BEC3" />
+              <Feather name="chevron-right" size={18} color="#8E8E93" />
             </TouchableOpacity>
           ))}
         </View>

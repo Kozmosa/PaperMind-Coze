@@ -53,8 +53,9 @@ export default function NoteHelperPanel({
 }: NoteHelperPanelProps) {
   const router = useSafeRouter();
   const insets = useSafeAreaInsets();
-  const [border] = useCSSVariable(['--color-border']) as string[];
+  const [border, surfaceVar] = useCSSVariable(['--color-border', '--color-surface']) as string[];
   const borderColor = border || '#E3DED9';
+  const surface = surfaceVar || '#FFFFFF';
   const [status, setStatus] = useState<'idle' | 'generating' | 'done' | 'error'>('idle');
   const [noteContent, setNoteContent] = useState('');
   const [citations, setCitations] = useState<Citation[]>([]);
@@ -127,7 +128,9 @@ export default function NoteHelperPanel({
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
         <TouchableOpacity style={styles.backdrop} onPress={onClose} activeOpacity={1} />
-        <View style={[styles.panel, { paddingBottom: insets.bottom + 16 }]}>
+        <View
+          style={[styles.panel, { paddingBottom: insets.bottom + 16, backgroundColor: surface }]}
+        >
           {/* Handle bar */}
           <View style={styles.handleBar}>
             <View style={styles.handle} />
@@ -158,7 +161,7 @@ export default function NoteHelperPanel({
                 </TouchableOpacity>
               )}
               <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                <Feather name="x" size={20} color="#636E72" />
+                <Feather name="x" size={20} color="#4B5563" />
               </TouchableOpacity>
             </View>
           </View>
@@ -210,7 +213,7 @@ export default function NoteHelperPanel({
 
             {status === 'idle' && (
               <View style={styles.generatingPlaceholder}>
-                <Feather name="file-text" size={32} color="#B2BEC3" />
+                <Feather name="file-text" size={32} color="#8E8E93" />
                 <Text style={styles.generatingText}>已选择 {sourceCount} 个文件</Text>
                 <Text style={styles.generatingSubtext}>点击下方按钮开始生成</Text>
                 <TouchableOpacity style={styles.startBtn} onPress={startGeneration}>
@@ -252,10 +255,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
+    boxShadow: '0px -4px 12px rgba(0, 0, 0, 0.15)',
     elevation: 20,
   },
   handleBar: {
@@ -318,7 +318,7 @@ const styles = StyleSheet.create({
   },
   generatingSubtext: {
     fontSize: 13,
-    color: '#B2BEC3',
+    color: '#8E8E93',
     marginTop: 6,
     textAlign: 'center',
   },

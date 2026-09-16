@@ -141,10 +141,7 @@ export default function ProfileScreen() {
               backgroundColor: bgSecondary,
               justifyContent: 'center',
               alignItems: 'center',
-              shadowColor: '#D1D9E6',
-              shadowOffset: { width: 4, height: 4 },
-              shadowOpacity: 0.6,
-              shadowRadius: 8,
+              boxShadow: '4px 4px 8px rgba(209, 217, 230, 0.6)',
               elevation: 5,
               borderWidth: 3,
               borderColor: '#FFFFFF',
@@ -168,29 +165,26 @@ export default function ProfileScreen() {
               borderRadius: 24,
               padding: 20,
               marginBottom: 24,
-              shadowColor: '#D1D9E6',
-              shadowOffset: { width: 4, height: 4 },
-              shadowOpacity: 0.6,
-              shadowRadius: 6,
+              boxShadow: '4px 4px 6px rgba(209, 217, 230, 0.6)',
               elevation: 4,
             }}
           >
             <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
               <View style={{ alignItems: 'center' }}>
                 <Text style={{ fontSize: 28, fontWeight: '800', color: '#6C63FF' }}>--</Text>
-                <Text style={{ fontSize: 12, color: '#636E72' }}>知识节点</Text>
+                <Text style={{ fontSize: 12, color: '#4B5563' }}>知识节点</Text>
               </View>
               <View style={{ alignItems: 'center' }}>
                 <Text style={{ fontSize: 28, fontWeight: '800', color: '#00B894' }}>
                   {reflections.length}
                 </Text>
-                <Text style={{ fontSize: 12, color: '#636E72' }}>反思报告</Text>
+                <Text style={{ fontSize: 12, color: '#4B5563' }}>反思报告</Text>
               </View>
               <View style={{ alignItems: 'center' }}>
                 <Text style={{ fontSize: 28, fontWeight: '800', color: '#FF6B9D' }}>
                   {draftCount}
                 </Text>
-                <Text style={{ fontSize: 12, color: '#636E72' }}>待处理草稿</Text>
+                <Text style={{ fontSize: 12, color: '#4B5563' }}>待处理草稿</Text>
               </View>
             </View>
           </View>
@@ -204,10 +198,7 @@ export default function ProfileScreen() {
                 borderRadius: 20,
                 padding: 16,
                 marginBottom: 12,
-                shadowColor: '#D1D9E6',
-                shadowOffset: { width: 4, height: 4 },
-                shadowOpacity: 0.6,
-                shadowRadius: 6,
+                boxShadow: '4px 4px 6px rgba(209, 217, 230, 0.6)',
                 elevation: 4,
               }}
               onPress={section.onPress}
@@ -258,7 +249,7 @@ export default function ProfileScreen() {
                     </Text>
                   </View>
                 )}
-                <Feather name="chevron-right" size={18} color="#B2BEC3" />
+                <Feather name="chevron-right" size={18} color="#8E8E93" />
               </View>
             </TouchableOpacity>
           ))}
@@ -272,10 +263,7 @@ export default function ProfileScreen() {
                 padding: 20,
                 marginTop: 8,
                 marginBottom: 24,
-                shadowColor: '#D1D9E6',
-                shadowOffset: { width: 4, height: 4 },
-                shadowOpacity: 0.6,
-                shadowRadius: 6,
+                boxShadow: '4px 4px 6px rgba(209, 217, 230, 0.6)',
                 elevation: 4,
               }}
             >
@@ -303,8 +291,8 @@ export default function ProfileScreen() {
                       {ref.period || `反思报告 #${ref.id}`}
                     </Text>
                     <View style={{ flex: 1 }} />
-                    <Text style={{ fontSize: 12, color: '#B2BEC3' }}>
-                      {new Date(ref.created_at).toLocaleDateString()}
+                    <Text style={{ fontSize: 12, color: '#8E8E93' }}>
+                      {new Date(ref.created_at).toLocaleDateString('zh-CN')}
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -340,7 +328,7 @@ export default function ProfileScreen() {
                       笔记风格偏好
                     </Text>
                     <TouchableOpacity onPress={() => setStyleModal(false)}>
-                      <Feather name="x" size={22} color="#B2BEC3" />
+                      <Feather name="x" size={22} color="#8E8E93" />
                     </TouchableOpacity>
                   </View>
 
@@ -357,7 +345,7 @@ export default function ProfileScreen() {
                     <TextInput
                       style={{ fontSize: 15, color: '#2D3436', minHeight: 120, ...noWebResize }}
                       placeholder="描述你的笔记偏好，如：喜欢用思维导图、善于总结关键词..."
-                      placeholderTextColor="#B2BEC3"
+                      placeholderTextColor="#8E8E93"
                       multiline
                       value={editGeneral}
                       onChangeText={setEditGeneral}

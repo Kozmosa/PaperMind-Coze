@@ -77,7 +77,7 @@ export default function ForumDetailScreen() {
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 24, fontWeight: '800', color: '#2D3436' }}>{name}</Text>
-            <Text style={{ fontSize: 13, color: '#636E72', marginTop: 2 }}>
+            <Text style={{ fontSize: 13, color: '#4B5563', marginTop: 2 }}>
               {posts.length} 个帖子
             </Text>
           </View>
@@ -90,9 +90,9 @@ export default function ForumDetailScreen() {
         >
           {posts.length === 0 && (
             <View style={{ alignItems: 'center', paddingVertical: 60 }}>
-              <Feather name="message-circle" size={48} color="#B2BEC3" />
-              <Text style={{ fontSize: 14, color: '#636E72', marginTop: 12 }}>还没有帖子</Text>
-              <Text style={{ fontSize: 12, color: '#B2BEC3', marginTop: 4 }}>
+              <Feather name="message-circle" size={48} color="#8E8E93" />
+              <Text style={{ fontSize: 14, color: '#4B5563', marginTop: 12 }}>还没有帖子</Text>
+              <Text style={{ fontSize: 12, color: '#8E8E93', marginTop: 4 }}>
                 快来发布第一条帖子吧
               </Text>
             </View>
@@ -106,10 +106,7 @@ export default function ForumDetailScreen() {
                 borderRadius: 20,
                 padding: 16,
                 marginBottom: 12,
-                shadowColor: '#D1D9E6',
-                shadowOffset: { width: 4, height: 4 },
-                shadowOpacity: 0.6,
-                shadowRadius: 6,
+                boxShadow: '4px 4px 6px rgba(209, 217, 230, 0.6)',
                 elevation: 4,
               }}
             >
@@ -137,8 +134,8 @@ export default function ForumDetailScreen() {
                 >
                   {post.author_name}
                 </Text>
-                <Text style={{ fontSize: 11, color: '#B2BEC3' }}>
-                  {new Date(post.created_at).toLocaleDateString()}
+                <Text style={{ fontSize: 11, color: '#8E8E93' }}>
+                  {new Date(post.created_at).toLocaleDateString('zh-CN')}
                 </Text>
               </View>
               <Text style={{ fontSize: 15, color: '#2D3436', lineHeight: 24 }}>{post.content}</Text>
@@ -161,10 +158,7 @@ export default function ForumDetailScreen() {
               borderRadius: 28,
               justifyContent: 'center',
               alignItems: 'center',
-              shadowColor: '#6C63FF',
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.35,
-              shadowRadius: 8,
+              boxShadow: '0px 4px 8px rgba(108, 99, 255, 0.35)',
               elevation: 6,
             }}
           >
@@ -200,7 +194,7 @@ export default function ForumDetailScreen() {
                     发布帖子
                   </Text>
                   <TouchableOpacity onPress={() => setPostModal(false)}>
-                    <Feather name="x" size={22} color="#B2BEC3" />
+                    <Feather name="x" size={22} color="#8E8E93" />
                   </TouchableOpacity>
                 </View>
 
@@ -217,7 +211,7 @@ export default function ForumDetailScreen() {
                   <TextInput
                     style={{ fontSize: 15, color: '#2D3436', minHeight: 120, ...noWebResize }}
                     placeholder="写下你的想法..."
-                    placeholderTextColor="#B2BEC3"
+                    placeholderTextColor="#8E8E93"
                     multiline
                     value={newContent}
                     onChangeText={setNewContent}

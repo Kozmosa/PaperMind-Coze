@@ -20,13 +20,12 @@ import type { Citation } from '@/components/note-helper/NoteHelperPanel';
 
 const COLORS = {
   text: '#2D3436',
-  textSecondary: '#636E72',
-  textMuted: '#B2BEC3',
+  textSecondary: '#4B5563',
+  textMuted: '#8E8E93',
   primary: '#6C63FF',
   green: '#00B894',
   orange: '#FF9F43',
   red: '#FF3B30',
-  white: '#FFFFFF',
 };
 
 type RecentRecord = {
@@ -50,12 +49,14 @@ export default function ControlCenterScreen() {
   const router = useSafeRouter();
   const insets = useSafeAreaInsets();
   const { refreshKey } = useAuth();
-  const [backgroundSecondary, border] = useCSSVariable([
+  const [backgroundSecondary, border, surfaceVar] = useCSSVariable([
     '--color-background-secondary',
     '--color-border',
+    '--color-surface',
   ]) as string[];
   const bgSecondary = backgroundSecondary || '#E7E7EC';
   const borderColor = border || '#E3DED9';
+  const surface = surfaceVar || '#FFFFFF';
 
   const [recentRecords, setRecentRecords] = useState<RecentRecord[]>([]);
   const [allRecords, setAllRecords] = useState<RecentRecord[]>([]);
@@ -441,10 +442,7 @@ export default function ControlCenterScreen() {
                     backgroundColor: bgSecondary,
                     borderRadius: 20,
                     padding: 16,
-                    shadowColor: '#D1D9E6',
-                    shadowOffset: { width: 4, height: 4 },
-                    shadowOpacity: 0.6,
-                    shadowRadius: 6,
+                    boxShadow: '4px 4px 6px rgba(209, 217, 230, 0.6)',
                     elevation: 4,
                   }}
                 >
@@ -478,10 +476,7 @@ export default function ControlCenterScreen() {
                 borderRadius: 24,
                 padding: 20,
                 marginBottom: 24,
-                shadowColor: '#D1D9E6',
-                shadowOffset: { width: 4, height: 4 },
-                shadowOpacity: 0.6,
-                shadowRadius: 6,
+                boxShadow: '4px 4px 6px rgba(209, 217, 230, 0.6)',
                 elevation: 4,
               }}
             >
@@ -556,10 +551,7 @@ export default function ControlCenterScreen() {
                 borderRadius: 24,
                 padding: 20,
                 marginBottom: 24,
-                shadowColor: '#D1D9E6',
-                shadowOffset: { width: 4, height: 4 },
-                shadowOpacity: 0.6,
-                shadowRadius: 6,
+                boxShadow: '4px 4px 6px rgba(209, 217, 230, 0.6)',
                 elevation: 4,
               }}
             >
@@ -737,7 +729,7 @@ export default function ControlCenterScreen() {
           <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}>
             <View
               style={{
-                backgroundColor: COLORS.white,
+                backgroundColor: surface,
                 borderTopLeftRadius: 24,
                 borderTopRightRadius: 24,
                 maxHeight: '90%',
@@ -871,7 +863,7 @@ export default function ControlCenterScreen() {
           <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}>
             <View
               style={{
-                backgroundColor: COLORS.white,
+                backgroundColor: surface,
                 borderTopLeftRadius: 24,
                 borderTopRightRadius: 24,
               }}
@@ -960,7 +952,7 @@ export default function ControlCenterScreen() {
           <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}>
             <View
               style={{
-                backgroundColor: COLORS.white,
+                backgroundColor: surface,
                 borderTopLeftRadius: 24,
                 borderTopRightRadius: 24,
                 maxHeight: '85%',
@@ -1108,7 +1100,7 @@ export default function ControlCenterScreen() {
               bottom: 0,
               left: 0,
               right: 0,
-              backgroundColor: '#FFFFFF',
+              backgroundColor: surface,
               borderTopWidth: 1,
               borderTopColor: borderColor,
               paddingBottom: insets.bottom + 8,
@@ -1117,10 +1109,7 @@ export default function ControlCenterScreen() {
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'space-between',
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: -2 },
-              shadowOpacity: 0.1,
-              shadowRadius: 8,
+              boxShadow: '0px -2px 8px rgba(0, 0, 0, 0.1)',
               elevation: 10,
             }}
           >
@@ -1288,5 +1277,5 @@ function formatDate(dateStr: string): string {
   if (days === 0) return '今天';
   if (days === 1) return '昨天';
   if (days < 7) return `${days}天前`;
-  return date.toLocaleDateString();
+  return date.toLocaleDateString('zh-CN');
 }
