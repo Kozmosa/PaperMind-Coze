@@ -1,111 +1,86 @@
-node_modules
-dist
-.DS_Store
-*.swp
-.git/*
-__pycache__/
-*.pyc
-.venv/*
-*.o
-*.a
-/vendor
-*.egg-info/
-/.env
-.env
-.cozeproj/reduction
-
-# JS/TS bundlers & build outputs
-.next
-.nuxt
-.turbo
-.vercel
-.parcel-cache
-.cache
-coverage
-storybook-static
-
-# Package manager artifacts
-.pnp*
-.npm
-
-# Python tooling
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.tox/
-
-# Go tooling
-bin/
-*.test
-
-# Editor / IDE
-.vscode/
-.idea/
-*.iml
-
-# OS / misc
-Thumbs.db
-ehthumbs.db
-
-# Logs
-output.log
-*.log
-*.log.*
-logs/
-
-# 视频文件
-*.mp4
-*.avi
-*.mov
-*.wmv
-*.flv
-*.mkv
-*.webm
-*.m4v
-*.mpeg
-*.mpg
-*.3gp
-*.f4v
-*.rmvb
-*.vob
-
-# 归档文件
-*.iso
-*.dmg
-*.rar
-*.zip
-*.gz
-
-# 文档类也默认加入
-*.pdf
-*.docx
-*.doc
-*.xlsx
-*.xls
-*.ppt
-*.pptx
-*.xlsx
-*.csv
-
-# Preview files
-.preview
+# 依赖与构建产物
 node_modules/
 dist/
 build/
 .expo/
 .expo-shared/
-.eslintcache
-expo/expo-env.d.ts
-expo-env.d.ts
 *.tsbuildinfo
 node-compile-cache/
+coverage
+.cache
+.eslintcache
+expo-env.d.ts
+
+# 环境变量（密钥）
+.env
+
+# 日志
+logs/
+*.log
+*.log.*
+
+# 系统与编辑器
+.DS_Store
+Thumbs.db
+ehthumbs.db
+*.swp
+.vscode/
+.idea/
+*.iml
+
+# 运行时目录与文件（server 启动时自动重建）
+server/uploads/
 server/nohup.out
 
-# debug 调试产物（API 响应抓包）
+# debug 调试产物（API 抓包与归档）
 debug/*.json
-
-# 用户上传的运行时文件(server 启动时自动重建目录)
-server/uploads/
-
-# debug 调试产物归档
 debug/artifacts/
+
+# 演示/交付用大文件（仅限仓库根目录；子目录内的文档附件可正常跟踪）
+/*.zip
+/*.gz
+/*.rar
+/*.iso
+/*.dmg
+/*.mp4
+/*.avi
+/*.mov
+/*.wmv
+/*.flv
+/*.mkv
+/*.webm
+/*.m4v
+/*.mpeg
+/*.mpg
+/*.3gp
+/*.f4v
+/*.rmvb
+/*.vob
+/*.pdf
+/*.doc
+/*.docx
+/*.xls
+/*.xlsx
+/*.ppt
+/*.pptx
+/*.csv
+
+# npm 残留锁文件（本仓库统一使用 pnpm）
+/package-lock.json
+
+# AI 编码助手本地状态与技能同步
+.claude/
+.cursor/
+.copilot/
+.gemini/
+.junie/
+.factory/
+.pi/
+.codebuddy/
+.commandcode/
+.agents/
+/.config/
+skills-lock.json
+
+# 本地生成物
+/ui-ux-research-report.html
