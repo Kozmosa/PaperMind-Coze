@@ -23,13 +23,12 @@
 
 @layer theme {
   :root {
-    /* Force light color scheme — disables browser dark mode auto-styling */
-    color-scheme: light;
+    /* ThemeModeProvider controls light/dark and persists the user choice. */
+    color-scheme: light dark;
 
     @variant light {
       /* Base Colors */
-      /* DESIGN.md 规范底色：暖灰白 #F0F0F3 */
-      --background: #f0f0f3;
+      --background: #F6F4FF;
       --foreground: var(--eclipse);
 
       /* Surface: Used for non-overlay components (cards, accordions, disclosure groups) */
@@ -40,12 +39,12 @@
       --overlay: var(--white);
       --overlay-foreground: var(--foreground);
 
-      --muted: oklch(0.58 0.02 55);
+      --muted: #484653;
 
-      --default: oklch(0.92 0.005 55);
+      --default: #ECEAF6;
       --default-foreground: var(--eclipse);
 
-      --accent: oklch(0.64 0.135 38);
+      --accent: #5B4FE0;
       --accent-foreground: var(--snow);
 
       /* Form Fields */
@@ -69,17 +68,17 @@
       --segment-foreground: var(--eclipse);
 
       /* Misc Colors */
-      --border: oklch(88% 0.01 55);
-      --separator: oklch(0.74 0.01 55);
+      --border: #C9C7D4;
+      --separator: #777586;
       --focus: var(--accent);
       --link: var(--foreground);
 
       /* Shadows */
       --surface-shadow:
-        0 2px 8px 0 rgba(193, 165, 140, 0.12), 0 1px 3px 0 rgba(0, 0, 0, 0.04),
+        0 2px 8px 0 rgba(91, 79, 224, 0.10), 0 1px 3px 0 rgba(0, 0, 0, 0.04),
         0 0 1px 0 rgba(0, 0, 0, 0.04);
       --overlay-shadow:
-        0 2px 8px 0 rgba(193, 165, 140, 0.12), 0 -6px 12px 0 rgba(0, 0, 0, 0.02),
+        0 2px 8px 0 rgba(91, 79, 224, 0.10), 0 -6px 12px 0 rgba(0, 0, 0, 0.02),
         0 14px 28px 0 rgba(0, 0, 0, 0.06);
       --field-shadow:
         0 2px 4px 0 rgba(0, 0, 0, 0.04), 0 1px 2px 0 rgba(0, 0, 0, 0.04),
@@ -88,27 +87,27 @@
 
     @variant dark {
       /* Base Colors */
-      --background: #09090b;
+      --background: #111118;
       --foreground: var(--snow);
 
       /* Surface: Used for non-overlay components (cards, accordions, disclosure groups) */
-      --surface: oklch(0.2103 0.0059 285.89);
+      --surface: #191922;
       --surface-foreground: var(--foreground);
 
       /* Overlay: Used for floating/overlay components (dialogs, popovers, modals, menus) - lighter for contrast */
-      --overlay: oklch(0.2103 0.0059 285.89);
+      --overlay: #191922;
       --overlay-foreground: var(--foreground);
 
-      --muted: oklch(70.5% 0.015 286.067);
+      --muted: #CBC7D8;
 
-      --default: oklch(27.4% 0.006 286.033);
+      --default: #2A2A36;
       --default-foreground: var(--snow);
 
-      --accent: oklch(0.64 0.135 38);
+      --accent: #C4BEFF;
       --accent-foreground: var(--snow);
 
       /* Form Field Defaults - Colors (only the ones that are different from light theme) */
-      --field-background: oklch(0.2103 0.0059 285.89);
+      --field-background: #191922;
       --field-foreground: var(--foreground);
       --field-placeholder: var(--muted);
       --field-border: transparent; /* no border by default on form fields */
@@ -124,12 +123,12 @@
       --danger-foreground: var(--snow);
 
       /* Component Colors */
-      --segment: oklch(0.3964 0.01 285.93);
+      --segment: #2A2A36;
       --segment-foreground: var(--foreground);
 
       /* Misc Colors */
-      --border: oklch(28% 0.006 286.033);
-      --separator: oklch(40% 0.006 286.033);
+      --border: #4A4857;
+      --separator: #9591A4;
       --focus: var(--accent);
       --link: var(--foreground);
 

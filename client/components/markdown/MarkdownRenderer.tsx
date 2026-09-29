@@ -4,6 +4,7 @@ import { View, Platform, StyleSheet } from 'react-native';
 interface MarkdownRendererProps {
   content: string;
   maxWidth?: number;
+  colorScheme?: 'light' | 'dark';
 }
 
 // Obsidian 风格扩展样式（web 路径注入用，与 native 模板 <style> 保持同步）
@@ -37,7 +38,7 @@ function sanitizeLatex(formula: string): string {
       // KaTeX math mode can't handle CJK directly; wrap CJK runs in \text{}。
       // 只包 CJK：希腊字母/数学符号（μ Σ π ≈ ≤ ²）KaTeX 原生支持，
       // 全量非 ASCII 包 \text{} 反而因 Main-Regular 缺字形度量而失败（x̄ 组合符案例）
-      .replace(/([⺀-鿿豈-﫿＀-￯]+)/g, '\\text{$1}')
+      .replace(/([\u2E80-\u9FFF\uF900-\uFAFF\uFF00-\uFFEF]+)/g, '\\text{$1}')
   );
 }
 
@@ -60,7 +61,7 @@ function obsidianPreprocess(text: string): string {
   // ==高亮==（Obsidian highlight）
   t = t.replace(/==([^=\n]+)==/g, '<mark>$1</mark>');
   // [[双链]] 渲染为内部链接样式
-  t = t.replace(/\[\[([^\[\]\n]+)\]\]/g, '<a class="wiki-link">$1</a>');
+  t = t.replace(/\[\[([^\]\n]+)\]\]/g, '<a class="wiki-link">$1</a>');
   // > [!note] 标注块：标题行 + 后续 "> " 行收编为 callout 容器
   t = t.replace(/^> \[!(\w+)\]([^\n]*)\n((?:> [^\n]*\n?)*)/gm, (_m, type: string, title: string, body: string) => {
     const bodyHtml = body
@@ -136,6 +137,37 @@ const COLLAPSE_SCRIPT = `
 })();
 `;
 
+type MarkdownColorScheme = 'light' | 'dark';
+
+const MARKDOWN_THEME_CSS: Record<MarkdownColorScheme, string> = {
+  light: '',
+  dark: `
+    [data-papermind-md='dark'] { color: #E5E1E9; }
+    [data-papermind-md='dark'] h1,
+    [data-papermind-md='dark'] h2,
+    [data-papermind-md='dark'] h3,
+    [data-papermind-md='dark'] h4 { color: #F3EFF7; }
+    [data-papermind-md='dark'] code { background: #2A2A36 !important; color: #F2B8B5 !important; }
+    [data-papermind-md='dark'] pre { background: #111118 !important; }
+    [data-papermind-md='dark'] pre code { color: #E5E1E9 !important; background: transparent !important; }
+    [data-papermind-md='dark'] blockquote { color: #CBC7D8; }
+    [data-papermind-md='dark'] a,
+    [data-papermind-md='dark'] .wiki-link { color: #C4BEFF; border-bottom-color: #6B62C8; }
+    [data-papermind-md='dark'] th,
+    [data-papermind-md='dark'] td { border-color: #4A4857; }
+    [data-papermind-md='dark'] th { background: #2A2A36; }
+    [data-papermind-md='dark'] hr { border-top-color: #4A4857; }
+    [data-papermind-md='dark'] del { color: #9591A4; }
+    [data-papermind-md='dark'] .math-fallback,
+    [data-papermind-md='dark'] .math-fallback-inline {
+      background: #2A2A36 !important;
+      color: #E5E1E9 !important;
+    }
+    [data-papermind-md='dark'] .callout { background: #2A2A36; border-left-color: #9591A4; }
+    [data-papermind-md='dark'] .callout-title { color: #E5E1E9; }
+  `,
+};
+
 /* ======================== Native Version (iOS/Android) ======================== */
 function NativeMarkdown({ html }: { html: string }) {
   const WebView = require('react-native-webview').WebView;
@@ -158,7 +190,13 @@ function NativeMarkdown({ html }: { html: string }) {
 }
 
 /* ======================== Web Version ======================== */
-function WebMarkdown({ content }: { content: string }) {
+function WebMarkdown({
+  content,
+  colorScheme,
+}: {
+  content: string;
+  colorScheme: MarkdownColorScheme;
+}) {
   const containerRef = useRef<View>(null);
   const [ready, setReady] = useState(false);
 
@@ -181,6 +219,14 @@ function WebMarkdown({ content }: { content: string }) {
       style.textContent = OBSIDIAN_CSS;
       document.head.appendChild(style);
     }
+
+    let themeStyle = document.getElementById('papermind-md-theme') as HTMLStyleElement | null;
+    if (!themeStyle) {
+      themeStyle = document.createElement('style');
+      themeStyle.id = 'papermind-md-theme';
+      document.head.appendChild(themeStyle);
+    }
+    themeStyle.textContent = MARKDOWN_THEME_CSS[colorScheme];
 
     // Load KaTeX and marked scripts
     const loadScript = (src: string): Promise<void> =>
@@ -210,6 +256,7 @@ function WebMarkdown({ content }: { content: string }) {
     if (!ready || !containerRef.current) return;
 
     const el = containerRef.current as unknown as HTMLElement;
+    el.setAttribute('data-papermind-md', colorScheme);
     const katex = (window as any).katex;
     const marked = (window as any).marked;
 
@@ -281,7 +328,7 @@ function WebMarkdown({ content }: { content: string }) {
     } catch {
       el.innerHTML = `<p>${content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>`;
     }
-  }, [content, ready]);
+  }, [colorScheme, content, ready]);
 
   return <View ref={containerRef} style={styles.webContainer} />;
 }
@@ -328,7 +375,11 @@ function applyHeadingCollapse(root: HTMLElement) {
 }
 
 /* ======================== Main Export ======================== */
-export default function MarkdownRenderer({ content, maxWidth }: MarkdownRendererProps) {
+export default function MarkdownRenderer({
+  content,
+  maxWidth,
+  colorScheme,
+}: MarkdownRendererProps) {
   // Build the full HTML for Native version
   const html = useMemo(() => {
     const escaped = content
@@ -390,8 +441,9 @@ export default function MarkdownRenderer({ content, maxWidth }: MarkdownRenderer
     .callout-danger,.callout-error{background:#FEF2F2;border-left-color:#EF4444}
     .callout-danger .callout-title,.callout-error .callout-title{color:#B91C1C}
   </style>
+  <style>${MARKDOWN_THEME_CSS[colorScheme || 'light']}</style>
 </head>
-<body>
+<body data-papermind-md="${colorScheme || 'light'}">
 <div id="content"></div>
 <script>
 (function(){
@@ -477,12 +529,12 @@ export default function MarkdownRenderer({ content, maxWidth }: MarkdownRenderer
 </script>
 </body>
 </html>`;
-  }, [content]);
+  }, [colorScheme, content]);
 
   if (Platform.OS === 'web') {
     return (
       <View style={{ maxWidth: maxWidth || '100%' }}>
-        <WebMarkdown content={content} />
+        <WebMarkdown content={content} colorScheme={colorScheme || 'light'} />
       </View>
     );
   }
