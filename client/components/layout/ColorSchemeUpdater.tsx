@@ -1,15 +1,24 @@
 import { Fragment, useEffect, type ReactNode } from 'react';
+import { Platform } from 'react-native';
 import { Uniwind } from 'uniwind';
+import type { ThemeMode } from '@/contexts/ThemeModeContext';
 
-// Force light theme — do not follow system or workbench color scheme
-const DEFAULT_THEME: 'system' | 'light' | 'dark' = 'light';
-
-const WebOnlyColorSchemeUpdater = function ({ children }: { children?: ReactNode }) {
+function WebOnlyColorSchemeUpdater({
+  children,
+  mode,
+}: {
+  children?: ReactNode;
+  mode: ThemeMode;
+}) {
   useEffect(() => {
-    Uniwind.setTheme(DEFAULT_THEME);
-  }, []);
+    if (Platform.OS === 'web') {
+      Uniwind.setTheme(mode);
+    }
+  }, [mode]);
 
   return <Fragment>{children}</Fragment>;
-};
+}
 
-export { WebOnlyColorSchemeUpdater };
+export {
+  WebOnlyColorSchemeUpdater,
+};
