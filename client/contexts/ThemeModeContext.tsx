@@ -21,19 +21,20 @@ interface ThemeModeValue {
   toggle: () => void;
 }
 
+const DEFAULT_THEME: ThemeMode = 'light';
 const STORAGE_KEY = 'papermind.theme-mode';
 const ThemeModeContext = createContext<ThemeModeValue | undefined>(undefined);
 
 export function ThemeModeProvider({ children }: { children: ReactNode }) {
   const systemTheme = useColorScheme();
-  const [mode, setModeState] = useState<ThemeMode>('system');
+  const [mode, setModeState] = useState<ThemeMode>(DEFAULT_THEME);
 
   useEffect(() => {
     let mounted = true;
     AsyncStorage.getItem(STORAGE_KEY)
       .then((stored) => {
         if (!mounted) return;
-        if (stored === 'light' || stored === 'dark' || stored === 'system') {
+        if (stored === 'light' || stored === 'dark') {
           setModeState(stored);
         }
       })

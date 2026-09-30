@@ -28,7 +28,7 @@
 
     @variant light {
       /* Base Colors */
-      --background: #F6F4FF;
+      --background: #f6f4ff;
       --foreground: var(--eclipse);
 
       /* Surface: Used for non-overlay components (cards, accordions, disclosure groups) */
@@ -41,10 +41,10 @@
 
       --muted: #484653;
 
-      --default: #ECEAF6;
+      --default: #eceaf6;
       --default-foreground: var(--eclipse);
 
-      --accent: #5B4FE0;
+      --accent: #5b4fe0;
       --accent-foreground: var(--snow);
 
       /* Form Fields */
@@ -68,17 +68,17 @@
       --segment-foreground: var(--eclipse);
 
       /* Misc Colors */
-      --border: #C9C7D4;
+      --border: #c9c7d4;
       --separator: #777586;
       --focus: var(--accent);
       --link: var(--foreground);
 
       /* Shadows */
       --surface-shadow:
-        0 2px 8px 0 rgba(91, 79, 224, 0.10), 0 1px 3px 0 rgba(0, 0, 0, 0.04),
+        0 2px 8px 0 rgba(91, 79, 224, 0.1), 0 1px 3px 0 rgba(0, 0, 0, 0.04),
         0 0 1px 0 rgba(0, 0, 0, 0.04);
       --overlay-shadow:
-        0 2px 8px 0 rgba(91, 79, 224, 0.10), 0 -6px 12px 0 rgba(0, 0, 0, 0.02),
+        0 2px 8px 0 rgba(91, 79, 224, 0.1), 0 -6px 12px 0 rgba(0, 0, 0, 0.02),
         0 14px 28px 0 rgba(0, 0, 0, 0.06);
       --field-shadow:
         0 2px 4px 0 rgba(0, 0, 0, 0.04), 0 1px 2px 0 rgba(0, 0, 0, 0.04),
@@ -98,12 +98,12 @@
       --overlay: #191922;
       --overlay-foreground: var(--foreground);
 
-      --muted: #CBC7D8;
+      --muted: #cbc7d8;
 
-      --default: #2A2A36;
+      --default: #2a2a36;
       --default-foreground: var(--snow);
 
-      --accent: #C4BEFF;
+      --accent: #c4beff;
       --accent-foreground: var(--snow);
 
       /* Form Field Defaults - Colors (only the ones that are different from light theme) */
@@ -123,12 +123,12 @@
       --danger-foreground: var(--snow);
 
       /* Component Colors */
-      --segment: #2A2A36;
+      --segment: #2a2a36;
       --segment-foreground: var(--foreground);
 
       /* Misc Colors */
-      --border: #4A4857;
-      --separator: #9591A4;
+      --border: #4a4857;
+      --separator: #9591a4;
       --focus: var(--accent);
       --link: var(--foreground);
 
@@ -175,6 +175,32 @@
 
   --color-danger: var(--danger);
   --color-danger-foreground: var(--danger-foreground);
+
+  /* gluestack-ui compatibility aliases */
+  --color-primary: var(--accent);
+  --color-primary-foreground: var(--accent-foreground);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--surface-foreground);
+  --color-secondary: var(--default);
+  --color-secondary-foreground: var(--default-foreground);
+  --color-popover: var(--overlay);
+  --color-popover-foreground: var(--overlay-foreground);
+  --color-muted-foreground: var(--muted);
+  --color-destructive: var(--danger);
+  --color-destructive-foreground: var(--danger-foreground);
+  --color-input: var(--border);
+  --color-ring: var(--focus);
+  --color-indicator-primary: var(--focus);
+  --color-indicator-error: var(--danger);
+  --color-indicator-info: var(--focus);
+
+  --font-heading:
+    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-body: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --tracking-sm: -0.015rem;
+
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-hard-2: 0 3px 10px 0 rgb(38 38 38 / 0.2);
 
   /* Form Field Tokens */
   --color-field: var(--field-background, var(--default));

@@ -6,20 +6,23 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { ThemeModeProvider, useThemeMode } from '@/contexts/ThemeModeContext';
 import { WebOnlyColorSchemeUpdater } from './ColorSchemeUpdater';
 import { WebOnlyPrettyScrollbar } from './PrettyScrollbar';
+import { GluestackUIProvider } from '@/components/ui';
 import { createMaterialTheme } from '@/theme/material';
 
 function MaterialProviders({ children }: { children: ReactNode }) {
   const { mode, isDark } = useThemeMode();
 
   return (
-    <WebOnlyColorSchemeUpdater mode={mode}>
-      <WebOnlyPrettyScrollbar>
-        <PaperProvider theme={createMaterialTheme(isDark)}>
-          <StatusBar style={isDark ? 'light' : 'dark'} translucent />
-          {children}
-        </PaperProvider>
-      </WebOnlyPrettyScrollbar>
-    </WebOnlyColorSchemeUpdater>
+    <GluestackUIProvider mode={mode}>
+      <WebOnlyColorSchemeUpdater mode={mode}>
+        <WebOnlyPrettyScrollbar>
+          <PaperProvider theme={createMaterialTheme(isDark)}>
+            <StatusBar style={isDark ? 'light' : 'dark'} translucent />
+            {children}
+          </PaperProvider>
+        </WebOnlyPrettyScrollbar>
+      </WebOnlyColorSchemeUpdater>
+    </GluestackUIProvider>
   );
 }
 
@@ -35,6 +38,4 @@ function Provider({ children }: { children: ReactNode }) {
   );
 }
 
-export {
-  Provider,
-};
+export { Provider };

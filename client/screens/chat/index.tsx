@@ -1,7 +1,6 @@
-import { View, useWindowDimensions } from 'react-native';
-import { Modal, Portal, useTheme } from 'react-native-paper';
-import type { MD3Theme } from 'react-native-paper';
+import { useWindowDimensions } from 'react-native';
 import { Screen } from '@/components/layout/Screen';
+import { Modal, ModalBackdrop, ModalContent, ScrollView, VStack } from '@/components/ui';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { useThemeMode } from '@/contexts/ThemeModeContext';
 import { useChatWorkspace } from './hooks/useChatWorkspace';
@@ -14,12 +13,10 @@ import UploadDialog from './components/UploadDialog';
 
 export default function ChatScreen() {
   const router = useSafeRouter();
-  const theme = useTheme<MD3Theme>();
   const { width } = useWindowDimensions();
   const { isDark, resolvedTheme, toggle } = useThemeMode();
   const compact = width < 768;
   const showRail = width >= 1180;
-  const showDockedHistory = width >= 1024;
 
   const workspace = useChatWorkspace();
   const {
@@ -44,25 +41,9 @@ export default function ChatScreen() {
     selectImage,
   } = workspace;
 
-  const historyPanel = (
-    <HistoryPanel
-      sessions={sessions}
-      onSelect={loadSessionMessages}
-      onClose={() => setHistoryOpen(false)}
-    />
-  );
-
   return (
-    <Screen
-      statusBarStyle={isDark ? 'light' : 'dark'}
-      safeAreaEdges={['left', 'right', 'top']}
-    >
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: theme.colors.background,
-        }}
-      >
+    <Screen statusBarStyle={isDark ? 'light' : 'dark'} safeAreaEdges={['left', 'right', 'top']}>
+      <VStack className="flex-1">
         <ChatHeader
           compact={compact}
           isDark={isDark}
@@ -73,10 +54,12 @@ export default function ChatScreen() {
           onOpenProblemLogs={() => router.push('/problem-solving-logs')}
         />
 
-        <View style={{ flex: 1, flexDirection: 'row' }}>
-          {showDockedHistory && historyOpen && historyPanel}
-
-          <View style={{ flex: 1, minWidth: 0 }}>
+        <ScrollView
+          className="flex-1"
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <VStack className="gap-4 p-4">
             <MessageList
               messages={messages}
               loading={loading}
@@ -84,51 +67,43 @@ export default function ChatScreen() {
               onPrompt={(prompt) => setInput(prompt)}
               onUnderstood={markUnderstood}
             />
+            {showRail && (
+              <ContextRail
+                knowledgeNodes={knowledgeNodes}
+                selectedNodeId={selectedNodeId}
+                onSelectNode={setSelectedNodeId}
+                onPrompt={(prompt) => setInput(prompt)}
+                onOpenKnowledgeBase={() => router.push('/knowledge')}
+              />
+            )}
+          </VStack>
+        </ScrollView>
 
-            <ChatComposer
-              compact={compact}
-              value={input}
-              onChange={setInput}
-              onSubmit={() => submitMessage()}
-              loading={loading}
-              uploadFile={uploadFile}
-              onRemoveUpload={() => setUploadFile(null)}
-              onOpenUpload={() => setUploadDialogOpen(true)}
-              knowledgeNodes={knowledgeNodes}
-              selectedNodeId={selectedNodeId}
-              onSelectNode={setSelectedNodeId}
+        <ChatComposer
+          value={input}
+          onChange={setInput}
+          onSubmit={() => submitMessage()}
+          loading={loading}
+          uploadFile={uploadFile}
+          onRemoveUpload={() => setUploadFile(null)}
+          onOpenUpload={() => setUploadDialogOpen(true)}
+          knowledgeNodes={knowledgeNodes}
+          selectedNodeId={selectedNodeId}
+          onSelectNode={setSelectedNodeId}
+        />
+
+        <Modal isOpen={historyOpen} onClose={() => setHistoryOpen(false)} size="lg">
+          <ModalBackdrop onPress={() => setHistoryOpen(false)} />
+          <ModalContent>
+            <HistoryPanel
+              sessions={sessions}
+              onSelect={loadSessionMessages}
+              onClose={() => setHistoryOpen(false)}
             />
-          </View>
-
-          {showRail && (
-            <ContextRail
-              knowledgeNodes={knowledgeNodes}
-              selectedNodeId={selectedNodeId}
-              onSelectNode={setSelectedNodeId}
-              onPrompt={(prompt) => setInput(prompt)}
-              onOpenKnowledgeBase={() => router.push('/knowledge')}
-            />
-          )}
-        </View>
-
-        {!showDockedHistory && (
-          <Portal>
-            <Modal
-              visible={historyOpen}
-              onDismiss={() => setHistoryOpen(false)}
-              contentContainerStyle={{
-                flex: 1,
-                justifyContent: 'flex-start',
-                alignItems: 'flex-start',
-              }}
-            >
-              {historyPanel}
-            </Modal>
-          </Portal>
-        )}
+          </ModalContent>
+        </Modal>
 
         <UploadDialog
-          compact={compact}
           visible={uploadDialogOpen}
           onClose={() => setUploadDialogOpen(false)}
           onSelectImage={selectImage}
@@ -136,7 +111,7 @@ export default function ChatScreen() {
           selectedNodeId={selectedNodeId}
           onSelectNode={setSelectedNodeId}
         />
-      </View>
+      </VStack>
     </Screen>
   );
 }

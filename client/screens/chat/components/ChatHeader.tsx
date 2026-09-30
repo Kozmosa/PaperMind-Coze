@@ -1,6 +1,4 @@
-import { ScrollView, View } from 'react-native';
-import { Chip, IconButton, Surface, Text, useTheme } from 'react-native-paper';
-import type { MD3Theme } from 'react-native-paper';
+import { Button, ButtonText, HStack, Heading, Text, VStack } from '@/components/ui';
 
 interface ChatHeaderProps {
   onToggleHistory: () => void;
@@ -21,90 +19,46 @@ function ChatHeader({
   isDark,
   compact,
 }: ChatHeaderProps) {
-  const theme = useTheme<MD3Theme>();
-
   return (
-    <Surface
-      elevation={0}
-      style={{
-        borderBottomWidth: 1,
-        borderBottomColor: theme.colors.outlineVariant,
-        backgroundColor: theme.colors.surface,
-      }}
-    >
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 4,
-          paddingHorizontal: compact ? 8 : 16,
-          paddingVertical: 10,
-        }}
-      >
-        <IconButton
-          icon="menu"
-          onPress={onToggleHistory}
-          accessibilityLabel="打开历史对话"
-        />
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text variant="titleLarge" numberOfLines={1} style={{ fontWeight: '700' }}>
-            PaperMind 工作台
+    <HStack className="border-border bg-background items-center justify-between gap-3 border-b px-4 py-3">
+      <VStack className="min-w-0 flex-1">
+        <Heading size="md" isTruncated>
+          PaperMind 工作台
+        </Heading>
+        {!compact && (
+          <Text size="sm" className="text-muted-foreground">
+            从材料到提问、理解、沉淀的单一入口
           </Text>
-          {!compact && (
-            <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-              从材料到提问、理解、沉淀的单一入口
-            </Text>
-          )}
-        </View>
-        <IconButton
-          icon={isDark ? 'weather-sunny' : 'weather-night'}
-          onPress={onToggleTheme}
-          accessibilityLabel="切换亮暗色主题"
-        />
+        )}
+      </VStack>
+
+      <HStack className="flex-wrap justify-end gap-1">
+        <Button size="sm" variant="ghost" onPress={onToggleHistory} aria-label="打开历史对话">
+          <ButtonText>历史</ButtonText>
+        </Button>
+        <Button size="sm" variant="ghost" onPress={onToggleTheme} aria-label="切换主题">
+          <ButtonText>{isDark ? '亮色' : '暗色'}</ButtonText>
+        </Button>
         {!compact && (
           <>
-            <IconButton
-              icon="graph-outline"
+            <Button
+              size="sm"
+              variant="ghost"
               onPress={onOpenKnowledgeBuilder}
-              accessibilityLabel="构建知识节点"
-            />
-            <IconButton
-              icon="chart-line"
-              onPress={onOpenProblemLogs}
-              accessibilityLabel="查看解答日志"
-            />
+              aria-label="构建知识节点"
+            >
+              <ButtonText>知识</ButtonText>
+            </Button>
+            <Button size="sm" variant="ghost" onPress={onOpenProblemLogs} aria-label="查看解答日志">
+              <ButtonText>日志</ButtonText>
+            </Button>
           </>
         )}
-        <IconButton
-          icon="plus"
-          onPress={onNewSession}
-          accessibilityLabel="开始新对话"
-        />
-      </View>
-
-      <View style={{ paddingHorizontal: compact ? 12 : 18, paddingBottom: 10 }}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <Chip
-            selected
-            icon="school"
-            compact
-            style={{ marginRight: 8, backgroundColor: theme.colors.primaryContainer }}
-            textStyle={{ color: theme.colors.onPrimaryContainer }}
-          >
-            智能导师
-          </Chip>
-          <Chip icon="book-multiple-outline" compact style={{ marginRight: 8 }}>
-            知识库检索
-          </Chip>
-          <Chip icon="file-document-outline" compact style={{ marginRight: 8 }}>
-            材料上下文
-          </Chip>
-          <Chip icon="check-circle-outline" compact>
-            问题日志
-          </Chip>
-        </ScrollView>
-      </View>
-    </Surface>
+        <Button size="sm" variant="outline" onPress={onNewSession} aria-label="开始新对话">
+          <ButtonText>新对话</ButtonText>
+        </Button>
+      </HStack>
+    </HStack>
   );
 }
 

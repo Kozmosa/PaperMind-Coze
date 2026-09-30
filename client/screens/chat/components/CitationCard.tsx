@@ -1,80 +1,55 @@
-import { View } from 'react-native';
-import { Chip, Surface, Text, useTheme } from 'react-native-paper';
-import type { MD3Theme } from 'react-native-paper';
+import { Badge, BadgeText, Card, HStack, Text, VStack } from '@/components/ui';
 import type { Citation } from '../types';
 
-const META: Record<string, { label: string; icon: string; tone: 'primary' | 'tertiary' | 'secondary' }> = {
-  image: { label: '图片', icon: 'image-outline', tone: 'tertiary' },
-  knowledge_node: { label: '知识节点', icon: 'book-outline', tone: 'primary' },
-  node: { label: '知识节点', icon: 'book-outline', tone: 'primary' },
-  study_note: { label: '学习纪要', icon: 'note-edit-outline', tone: 'tertiary' },
-  material: { label: '资料', icon: 'file-document-outline', tone: 'secondary' },
-  file_content: { label: '原文', icon: 'text-box-outline', tone: 'secondary' },
-  file: { label: '原文', icon: 'text-box-outline', tone: 'secondary' },
+const META: Record<string, string> = {
+  image: '图片',
+  knowledge_node: '知识节点',
+  node: '知识节点',
+  study_note: '学习纪要',
+  material: '资料',
+  file_content: '原文',
+  file: '原文',
 };
 
 function CitationCard({ citation }: { citation: Citation }) {
-  const theme = useTheme<MD3Theme>();
   const type = citation.type || 'file';
-  const meta = META[type] || { label: '来源', icon: 'link-variant', tone: 'secondary' as const };
+  const label = META[type] || '来源';
   const title =
-    citation.title ||
-    citation.label ||
-    citation.fileName ||
-    citation.file_name ||
-    '引用来源';
+    citation.title || citation.label || citation.fileName || citation.file_name || '引用来源';
   const page = citation.pageNumber || citation.page;
-  const toneColor =
-    meta.tone === 'primary'
-      ? theme.colors.primary
-      : meta.tone === 'tertiary'
-        ? theme.colors.tertiary
-        : theme.colors.secondary;
 
   return (
-    <Surface
-      elevation={0}
-      style={{
-        borderRadius: theme.roundness,
-        borderWidth: 1,
-        borderColor: theme.colors.outlineVariant,
-        backgroundColor: theme.colors.surface,
-        padding: 12,
-      }}
-    >
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <Chip
-          compact
-          icon={meta.icon}
-          style={{ backgroundColor: `${toneColor}22` }}
-          textStyle={{ color: toneColor }}
-        >
-          {meta.label}
-        </Chip>
-        <Text variant="labelMedium" numberOfLines={1} style={{ flex: 1, color: toneColor }}>
-          {title}
-        </Text>
-        {page ? <Text variant="labelSmall">第 {page} 页</Text> : null}
-      </View>
-      {(citation.snippet || citation.papercore) && (
-        <Text
-          variant="bodySmall"
-          numberOfLines={3}
-          style={{ marginTop: 8, lineHeight: 19, color: theme.colors.onSurfaceVariant }}
-        >
-          {citation.snippet || citation.papercore}
-        </Text>
-      )}
+    <Card size="sm">
+      <HStack className="items-start justify-between gap-3">
+        <VStack className="min-w-0 flex-1">
+          <Text size="sm" bold isTruncated>
+            {title}
+          </Text>
+          {page ? (
+            <Text size="sm" className="text-muted-foreground">
+              第 {page} 页
+            </Text>
+          ) : null}
+          {(citation.snippet || citation.papercore) && (
+            <Text size="sm" className="text-muted-foreground">
+              {citation.snippet || citation.papercore}
+            </Text>
+          )}
+        </VStack>
+        <Badge variant="secondary">
+          <BadgeText>{label}</BadgeText>
+        </Badge>
+      </HStack>
       {!!citation.tags?.length && (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+        <HStack className="flex-wrap gap-2">
           {citation.tags.slice(0, 5).map((tag) => (
-            <Chip key={tag} compact icon="tag-outline">
-              {tag}
-            </Chip>
+            <Badge key={tag} variant="outline">
+              <BadgeText>{tag}</BadgeText>
+            </Badge>
           ))}
-        </View>
+        </HStack>
       )}
-    </Surface>
+    </Card>
   );
 }
 
